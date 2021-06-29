@@ -146,18 +146,6 @@ class TopComponent(MetaClassResolver(LookupProvider, QWidget)):
 
         loadUi(uifile=str(ui_file), baseinstance=self)
 
-    @classmethod
-    def open_one(cls, target_id=None):
-        component = None
-        if target_id is not None:
-            component = WindowManager().find_top_component(target_id)
-
-        if component is None:
-            component = cls()
-
-        component.open()
-        component.request_active()
-
     def open(self):
         WindowManager().top_component_open(self)
 
