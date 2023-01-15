@@ -43,7 +43,7 @@ class FeatureDescriptor:
 
     def __init__(self) -> None:
         '''
-        Initialise a FeatureDescriptor with defaults.
+        Initialises a FeatureDescriptor with defaults.
 
         - system_name = None
         - display_name = None
@@ -333,7 +333,7 @@ class Property(Generic[VT], FeatureDescriptor, ABC):
     '''Provides property declaration for nodes.'''
 
     def __init__(self, value_type: Type[VT]) -> None:
-        '''Initialised a Property with defaults from FeatureDescriptor,
+        '''Initialises a Property with defaults from FeatureDescriptor,
         except for system_name which is set to an empty string.
 
         - value_type: The type for this property value.
