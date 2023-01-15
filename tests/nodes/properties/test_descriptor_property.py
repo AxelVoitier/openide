@@ -7,7 +7,8 @@
 from __future__ import annotations
 
 # System imports
-from typing import Optional, Protocol, Type
+from copy import copy, deepcopy
+from typing import Mapping, Optional, Protocol, Type
 
 # Third-party imports
 import pytest
@@ -76,23 +77,32 @@ class RWDescriptor:
     ]
 )
 def test_read_write(rw: RWTestProtocol) -> None:
+    def check(prop: DescriptorProperty[int], init_value: int, set_value: int) -> None:
+        assert prop.system_name == 'attr'
+        assert prop.value_type is int
+        assert prop.can_read is True
+        assert prop.can_write is True
+
+        assert prop.value == init_value
+        assert rw.attr == init_value
+        prop.value = set_value
+        assert prop.value == set_value
+        assert rw.attr == set_value
+
     prop: DescriptorProperty[int] = DescriptorProperty(rw, 'attr')
+    check(prop, 0, 12)
 
-    assert prop.system_name == 'attr'
-    assert prop.value_type is int
-    assert prop.can_read is True
-    assert prop.can_write is True
-
-    assert prop.value == 0
-    prop.value = 12
-    assert prop.value == 12
-    assert rw.attr == 12
+    cloned_prop = copy(prop)
+    check(cloned_prop, 12, 24)
+    check(prop, 24, 36)
 
 
 class ROTestProtocol(Protocol):
     def __init__(self, value: int) -> None: ...
 
     attr: GettableDescriptorProtocol
+
+    def set_attr(self, value: int) -> None: ...
 
 
 class ROProperty:
@@ -103,6 +113,9 @@ class ROProperty:
     @property
     def attr(self) -> int:
         return self.__attr
+
+    def set_attr(self, value: int) -> None:
+        self.__attr = value
 
 
 class RODescriptor:
@@ -124,6 +137,9 @@ class RODescriptor:
 
     attr = _RODescriptor()
 
+    def set_attr(self, value: int) -> None:
+        self._value = value
+
 
 @pytest.mark.parametrize(
     'ro', [
@@ -132,17 +148,26 @@ class RODescriptor:
     ]
 )
 def test_read_only(ro: ROTestProtocol) -> None:
+    def check(prop: DescriptorProperty[int], init_value: int) -> None:
+        assert prop.system_name == 'attr'
+        assert prop.value_type is int
+        assert prop.can_read is True
+        assert prop.can_write is False
+
+        assert prop.value == init_value
+
+        with pytest.raises(AttributeError):
+            prop.value = 12
+
     prop: DescriptorProperty[int] = DescriptorProperty(ro, 'attr')
+    check(prop, 72)
 
-    assert prop.system_name == 'attr'
-    assert prop.value_type is int
-    assert prop.can_read is True
-    assert prop.can_write is False
+    cloned_prop = copy(prop)
+    check(cloned_prop, 72)
 
-    assert prop.value == 72
-
-    with pytest.raises(AttributeError):
-        prop.value = 12
+    ro.set_attr(46)
+    check(prop, 46)
+    check(cloned_prop, 46)
 
 
 class WOTestProtocol(Protocol):
@@ -190,19 +215,26 @@ class WODescriptor:
     ]
 )
 def test_write_only(wo: WOTestProtocol) -> None:
+
+    def check(prop: DescriptorProperty[int], init_value: int, set_value: int) -> None:
+        assert prop.system_name == 'attr'
+        assert prop.value_type is int
+        assert prop.can_read is False
+        assert prop.can_write is True
+
+        assert wo.get_attr() == init_value
+        prop.value = set_value
+        assert wo.get_attr() == set_value
+
+        with pytest.raises(AttributeError):
+            _ = prop.value
+
     prop: DescriptorProperty[int] = DescriptorProperty(wo, 'attr')
+    check(prop, 0, 27)
 
-    assert prop.system_name == 'attr'
-    assert prop.value_type is int
-    assert prop.can_read is False
-    assert prop.can_write is True
-
-    assert wo.get_attr() == 0
-    prop.value = 27
-    assert wo.get_attr() == 27
-
-    with pytest.raises(AttributeError):
-        _ = prop.value
+    cloned_prop = copy(prop)
+    check(cloned_prop, 27, 54)
+    check(prop, 54, 81)
 
 
 def test_not_descriptor_direct() -> None:
@@ -277,48 +309,54 @@ class Plenty:
 def test_all_properties() -> None:
     plenty = Plenty()
 
+    def check(properties: Mapping[str, DescriptorProperty]) -> None:
+        seen = dict(attr_int=False, attr_str=False, attr_bool=False, attr_something=False)
+        for name, prop in properties.items():
+            assert name == prop.system_name
+
+            if name == 'attr_int':
+                assert prop.value_type is int
+                assert prop.can_read is True
+                assert prop.can_write is False
+                assert prop.value == 12
+
+            elif name == 'attr_str':
+                assert prop.value_type is str
+                assert prop.can_read is True
+                assert prop.can_write is False
+                assert prop.value == 'hello'
+
+            elif name == 'attr_bool':
+                assert prop.value_type is bool
+                assert prop.can_read is True
+                assert prop.can_write is True
+                assert isinstance(prop.value, bool)
+                assert prop.value is True
+
+            elif name == 'attr_something':
+                assert prop.value_type is RWProperty
+                assert prop.can_read is True
+                assert prop.can_write is False
+                assert isinstance(prop.value, RWProperty)
+
+            elif name == 'attr_descr':
+                assert prop.value_type is int
+                assert prop.can_read is True
+                assert prop.can_write is False
+                assert prop.value == 14
+
+            else:
+                assert False, f'{prop.system_name} property should not be here'
+
+            seen[prop.system_name] = True
+
+        assert all(seen.values())
+
     properties = dict(DescriptorProperty.all_properties(plenty, dict(attr_something=RWProperty)))
-    seen = dict(attr_int=False, attr_str=False, attr_bool=False, attr_something=False)
-    for name, prop in properties.items():
-        assert name == prop.system_name
+    check(properties)
 
-        if name == 'attr_int':
-            assert prop.value_type is int
-            assert prop.can_read is True
-            assert prop.can_write is False
-            assert prop.value == 12
-
-        elif name == 'attr_str':
-            assert prop.value_type is str
-            assert prop.can_read is True
-            assert prop.can_write is False
-            assert prop.value == 'hello'
-
-        elif name == 'attr_bool':
-            assert prop.value_type is bool
-            assert prop.can_read is True
-            assert prop.can_write is True
-            assert isinstance(prop.value, bool)
-            assert prop.value is True
-
-        elif name == 'attr_something':
-            assert prop.value_type is RWProperty
-            assert prop.can_read is True
-            assert prop.can_write is False
-            assert isinstance(prop.value, RWProperty)
-
-        elif name == 'attr_descr':
-            assert prop.value_type is int
-            assert prop.can_read is True
-            assert prop.can_write is False
-            assert prop.value == 14
-
-        else:
-            assert False, f'{prop.system_name} property should not be here'
-
-        seen[prop.system_name] = True
-
-    assert all(seen.values())
+    cloned_properties = deepcopy(properties)
+    check(cloned_properties)
 
 
 class PlentyBad:

@@ -225,6 +225,11 @@ class GetterSetterProperty(Property[VT]):
 
         return value_type
 
+    def __copy__(self) -> GetterSetterProperty[VT]:
+        new = type(self)(self._get, self._set, self.value_type)
+        self.__copy_super__(new)
+        return new
+
     value: VT = _ValueDescriptor[VT]()  # type: ignore
 
     @property
@@ -324,6 +329,15 @@ class DescriptorProperty(GetterSetterProperty[VT]):
 
         if descriptor_name is not None:
             self.system_name = descriptor_name
+
+        # For copy
+        self.__instance = instance
+        self.__descriptor = descriptor
+
+    def __copy__(self) -> DescriptorProperty[VT]:
+        new = type(self)(self.__instance, self.__descriptor, self.value_type)
+        self.__copy_super__(new)
+        return new
 
     @classmethod
     def all_properties(
