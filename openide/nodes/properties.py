@@ -7,16 +7,21 @@
 from __future__ import annotations
 
 # System imports
-# from abc import ABC, abstractmethod
+from abc import ABC, abstractmethod
+from collections.abc import Generator
+from copy import copy
 from typing import (
-    FrozenSet, Generator, Optional,
-    MutableMapping, Any,
+    FrozenSet, Generic, Optional,
+    MutableMapping, Any, Type, TypeVar, Set,
 )
 from weakref import ReferenceType
 
 # Third-party imports
 
 # Local imports
+
+VT = TypeVar('VT')
+ET = TypeVar('ET')
 
 
 class FeatureDescriptor:
@@ -106,43 +111,44 @@ class FeatureDescriptor:
             new.__values.update(self.__values)
 
     @classmethod
-    def merge(
-        cls, first: FeatureDescriptor, second: FeatureDescriptor, *args: Any, **kwargs: Any
-    ) -> FeatureDescriptor:
+    def merge(cls, first: FeatureDescriptor, second: FeatureDescriptor) -> FeatureDescriptor:
         '''
         Merge two FeatureDescriptor together.
 
-        String properties system_name, display_name and short_description use
-        the second FeatureDescriptor values in priority (ie. if they are not None).
+        Starts by copying the second FeatureDescriptor.
+
+        String properties display_name and short_description that
+        are None are then replaced with values from the first FeatureDescriptor.
 
         Boolean properties is_expert, is_hidden and is_preferred are ORed
         between first and second FeatureDescriptor.
 
-        Dynamic attribute values are merged (as dict update), with values from
+        Dynamic attribute values are merged (like a dict update), with values from
         second FeatureDescriptor taking precedence.
-        '''
-        new = cls(*args, **kwargs)
 
-        new.system_name = second.system_name
-        if second.__display_name is not None:
-            new.__display_name = second.__display_name
-        else:
+        A subclass rarely needs to overload this, unless it wants a different
+        behaviour than "second takes precedence". This is because, as we start
+        off a copy of second, the complexity of subclass init-args and added
+        fields should already be handled by overload of __copy__ and/or __copy_super__.
+        '''
+        new = copy(second)
+
+        if new.__display_name is None:
             new.__display_name = first.__display_name
 
         new.is_expert = first.is_expert or second.is_expert
         new.is_hidden = first.is_hidden or second.is_hidden
         new.is_preferred = first.is_preferred or second.is_preferred
 
-        if second.__short_description is not None:
-            new.__short_description = second.__short_description
-        else:
+        if new.__short_description is None:
             new.__short_description = first.__short_description
 
-        for values in (first.__values, second.__values):
-            if values:
+        if first.__values:
                 if new.__values is None:
                     new.__values = dict()
-                new.__values.update(values)
+
+            for k in first.__values.keys() - new.__values.keys():
+                new.__values[k] = first.__values[k]
 
         return new
 
@@ -153,7 +159,6 @@ class FeatureDescriptor:
 
     @system_name.setter
     def system_name(self, value: Optional[str]) -> None:
-        '''Sets programmatic name for this object.'''
         self.__system_name = value
 
     @property
@@ -167,7 +172,6 @@ class FeatureDescriptor:
 
     @display_name.setter
     def display_name(self, value: Optional[str]) -> None:
-        '''Sets display name for this object.'''
         self.__display_name = value
 
     @property
@@ -178,7 +182,6 @@ class FeatureDescriptor:
 
     @is_expert.setter
     def is_expert(self, value: bool) -> None:
-        '''Sets the expert flag for this feature.'''
         self.__is_expert = value
 
     @property
@@ -189,7 +192,6 @@ class FeatureDescriptor:
 
     @is_hidden.setter
     def is_hidden(self, value: bool) -> None:
-        '''Sets the hidden flag for this feature.'''
         self.__is_hidden = value
 
     @property
@@ -200,7 +202,6 @@ class FeatureDescriptor:
 
     @is_preferred.setter
     def is_preferred(self, value: bool) -> None:
-        '''Sets the preferred flag for this feature.'''
         self.__is_preferred = value
 
     @property
@@ -217,7 +218,6 @@ class FeatureDescriptor:
 
     @short_description.setter
     def short_description(self, value: Optional[str]) -> None:
-        '''Sets short description for this object.'''
         self.__short_description = value
 
     def get_value(self, name: str) -> Optional[Any]:
@@ -317,3 +317,133 @@ class FeatureDescriptor:
         else:
             return None
 
+    def __eq__(self, other: Any) -> bool:
+        '''Equal protocol, based on system_name equality.'''
+        try:
+            return (self.system_name == other.system_name)
+        except AttributeError:
+            return False
+
+    def __hash__(self) -> int:
+        '''Hashing protocol, based solely on system_name hash.'''
+        return hash(self.system_name)
+
+
+class Property(Generic[VT], FeatureDescriptor, ABC):
+    '''Provides property declaration for nodes.'''
+
+    def __init__(self, value_type: Type[VT]) -> None:
+        '''Initialised a Property with defaults from FeatureDescriptor,
+        except for system_name which is set to an empty string.
+
+        - value_type: The type for this property value.
+        '''
+        super().__init__()
+        self.__type = value_type
+        self.system_name = ''
+
+    def __copy__(self) -> Property:
+        new = type(self)(self.value_type)
+        self.__copy_super__(new)
+        return new
+
+    @property
+    def value_type(self) -> Type[VT]:
+        '''The type of this property value.'''
+        return self.__type
+
+    @property
+    @abstractmethod
+    def value(self) -> VT:
+        '''The value of this property.'''
+        raise NotImplementedError()  # pragma: no cover
+
+    @value.setter
+    @abstractmethod
+    def value(self, value: VT) -> None:
+        raise NotImplementedError()  # pragma: no cover
+
+    @property
+    @abstractmethod
+    def can_read(self) -> bool:
+        '''Tells if this property is readable.'''
+        raise NotImplementedError()  # pragma: no cover
+
+    @property
+    @abstractmethod
+    def can_write(self) -> bool:
+        '''Tells if this property can be modified.'''
+        raise NotImplementedError()  # pragma: no cover
+
+    @property
+    def supports_default_value(self) -> bool:
+        '''Tells if this property can have a default value.'''
+        return False
+
+    def restore_default_value(self) -> None:
+        '''If the property can have a default value, this method restores it.'''
+        pass
+
+    @property
+    def is_default_value(self) -> bool:
+        '''
+        Tells if the current value of this property is the default value.
+
+        If this property does not support default value, it still returns True.
+        Because that means any value can be considered a default value (and so,
+        can be represented in the same way).
+        '''
+        return True
+
+    @property
+    def property_editor(self) -> None:
+        if self.__type is None:
+            return None
+        raise NotImplementedError('TODO')
+
+    @property
+    def html_display_name(self) -> Optional[str]:
+        '''
+        Returns an HTML-flavoured version of this property display name.
+
+        This HTML will be processed either by Qt (for GUI), or prompt-toolkit (for CLI).
+
+        If an HTML version is not possible, then it should return None (and avoid returning
+        a string that does not contain any HTML).
+        '''
+        return None
+
+    def __str_add__(self) -> Generator[str, None, None]:
+        yield from super().__str_add__()
+
+        value = self.__str_value__('value_type', self.value_type, force_value=True)
+        if value is not None:
+            yield value
+
+        value = self.__str_value__('can_read', self.can_read)
+        if value is not None:
+            yield value
+
+        value = self.__str_value__('can_write', self.can_write)
+        if value is not None:
+            yield value
+
+        if self.can_read:
+            value = self.__str_value__('value', self.value, force_value=True)
+            if value is not None:
+                yield value
+
+    def __eq__(self, other: Any) -> bool:
+        '''Equal protocol, based on system_name, and value_type equality.'''
+        if not super().__eq__(other):
+            return False
+
+        try:
+            return (self.value_type == other.value_type)
+        except AttributeError:
+            return False
+
+    def __hash__(self) -> int:
+        '''Hashing protocol, based on system_name, and value_type hashes.'''
+        type_hash = hash(self.value_type) if self.value_type is not None else 1
+        return super().__hash__() * type_hash

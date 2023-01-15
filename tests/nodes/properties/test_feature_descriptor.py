@@ -345,18 +345,6 @@ class SubFeatureDescriptorNoInitArg(FeatureDescriptor):
         if isinstance(new, SubFeatureDescriptorNoInitArg):
             new.other_field = self.other_field
 
-    @classmethod
-    def merge(
-        cls, first: FeatureDescriptor, second: FeatureDescriptor, *args: Any, **kwargs: Any
-    ) -> FeatureDescriptor:
-        new = super().merge(first, second, *args, **kwargs)
-        if (
-            isinstance(new, SubFeatureDescriptorNoInitArg)
-            and isinstance(second, SubFeatureDescriptorNoInitArg)
-        ):
-            new.other_field = second.other_field
-        return new
-
     @property
     def other_field(self) -> Optional[str]:
         return self.__other_field
@@ -398,15 +386,6 @@ class SubFeatureDescriptorWithInitArg(FeatureDescriptor):
         new = type(self)(self.other_field)
         self.__copy_super__(new)
         return new
-
-    @classmethod
-    def merge(
-        cls, first: FeatureDescriptor, second: FeatureDescriptor, *args: Any, **kwargs: Any
-    ) -> FeatureDescriptor:
-        if isinstance(second, SubFeatureDescriptorWithInitArg):
-            return super().merge(first, second, second.other_field, *args, **kwargs)
-        else:
-            return super().merge(first, second, *args, **kwargs)
 
     @property
     def other_field(self) -> Optional[str]:
