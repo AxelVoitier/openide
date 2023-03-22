@@ -8,12 +8,8 @@ from __future__ import annotations
 
 # System imports
 from abc import ABC, abstractmethod
-from collections.abc import Generator
 from copy import copy
-from typing import (
-    FrozenSet, Generic, Optional,
-    MutableMapping, Any, Type, TypeVar, Set,
-)
+from typing import TYPE_CHECKING, TypeVar, Generic
 from weakref import ReferenceType
 
 # Third-party imports
@@ -21,7 +17,11 @@ from weakref import ReferenceType
 # Local imports
 
 VT = TypeVar('VT')
-ET = TypeVar('ET')
+KT = TypeVar('KT')
+IT = TypeVar('IT')
+if TYPE_CHECKING:
+    from collections.abc import Set, Generator
+    from typing import FrozenSet, Optional, Any, Type
 
 
 class FeatureDescriptor:
@@ -41,7 +41,7 @@ class FeatureDescriptor:
     It also provides a generic way of adding dynamic attribute values.
     '''
 
-    def __init__(self) -> None:
+    def __init__(self, **kwargs: Any) -> None:
         '''
         Initialises a FeatureDescriptor with defaults.
 
@@ -62,9 +62,15 @@ class FeatureDescriptor:
         self.__is_preferred = False
         self.__short_description: Optional[str] = None
         # Lazy instanciation of dynamic attribute dict
-        self.__values: Optional[MutableMapping[str, Any]] = None
+        self.__values: Optional[dict[str, Any]] = None
 
-        super().__init__()
+        super().__init__(**kwargs)
+
+    def __copy_init_kwargs__(self) -> dict[str, Any]:
+        if hasattr(super(), '__copy_init_kwargs__'):
+            return super().__copy_init_kwargs__()  # type: ignore
+        else:
+            return dict()
 
     def __copy__(self) -> FeatureDescriptor:
         '''
@@ -80,7 +86,7 @@ class FeatureDescriptor:
         They should NOT call super().__copy__, but instead instanciate their own object,
         and call self.__copy_super__(new) to get parent, and children, classes copy behaviour.
         '''
-        new = type(self)()
+        new = type(self)(**self.__copy_init_kwargs__())
         self.__copy_super__(new)
         return new
 
@@ -144,8 +150,8 @@ class FeatureDescriptor:
             new.__short_description = first.__short_description
 
         if first.__values:
-                if new.__values is None:
-                    new.__values = dict()
+            if new.__values is None:
+                new.__values = dict()
 
             for k in first.__values.keys() - new.__values.keys():
                 new.__values[k] = first.__values[k]
@@ -161,6 +167,11 @@ class FeatureDescriptor:
     def system_name(self, value: Optional[str]) -> None:
         self.__system_name = value
 
+    def with_system_name(self, value: Optional[str]) -> FeatureDescriptor:
+        '''Sets programmatic name for this object, and returns itself.'''
+        self.system_name = value
+        return self
+
     @property
     def display_name(self) -> Optional[str]:
         '''
@@ -174,6 +185,11 @@ class FeatureDescriptor:
     def display_name(self, value: Optional[str]) -> None:
         self.__display_name = value
 
+    def with_display_name(self, value: Optional[str]) -> FeatureDescriptor:
+        '''Sets display name for this object, and returns itself.'''
+        self.display_name = value
+        return self
+
     @property
     def is_expert(self) -> bool:
         '''Tells if this feature is flagged as an expert feature
@@ -183,6 +199,11 @@ class FeatureDescriptor:
     @is_expert.setter
     def is_expert(self, value: bool) -> None:
         self.__is_expert = value
+
+    def with_is_expert(self, value: bool) -> FeatureDescriptor:
+        '''Sets the expert flag for this feature, and returns itself.'''
+        self.is_expert = value
+        return self
 
     @property
     def is_hidden(self) -> bool:
@@ -194,6 +215,11 @@ class FeatureDescriptor:
     def is_hidden(self, value: bool) -> None:
         self.__is_hidden = value
 
+    def with_is_hidden(self, value: bool) -> FeatureDescriptor:
+        '''Sets the hidden flag for this feature, and returns itself.'''
+        self.is_hidden = value
+        return self
+
     @property
     def is_preferred(self) -> bool:
         '''Tells if this feature is flagged as a preferred feature
@@ -203,6 +229,11 @@ class FeatureDescriptor:
     @is_preferred.setter
     def is_preferred(self, value: bool) -> None:
         self.__is_preferred = value
+
+    def with_is_preferred(self, value: bool) -> FeatureDescriptor:
+        '''Sets the preferred flag for this feature, and returns itself.'''
+        self.is_preferred = value
+        return self
 
     @property
     def short_description(self) -> Optional[str]:
@@ -219,6 +250,11 @@ class FeatureDescriptor:
     @short_description.setter
     def short_description(self, value: Optional[str]) -> None:
         self.__short_description = value
+
+    def with_short_description(self, value: Optional[str]) -> FeatureDescriptor:
+        '''Sets short description for this object, and returns itself.'''
+        self.short_description = value
+        return self
 
     def get_value(self, name: str) -> Optional[Any]:
         '''
@@ -242,6 +278,11 @@ class FeatureDescriptor:
 
         self.__values[name] = value
 
+    def with_value(self, name: str, value: Optional[Any]) -> FeatureDescriptor:
+        '''Sets a named dynamic attribute value for this object, and returns itself.'''
+        self.set_value(name, value)
+        return self
+
     @property
     def attribute_names(self) -> FrozenSet[str]:
         '''Returns set of known dynamic attribute names.'''
@@ -261,6 +302,8 @@ class FeatureDescriptor:
         to represent their own members.
         '''
         return f'{type(self).__name__}({", ".join(self.__str_add__())})'
+
+    __repr__ = __str__
 
     def __str_add__(self) -> Generator[str, None, None]:
         '''
@@ -320,32 +363,39 @@ class FeatureDescriptor:
     def __eq__(self, other: Any) -> bool:
         '''Equal protocol, based on system_name equality.'''
         try:
-            return (self.system_name == other.system_name)
+            if (self.system_name is None) and (other.system_name is None):
+                return self is other
+            else:
+                return (self.system_name == other.system_name)
         except AttributeError:
             return False
 
     def __hash__(self) -> int:
         '''Hashing protocol, based solely on system_name hash.'''
-        return hash(self.system_name)
+        return hash(self.system_name) if self.system_name else id(self)
 
 
-class Property(Generic[VT], FeatureDescriptor, ABC):
+class Property(FeatureDescriptor, Generic[VT], ABC):
     '''Provides property declaration for nodes.'''
 
-    def __init__(self, value_type: Type[VT]) -> None:
+    def __init__(self, value_type: Type[VT], **kwargs: Any) -> None:
         '''Initialises a Property with defaults from FeatureDescriptor,
         except for system_name which is set to an empty string.
 
         - value_type: The type for this property value.
         '''
-        super().__init__()
         self.__type = value_type
+
+        super().__init__(**kwargs)
+
         self.system_name = ''
 
-    def __copy__(self) -> Property:
-        new = type(self)(self.value_type)
-        self.__copy_super__(new)
-        return new
+    def __copy_init_kwargs__(self) -> dict[str, Any]:
+        kwargs = super().__copy_init_kwargs__()
+        kwargs.update(dict(
+            value_type=self.value_type,
+        ))
+        return kwargs
 
     @property
     def value_type(self) -> Type[VT]:
@@ -395,12 +445,15 @@ class Property(Generic[VT], FeatureDescriptor, ABC):
         '''
         return True
 
+    # TODO
     @property
     def property_editor(self) -> None:
         if self.__type is None:
             return None
         raise NotImplementedError('TODO')
 
+    # TODO: We have the same in PropertySet and Node.
+    # Maybe that should move to FeatureDescriptor?
     @property
     def html_display_name(self) -> Optional[str]:
         '''
@@ -447,3 +500,154 @@ class Property(Generic[VT], FeatureDescriptor, ABC):
         '''Hashing protocol, based on system_name, and value_type hashes.'''
         type_hash = hash(self.value_type) if self.value_type is not None else 1
         return super().__hash__() * type_hash
+
+
+class IndexedProperty(Property, Generic[VT, KT, IT]):
+    '''Provides an indexed property for an indexed node.'''
+
+    def __init__(self, index_type: Type[KT], item_type: Type[IT], **kwargs: Any) -> None:
+        '''Initialises an IndexedProperty with defaults from Property
+        (ie. same defaults than FeatureDescriptor, except for system_name
+        which is set to an empty string).
+
+        - index_type: The type for this property indexing keys.
+        - item_type: The type for this property items (ie. indexed values).
+        - value_type: The type for this property value.
+        '''
+        super().__init__(**kwargs)
+        self.__index_type = index_type
+        self.__item_type = item_type
+
+    def __copy_init_kwargs__(self) -> dict[str, Any]:
+        kwargs = super().__copy_init_kwargs__()
+        kwargs.update(dict(
+            index_type=self.index_type,
+            item_type=self.item_type,
+        ))
+        return kwargs
+
+    @property
+    def index_type(self) -> Type[KT]:
+        '''The type of this property indexing keys.'''
+        return self.__index_type
+
+    @property
+    def item_type(self) -> Type[IT]:
+        '''The type of this property items (ie. indexed values).'''
+        return self.__item_type
+
+    @abstractmethod
+    def __getitem__(self, index: KT) -> IT:
+        '''Returns the value of this property at a particular index.'''
+        raise NotImplementedError()  # pragma: no cover
+
+    # @abstractmethod
+    # def get_indexed_value(self, index: int) -> IT:
+    #     '''Returns the value of this property at a particular index.'''
+    #     raise NotImplementedError()  # pragma: no cover
+
+    @abstractmethod
+    def __setitem__(self, index: KT, value: IT) -> None:
+        '''Sets the value of this property at a particular index.'''
+        raise NotImplementedError()  # pragma: no cover
+
+    # @abstractmethod
+    # def set_indexed_value(self, index: int, value: ET) -> None:
+    #     '''Sets the value of this property at a particular index.'''
+    #     raise NotImplementedError()  # pragma: no cover
+
+    @property
+    @abstractmethod
+    def can_indexed_read(self) -> bool:
+        '''Tells if this property is readable using an index.'''
+        raise NotImplementedError()  # pragma: no cover
+
+    @property
+    @abstractmethod
+    def can_indexed_write(self) -> bool:
+        '''Tells if this property can be modified using an index.'''
+        raise NotImplementedError()  # pragma: no cover
+
+    @property
+    def indexed_property_editor(self) -> None:
+        raise NotImplementedError('TODO')
+
+    def __str_add__(self) -> Generator[str, None, None]:
+        yield from super().__str_add__()
+
+        value = self.__str_value__('index_type', self.index_type, force_value=True)
+        if value is not None:
+            yield value
+
+        value = self.__str_value__('item_type', self.item_type, force_value=True)
+        if value is not None:
+            yield value
+
+    def __eq__(self, other: Any) -> bool:
+        '''Equal protocol, based on system_name, value_type, index_type, and item_type equality.'''
+        if not super().__eq__(other):
+            return False
+
+        try:
+            return (self.index_type == other.index_type) and (self.item_type == other.item_type)
+        except AttributeError:
+            return False
+
+    def __hash__(self) -> int:
+        '''Hashing protocol, based on system_name, value_type, index_type, and item_type hashes.'''
+        index_type_hash = hash(self.index_type) if self.index_type is not None else 1
+        item_type_hash = hash(self.item_type) if self.item_type is not None else 1
+        return super().__hash__() * index_type_hash * item_type_hash
+
+
+class PropertySet(FeatureDescriptor, ABC):
+    '''Represents a set of properties.'''
+
+    def __init__(
+        self,
+        system_name: Optional[str] = None,
+        display_name: Optional[str] = None,
+        short_description: Optional[str] = None,
+    ) -> None:
+        '''Initialises a PropertySet, first using defaults from FeatureDescriptor,
+        which is then customised with provided arguments system_name,
+        display_name and short_description.
+        '''
+        super().__init__()
+        self.system_name = system_name
+        self.display_name = display_name
+        self.short_description = short_description
+
+    @property
+    @abstractmethod
+    def properties(self) -> Set[Property]:
+        '''The properties in this set.'''
+        raise NotImplementedError()  # pragma: no cover
+
+    def __eq__(self, other: Any) -> bool:
+        # FeatureDescriptor.__eq__ only check system_name, without regard for class equality.
+        # We usually don't care about class equality (because duck-typing). But here it would
+        # make a difference between a PropertySet and another FeatureDescriptor with the same
+        # system_name.
+        if not isinstance(other, PropertySet):
+            return False
+        return super().__eq__(other)
+
+    def __hash__(self) -> int:
+        # FeatureDescriptor.__hash__ returns a non-zero hash even when system_name is None
+        system_name = self.system_name
+        return hash(system_name) if system_name is not None else 0
+
+    # TODO: We have the same in Property and Node.
+    # Maybe that should move to FeatureDescriptor?
+    @property
+    def html_display_name(self) -> Optional[str]:
+        '''
+        Returns an HTML-flavoured version of this property display name.
+
+        This HTML will be processed either by Qt (for GUI), or prompt-toolkit (for CLI).
+
+        If an HTML version is not possible, then it should return None (and avoid returning
+        a string that does not contain any HTML).
+        '''
+        return None

@@ -5,19 +5,28 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
+from __future__ import annotations
+
 # System imports
 import functools
 import importlib
 import logging
 from abc import ABCMeta
 from functools import lru_cache
+from typing import TYPE_CHECKING, TypeVar, Type
 
 # Third-party imports
+from qtpy.QtCore import QObject
 
 # Local imports
 
 
 _logger = logging.getLogger(__name__)
+
+C = TypeVar('C', bound=Type)
+if TYPE_CHECKING:
+    from collections.abc import Iterable
+    from typing import Optional, Any
 
 
 class SingletonMeta(type):
@@ -27,16 +36,55 @@ class SingletonMeta(type):
     >     ...
     '''
 
-    _instances = {}
+    _instances = dict[Type['SingletonMeta'], 'SingletonMeta']()
 
-    def __call__(cls, *args, **kwargs):
+    def __call__(cls, *args: Any, **kwargs: Any) -> SingletonMeta:
         if cls not in cls._instances:
             cls._instances[cls] = super().__call__(*args, **kwargs)
 
         return cls._instances[cls]
 
 
-def MetaClassResolver(*subclasses, extra_metas=None):
+# Needed to make Generics work on user classes, despite all the "error" here...
+_QObjectType: Type[Type[QObject]] = type(QObject)  # type: ignore[valid-type]
+
+
+class _QObjectTypeFence(_QObjectType):  # type: ignore[valid-type,misc]
+    ...
+
+
+class _QABCMeta(_QObjectTypeFence, ABCMeta, _QObjectType):  # type: ignore[valid-type,misc]
+    ...
+
+
+class QABC(metaclass=_QABCMeta):
+    '''A simpler variant of what MetaClassResolver does, but just for
+    the very common case of QObject + ABC.
+
+    This one has the advantage of keeping mypy and pylance happy,
+    compared to MetaClassResolver that cannot even be nicely done
+    using a mypy plugin...
+
+    Usage:
+    class MyClass(APythonABC, QABC, AQtSubclass)):
+        ...
+
+    Note: Put it _before_ the first Qt class in the subclasses declaration.
+    '''
+
+    def __new__(cls, *args: Any, **kwargs: Any) -> QABC:
+        obj = super().__new__(cls, *args, **kwargs)
+        if obj.__abstractmethods__:
+            s = 's' if len(obj.__abstractmethods__) > 1 else ''
+            raise TypeError(
+                f'Can\'t instantiate abstract class {cls.__name__} '
+                f'with abstract method{s} {", ".join(obj.__abstractmethods__)}'
+            )
+
+        return obj
+
+
+def MetaClassResolver(*subclasses: C, extra_metas: Optional[Iterable[Type]] = None) -> Type[C]:
     '''Function to be called as a subclass definition, passing it all the subclasses you actually
     want, plus some extra metaclasses if you need.
     It will create a composite metaclass made of the metaclasses of all subclasses.
