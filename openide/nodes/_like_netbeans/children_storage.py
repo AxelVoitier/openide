@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Copyright (c) 2021 Contributors as noted in the AUTHORS file
 #
 # This Source Code Form is subject to the terms of the Mozilla Public
@@ -11,26 +10,28 @@ from __future__ import annotations
 
 # System imports
 import logging
-import time
 from threading import RLock
 from typing import TYPE_CHECKING, final
 from weakref import WeakKeyDictionary
 
 # Third-party imports
-
 # Local imports
+from openide.nodes._like_netbeans.node_listener import NodeListener
 from openide.utils.classes import Debug
 from openide.utils.typing import override
-from openide.nodes._like_netbeans.node_listener import NodeListener
-
 
 if TYPE_CHECKING:
-    from collections.abc import MutableSequence, MutableMapping
-    from typing import Any, Optional
-    from openide.nodes._like_netbeans.node import Node
-    from openide.nodes._like_netbeans.node_listener import NodeEvent, NodeMemberEvent, NodeReorderEvent
+    from collections.abc import MutableMapping, MutableSequence
+    from typing import Any
+
     from openide.nodes._like_netbeans.children import Children
     from openide.nodes._like_netbeans.entry_support_default import EntrySupportDefault
+    from openide.nodes._like_netbeans.node import Node
+    from openide.nodes._like_netbeans.node_listener import (
+        NodeEvent,
+        NodeMemberEvent,
+        NodeReorderEvent,
+    )
 
 
 _logger = logging.getLogger(__name__)
@@ -38,19 +39,17 @@ _logger = logging.getLogger(__name__)
 
 @final
 class ChildrenStorage(NodeListener, Debug(f'{__name__}.ChildrenStorage')):
-
     # OK, Match (_fake is an addition)
-    def __init__(self, _fake: bool = False) -> None:
+    def __init__(self, *, _fake: bool = False) -> None:
         if _fake:  # For light instantiation of a quickly deleted storage
             return
 
         super().__init__()
 
         self._lock = RLock()
-        self.entry_support: Optional[EntrySupportDefault] = None
-        self.__nodes: Optional[list[Node]] = None
-        self.__map: Optional[MutableMapping[EntrySupportDefault._Info,
-                                            MutableSequence[Node]]] = None
+        self.entry_support: EntrySupportDefault | None = None
+        self.__nodes: list[Node] | None = None
+        self.__map: MutableMapping[EntrySupportDefault._Info, MutableSequence[Node]] | None = None
 
         # print('instantiated a children storage', time.monotonic(), self)
 
@@ -62,7 +61,7 @@ class ChildrenStorage(NodeListener, Debug(f'{__name__}.ChildrenStorage')):
     # OK, Match
 
     @property
-    def children(self) -> Optional[Children]:
+    def children(self) -> Children | None:
         if (entry_support := self.entry_support) is not None:
             return entry_support.children
         else:
@@ -70,7 +69,7 @@ class ChildrenStorage(NodeListener, Debug(f'{__name__}.ChildrenStorage')):
 
     # OK, Match
     @property
-    def nodes(self) -> Optional[list[Node]]:
+    def nodes(self) -> list[Node] | None:
         if (entry_support := self.entry_support) is None:
             return None
 
@@ -82,7 +81,7 @@ class ChildrenStorage(NodeListener, Debug(f'{__name__}.ChildrenStorage')):
             for node in nodes:
                 node._reassign_to(children, self)
 
-            entry_support._register_children_storage(self, bool(nodes))
+            entry_support._register_children_storage(self, weak=bool(nodes))
 
         return nodes
 
@@ -92,7 +91,7 @@ class ChildrenStorage(NodeListener, Debug(f'{__name__}.ChildrenStorage')):
             self.__nodes = None
 
             if self.entry_support is not None:
-                self.entry_support._register_children_storage(self, False)
+                self.entry_support._register_children_storage(self, weak=False)
 
     # OK, Match
     def _remove(self, info: EntrySupportDefault._Info) -> None:
@@ -110,11 +109,11 @@ class ChildrenStorage(NodeListener, Debug(f'{__name__}.ChildrenStorage')):
     def nodes_for(
         self,
         info: EntrySupportDefault._Info,
-        has_to_exist: bool
+        has_to_exist: bool,
     ) -> MutableSequence[Node]:
         with self._lock:
             if (map := self.__map) is None:
-                assert not has_to_exist, "Should already be initialised"
+                assert not has_to_exist, 'Should already be initialised'
                 map = self.__map = WeakKeyDictionary()
 
             nodes = map.get(info)
@@ -149,7 +148,7 @@ class ChildrenStorage(NodeListener, Debug(f'{__name__}.ChildrenStorage')):
 
     # OK, Match
     @override  # NodeListener
-    def property_change(self, node: Node, name: str, old: Any, new: Any) -> None:
+    def property_change(self, node: Node, name: str, old: Any, new: Any) -> None:  # noqa: ANN401
         pass
 
     # OK, Match

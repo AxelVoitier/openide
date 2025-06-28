@@ -13,7 +13,7 @@ from copy import copy
 import pytest
 
 # Local imports
-from openide.nodes.properties_support import GetterSetterProperty
+from openide.nodes._like_netbeans.properties_support import GetterSetterProperty
 
 
 class RWMethods:

@@ -14,7 +14,7 @@ from typing import Mapping, Optional, Protocol, Type
 import pytest
 
 # Local imports
-from openide.nodes.properties_support import (
+from openide.nodes._like_netbeans.properties_support import (
     DescriptorProperty,
     GettableDescriptorProtocol,
     SettableDescriptorProtocol,

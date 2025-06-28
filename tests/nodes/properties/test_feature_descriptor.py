@@ -16,7 +16,7 @@ import pytest
 from typing_extensions import TypeAlias
 
 # Local imports
-from openide.nodes.properties import FeatureDescriptor
+from openide.nodes._like_netbeans.properties import FeatureDescriptor
 
 
 FD = TypeVar('FD', bound=FeatureDescriptor)

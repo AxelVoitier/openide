@@ -9,7 +9,7 @@ from __future__ import annotations
 # System imports
 from abc import ABC, abstractmethod
 from copy import copy
-from typing import TYPE_CHECKING, TypeVar, Generic
+from typing import TYPE_CHECKING, Generic, TypeVar
 from weakref import ReferenceType
 
 # Third-party imports
@@ -20,12 +20,12 @@ VT = TypeVar('VT')
 KT = TypeVar('KT')
 IT = TypeVar('IT')
 if TYPE_CHECKING:
-    from collections.abc import Set, Generator
-    from typing import FrozenSet, Optional, Any, Type
+    from collections.abc import Generator
+    from typing import Any
 
 
 class FeatureDescriptor:
-    '''
+    """
     FeatureDescriptor is a base class for things like a property, an event, a method, a node.
 
     It provides expressions for a base set of properties that are common
@@ -39,10 +39,10 @@ class FeatureDescriptor:
     - short_description
 
     It also provides a generic way of adding dynamic attribute values.
-    '''
+    """
 
     def __init__(self, **kwargs: Any) -> None:
-        '''
+        """
         Initialises a FeatureDescriptor with defaults.
 
         - system_name = None
@@ -54,26 +54,26 @@ class FeatureDescriptor:
         - No extra attribute value
 
         Calls super().__init__() at the end.
-        '''
-        self.__system_name: Optional[str] = None
-        self.__display_name: Optional[str] = None
+        """
+        self.__system_name: str | None = None
+        self.__display_name: str | None = None
         self.__is_expert = False
         self.__is_hidden = False
         self.__is_preferred = False
-        self.__short_description: Optional[str] = None
+        self.__short_description: str | None = None
         # Lazy instanciation of dynamic attribute dict
-        self.__values: Optional[dict[str, Any]] = None
+        self.__values: dict[str, Any] | None = None
 
         super().__init__(**kwargs)
 
     def __copy_init_kwargs__(self) -> dict[str, Any]:
         if hasattr(super(), '__copy_init_kwargs__'):
-            return super().__copy_init_kwargs__()  # type: ignore
+            return super().__copy_init_kwargs__()  # pyright: ignore[reportAttributeAccessIssue]
         else:
-            return dict()
+            return {}
 
     def __copy__(self) -> FeatureDescriptor:
-        '''
+        """
         Participate in shallow-copy protocol.
 
         This method only instanciate a new object, and call self.__copy_super__(new) to get
@@ -85,13 +85,13 @@ class FeatureDescriptor:
         Subclasses that do have args in their __init__ should overload __copy__.
         They should NOT call super().__copy__, but instead instanciate their own object,
         and call self.__copy_super__(new) to get parent, and children, classes copy behaviour.
-        '''
+        """
         new = type(self)(**self.__copy_init_kwargs__())
         self.__copy_super__(new)
         return new
 
     def __copy_super__(self, new: FeatureDescriptor) -> None:
-        '''
+        """
         Does the actual member copying, avoid the object instanciation.
 
         Subclasses overloading this method should call super().__copy_super__(new).
@@ -100,9 +100,9 @@ class FeatureDescriptor:
         this implementation will call it.
 
         - new: The new object to copy members onto.
-        '''
+        """
         if hasattr(super(), '__copy_super__'):
-            super().__copy_super__(new)  # type: ignore
+            super().__copy_super__(new)  # pyright: ignore[reportAttributeAccessIssue]
 
         new.system_name = self.system_name
         new.__display_name = self.__display_name
@@ -113,12 +113,12 @@ class FeatureDescriptor:
 
         if self.__values:
             if new.__values is None:
-                new.__values = dict()
+                new.__values = {}
             new.__values.update(self.__values)
 
     @classmethod
     def merge(cls, first: FeatureDescriptor, second: FeatureDescriptor) -> FeatureDescriptor:
-        '''
+        """
         Merge two FeatureDescriptor together.
 
         Starts by copying the second FeatureDescriptor.
@@ -136,7 +136,7 @@ class FeatureDescriptor:
         behaviour than "second takes precedence". This is because, as we start
         off a copy of second, the complexity of subclass init-args and added
         fields should already be handled by overload of __copy__ and/or __copy_super__.
-        '''
+        """
         new = copy(second)
 
         if new.__display_name is None:
@@ -151,7 +151,7 @@ class FeatureDescriptor:
 
         if first.__values:
             if new.__values is None:
-                new.__values = dict()
+                new.__values = {}
 
             for k in first.__values.keys() - new.__values.keys():
                 new.__values[k] = first.__values[k]
@@ -159,140 +159,140 @@ class FeatureDescriptor:
         return new
 
     @property
-    def system_name(self) -> Optional[str]:
-        '''Programmatic name for this object.'''
+    def system_name(self) -> str | None:
+        """Programmatic name for this object."""
         return self.__system_name
 
     @system_name.setter
-    def system_name(self, value: Optional[str]) -> None:
+    def system_name(self, value: str | None) -> None:
         self.__system_name = value
 
-    def with_system_name(self, value: Optional[str]) -> FeatureDescriptor:
-        '''Sets programmatic name for this object, and returns itself.'''
+    def with_system_name(self, value: str | None) -> FeatureDescriptor:
+        """Sets programmatic name for this object, and returns itself."""
         self.system_name = value
         return self
 
     @property
-    def display_name(self) -> Optional[str]:
-        '''
+    def display_name(self) -> str | None:
+        """
         Display name for this object.
 
         If none is set, returns the system_name instead.
-        '''
+        """
         return self.__display_name if self.__display_name is not None else self.system_name
 
     @display_name.setter
-    def display_name(self, value: Optional[str]) -> None:
+    def display_name(self, value: str | None) -> None:
         self.__display_name = value
 
-    def with_display_name(self, value: Optional[str]) -> FeatureDescriptor:
-        '''Sets display name for this object, and returns itself.'''
+    def with_display_name(self, value: str | None) -> FeatureDescriptor:
+        """Sets display name for this object, and returns itself."""
         self.display_name = value
         return self
 
     @property
     def is_expert(self) -> bool:
-        '''Tells if this feature is flagged as an expert feature
-        (ie. shown to end users only when an expert context is activated).'''
+        """Tells if this feature is flagged as an expert feature
+        (ie. shown to end users only when an expert context is activated)."""
         return self.__is_expert
 
     @is_expert.setter
     def is_expert(self, value: bool) -> None:
         self.__is_expert = value
 
-    def with_is_expert(self, value: bool) -> FeatureDescriptor:
-        '''Sets the expert flag for this feature, and returns itself.'''
+    def with_is_expert(self, value: bool) -> FeatureDescriptor:  # noqa: FBT001
+        """Sets the expert flag for this feature, and returns itself."""
         self.is_expert = value
         return self
 
     @property
     def is_hidden(self) -> bool:
-        '''Tells if this feature is flagged as an hidden feature
-        (ie. for programmatic access only, not shown to end users).'''
+        """Tells if this feature is flagged as an hidden feature
+        (ie. for programmatic access only, not shown to end users)."""
         return self.__is_hidden
 
     @is_hidden.setter
     def is_hidden(self, value: bool) -> None:
         self.__is_hidden = value
 
-    def with_is_hidden(self, value: bool) -> FeatureDescriptor:
-        '''Sets the hidden flag for this feature, and returns itself.'''
+    def with_is_hidden(self, value: bool) -> FeatureDescriptor:  # noqa: FBT001
+        """Sets the hidden flag for this feature, and returns itself."""
         self.is_hidden = value
         return self
 
     @property
     def is_preferred(self) -> bool:
-        '''Tells if this feature is flagged as a preferred feature
-        (ie. shown with importance (eg. highlighted, first) to end users).'''
+        """Tells if this feature is flagged as a preferred feature
+        (ie. shown with importance (eg. highlighted, first) to end users)."""
         return self.__is_preferred
 
     @is_preferred.setter
     def is_preferred(self, value: bool) -> None:
         self.__is_preferred = value
 
-    def with_is_preferred(self, value: bool) -> FeatureDescriptor:
-        '''Sets the preferred flag for this feature, and returns itself.'''
+    def with_is_preferred(self, value: bool) -> FeatureDescriptor:  # noqa: FBT001
+        """Sets the preferred flag for this feature, and returns itself."""
         self.is_preferred = value
         return self
 
     @property
-    def short_description(self) -> Optional[str]:
-        '''
+    def short_description(self) -> str | None:
+        """
         Short description for this object.
 
         If none is set, returns the display_name instead.
-        '''
+        """
         if self.__short_description is not None:
             return self.__short_description
         else:
             return self.display_name
 
     @short_description.setter
-    def short_description(self, value: Optional[str]) -> None:
+    def short_description(self, value: str | None) -> None:
         self.__short_description = value
 
-    def with_short_description(self, value: Optional[str]) -> FeatureDescriptor:
-        '''Sets short description for this object, and returns itself.'''
+    def with_short_description(self, value: str | None) -> FeatureDescriptor:
+        """Sets short description for this object, and returns itself."""
         self.short_description = value
         return self
 
-    def get_value(self, name: str) -> Optional[Any]:
-        '''
+    def get_value(self, name: str) -> Any | None:  # noqa: ANN401
+        """
         Returns a named dynamic attribute value for this object.
 
         If the attribute name is unknown, returns None.
-        '''
+        """
         if self.__values:
             return self.__values.get(name, None)
         else:
             return None
 
-    def set_value(self, name: str, value: Optional[Any]) -> None:
-        '''
+    def set_value(self, name: str, value: Any | None) -> None:  # noqa: ANN401
+        """
         Sets a named dynamic attribute value for this object.
 
         Can also be set to None.
-        '''
+        """
         if self.__values is None:
-            self.__values = dict()
+            self.__values = {}
 
         self.__values[name] = value
 
-    def with_value(self, name: str, value: Optional[Any]) -> FeatureDescriptor:
-        '''Sets a named dynamic attribute value for this object, and returns itself.'''
+    def with_value(self, name: str, value: Any | None) -> FeatureDescriptor:  # noqa: ANN401
+        """Sets a named dynamic attribute value for this object, and returns itself."""
         self.set_value(name, value)
         return self
 
     @property
-    def attribute_names(self) -> FrozenSet[str]:
-        '''Returns set of known dynamic attribute names.'''
+    def attribute_names(self) -> frozenset[str]:
+        """Returns set of known dynamic attribute names."""
         if self.__values is not None:
             return frozenset(self.__values.keys())
         else:
             return frozenset()
 
     def __str__(self) -> str:
-        '''
+        """
         Returns a basic string representation of this feature,
         mentioning all its set properties (non-None and non-False),
         and its dynamic values.
@@ -300,24 +300,27 @@ class FeatureDescriptor:
         Sublcasses should not overload this method unless they want to customise
         the string format. Instead, they should overload __str_add__ generator
         to represent their own members.
-        '''
+        """
         return f'{type(self).__name__}({", ".join(self.__str_add__())})'
 
     __repr__ = __str__
 
     def __str_add__(self) -> Generator[str, None, None]:
-        '''
+        """
         Returns a generator yielding string representation of each members to include
         in the __str__ representation.
 
         Subclasses should overload this method, calling "yield from super().__str_add__()"
         to get the base classes member representations, and yield their own.
-        '''
+        """
         names = 'system_name display_name is_preferred is_hidden is_expert short_description'
         for attr_name in names.split():
             attr_value = getattr(self, f'_FeatureDescriptor__{attr_name}')
             attr_str = self.__str_value__(
-                attr_name, attr_value, force_value=(attr_name == 'system_name'))
+                attr_name,
+                attr_value,
+                force_value=(attr_name == 'system_name'),
+            )
             if attr_str is not None:
                 yield attr_str
 
@@ -333,10 +336,11 @@ class FeatureDescriptor:
     def __str_value__(
         self,
         name: str,
-        value: Optional[Any],
-        force_value: bool = False
-    ) -> Optional[str]:
-        '''
+        value: Any | None,  # noqa: ANN401
+        *,
+        force_value: bool = False,
+    ) -> str | None:
+        """
         Helper method for subclasses to represent a member in a "standard" name=value format.
 
         In addition, if the value is a weakref, it will get the concrete value first.
@@ -347,7 +351,7 @@ class FeatureDescriptor:
                        If True, regardless of member value, it will always be represented.
 
         Returns a string representation, or None if the member should not be represented.
-        '''
+        """
         if isinstance(value, ReferenceType):
             value = value()
         if (not force_value) and isinstance(value, bool):
@@ -360,30 +364,30 @@ class FeatureDescriptor:
         else:
             return None
 
-    def __eq__(self, other: Any) -> bool:
-        '''Equal protocol, based on system_name equality.'''
+    def __eq__(self, other: object) -> bool:
+        """Equal protocol, based on system_name equality."""
         try:
             if (self.system_name is None) and (other.system_name is None):
                 return self is other
             else:
-                return (self.system_name == other.system_name)
+                return self.system_name == other.system_name
         except AttributeError:
             return False
 
     def __hash__(self) -> int:
-        '''Hashing protocol, based solely on system_name hash.'''
+        """Hashing protocol, based solely on system_name hash."""
         return hash(self.system_name) if self.system_name else id(self)
 
 
 class Property(FeatureDescriptor, Generic[VT], ABC):
-    '''Provides property declaration for nodes.'''
+    """Provides property declaration for nodes."""
 
-    def __init__(self, value_type: Type[VT], **kwargs: Any) -> None:
-        '''Initialises a Property with defaults from FeatureDescriptor,
+    def __init__(self, value_type: type[VT], **kwargs: Any) -> None:
+        """Initialises a Property with defaults from FeatureDescriptor,
         except for system_name which is set to an empty string.
 
         - value_type: The type for this property value.
-        '''
+        """
         self.__type = value_type
 
         super().__init__(**kwargs)
@@ -392,57 +396,58 @@ class Property(FeatureDescriptor, Generic[VT], ABC):
 
     def __copy_init_kwargs__(self) -> dict[str, Any]:
         kwargs = super().__copy_init_kwargs__()
-        kwargs.update(dict(
-            value_type=self.value_type,
-        ))
+        kwargs.update(
+            dict(
+                value_type=self.value_type,
+            ),
+        )
         return kwargs
 
     @property
-    def value_type(self) -> Type[VT]:
-        '''The type of this property value.'''
+    def value_type(self) -> type[VT]:
+        """The type of this property value."""
         return self.__type
 
     @property
     @abstractmethod
     def value(self) -> VT:
-        '''The value of this property.'''
-        raise NotImplementedError()  # pragma: no cover
+        """The value of this property."""
+        raise NotImplementedError  # pragma: no cover
 
     @value.setter
     @abstractmethod
     def value(self, value: VT) -> None:
-        raise NotImplementedError()  # pragma: no cover
+        raise NotImplementedError  # pragma: no cover
 
     @property
     @abstractmethod
     def can_read(self) -> bool:
-        '''Tells if this property is readable.'''
-        raise NotImplementedError()  # pragma: no cover
+        """Tells if this property is readable."""
+        raise NotImplementedError  # pragma: no cover
 
     @property
     @abstractmethod
     def can_write(self) -> bool:
-        '''Tells if this property can be modified.'''
-        raise NotImplementedError()  # pragma: no cover
+        """Tells if this property can be modified."""
+        raise NotImplementedError  # pragma: no cover
 
     @property
     def supports_default_value(self) -> bool:
-        '''Tells if this property can have a default value.'''
+        """Tells if this property can have a default value."""
         return False
 
     def restore_default_value(self) -> None:
-        '''If the property can have a default value, this method restores it.'''
-        pass
+        """If the property can have a default value, this method restores it."""
 
     @property
     def is_default_value(self) -> bool:
-        '''
+        """
         Tells if the current value of this property is the default value.
 
         If this property does not support default value, it still returns True.
         Because that means any value can be considered a default value (and so,
         can be represented in the same way).
-        '''
+        """
         return True
 
     # TODO
@@ -450,20 +455,20 @@ class Property(FeatureDescriptor, Generic[VT], ABC):
     def property_editor(self) -> None:
         if self.__type is None:
             return None
-        raise NotImplementedError('TODO')
+        raise NotImplementedError
 
     # TODO: We have the same in PropertySet and Node.
     # Maybe that should move to FeatureDescriptor?
     @property
-    def html_display_name(self) -> Optional[str]:
-        '''
+    def html_display_name(self) -> str | None:
+        """
         Returns an HTML-flavoured version of this property display name.
 
         This HTML will be processed either by Qt (for GUI), or prompt-toolkit (for CLI).
 
         If an HTML version is not possible, then it should return None (and avoid returning
         a string that does not contain any HTML).
-        '''
+        """
         return None
 
     def __str_add__(self) -> Generator[str, None, None]:
@@ -486,91 +491,93 @@ class Property(FeatureDescriptor, Generic[VT], ABC):
             if value is not None:
                 yield value
 
-    def __eq__(self, other: Any) -> bool:
-        '''Equal protocol, based on system_name, and value_type equality.'''
+    def __eq__(self, other: object) -> bool:
+        """Equal protocol, based on system_name, and value_type equality."""
         if not super().__eq__(other):
             return False
 
         try:
-            return (self.value_type == other.value_type)
+            return self.value_type == other.value_type
         except AttributeError:
             return False
 
     def __hash__(self) -> int:
-        '''Hashing protocol, based on system_name, and value_type hashes.'''
+        """Hashing protocol, based on system_name, and value_type hashes."""
         type_hash = hash(self.value_type) if self.value_type is not None else 1
         return super().__hash__() * type_hash
 
 
 class IndexedProperty(Property, Generic[VT, KT, IT]):
-    '''Provides an indexed property for an indexed node.'''
+    """Provides an indexed property for an indexed node."""
 
-    def __init__(self, index_type: Type[KT], item_type: Type[IT], **kwargs: Any) -> None:
-        '''Initialises an IndexedProperty with defaults from Property
+    def __init__(self, index_type: type[KT], item_type: type[IT], **kwargs: Any) -> None:
+        """Initialises an IndexedProperty with defaults from Property
         (ie. same defaults than FeatureDescriptor, except for system_name
         which is set to an empty string).
 
         - index_type: The type for this property indexing keys.
         - item_type: The type for this property items (ie. indexed values).
         - value_type: The type for this property value.
-        '''
+        """
         super().__init__(**kwargs)
         self.__index_type = index_type
         self.__item_type = item_type
 
     def __copy_init_kwargs__(self) -> dict[str, Any]:
         kwargs = super().__copy_init_kwargs__()
-        kwargs.update(dict(
-            index_type=self.index_type,
-            item_type=self.item_type,
-        ))
+        kwargs.update(
+            dict(
+                index_type=self.index_type,
+                item_type=self.item_type,
+            ),
+        )
         return kwargs
 
     @property
-    def index_type(self) -> Type[KT]:
-        '''The type of this property indexing keys.'''
+    def index_type(self) -> type[KT]:
+        """The type of this property indexing keys."""
         return self.__index_type
 
     @property
-    def item_type(self) -> Type[IT]:
-        '''The type of this property items (ie. indexed values).'''
+    def item_type(self) -> type[IT]:
+        """The type of this property items (ie. indexed values)."""
         return self.__item_type
 
     @abstractmethod
     def __getitem__(self, index: KT) -> IT:
-        '''Returns the value of this property at a particular index.'''
-        raise NotImplementedError()  # pragma: no cover
+        """Returns the value of this property at a particular index."""
+        raise NotImplementedError  # pragma: no cover
 
     # @abstractmethod
     # def get_indexed_value(self, index: int) -> IT:
     #     '''Returns the value of this property at a particular index.'''
-    #     raise NotImplementedError()  # pragma: no cover
+    #     raise NotImplementedError  # pragma: no cover
 
     @abstractmethod
     def __setitem__(self, index: KT, value: IT) -> None:
-        '''Sets the value of this property at a particular index.'''
-        raise NotImplementedError()  # pragma: no cover
+        """Sets the value of this property at a particular index."""
+        raise NotImplementedError  # pragma: no cover
 
     # @abstractmethod
     # def set_indexed_value(self, index: int, value: ET) -> None:
     #     '''Sets the value of this property at a particular index.'''
-    #     raise NotImplementedError()  # pragma: no cover
+    #     raise NotImplementedError  # pragma: no cover
 
     @property
     @abstractmethod
     def can_indexed_read(self) -> bool:
-        '''Tells if this property is readable using an index.'''
-        raise NotImplementedError()  # pragma: no cover
+        """Tells if this property is readable using an index."""
+        raise NotImplementedError  # pragma: no cover
 
     @property
     @abstractmethod
     def can_indexed_write(self) -> bool:
-        '''Tells if this property can be modified using an index.'''
-        raise NotImplementedError()  # pragma: no cover
+        """Tells if this property can be modified using an index."""
+        raise NotImplementedError  # pragma: no cover
 
     @property
     def indexed_property_editor(self) -> None:
-        raise NotImplementedError('TODO')
+        raise NotImplementedError
 
     def __str_add__(self) -> Generator[str, None, None]:
         yield from super().__str_add__()
@@ -583,8 +590,8 @@ class IndexedProperty(Property, Generic[VT, KT, IT]):
         if value is not None:
             yield value
 
-    def __eq__(self, other: Any) -> bool:
-        '''Equal protocol, based on system_name, value_type, index_type, and item_type equality.'''
+    def __eq__(self, other: object) -> bool:
+        """Equal protocol, based on system_name, value_type, index_type, and item_type equality."""
         if not super().__eq__(other):
             return False
 
@@ -594,25 +601,25 @@ class IndexedProperty(Property, Generic[VT, KT, IT]):
             return False
 
     def __hash__(self) -> int:
-        '''Hashing protocol, based on system_name, value_type, index_type, and item_type hashes.'''
+        """Hashing protocol, based on system_name, value_type, index_type, and item_type hashes."""
         index_type_hash = hash(self.index_type) if self.index_type is not None else 1
         item_type_hash = hash(self.item_type) if self.item_type is not None else 1
         return super().__hash__() * index_type_hash * item_type_hash
 
 
 class PropertySet(FeatureDescriptor, ABC):
-    '''Represents a set of properties.'''
+    """Represents a set of properties."""
 
     def __init__(
         self,
-        system_name: Optional[str] = None,
-        display_name: Optional[str] = None,
-        short_description: Optional[str] = None,
+        system_name: str | None = None,
+        display_name: str | None = None,
+        short_description: str | None = None,
     ) -> None:
-        '''Initialises a PropertySet, first using defaults from FeatureDescriptor,
+        """Initialises a PropertySet, first using defaults from FeatureDescriptor,
         which is then customised with provided arguments system_name,
         display_name and short_description.
-        '''
+        """
         super().__init__()
         self.system_name = system_name
         self.display_name = display_name
@@ -620,11 +627,11 @@ class PropertySet(FeatureDescriptor, ABC):
 
     @property
     @abstractmethod
-    def properties(self) -> Set[Property]:
-        '''The properties in this set.'''
-        raise NotImplementedError()  # pragma: no cover
+    def properties(self) -> set[Property]:
+        """The properties in this set."""
+        raise NotImplementedError  # pragma: no cover
 
-    def __eq__(self, other: Any) -> bool:
+    def __eq__(self, other: object) -> bool:
         # FeatureDescriptor.__eq__ only check system_name, without regard for class equality.
         # We usually don't care about class equality (because duck-typing). But here it would
         # make a difference between a PropertySet and another FeatureDescriptor with the same
@@ -641,13 +648,13 @@ class PropertySet(FeatureDescriptor, ABC):
     # TODO: We have the same in Property and Node.
     # Maybe that should move to FeatureDescriptor?
     @property
-    def html_display_name(self) -> Optional[str]:
-        '''
+    def html_display_name(self) -> str | None:
+        """
         Returns an HTML-flavoured version of this property display name.
 
         This HTML will be processed either by Qt (for GUI), or prompt-toolkit (for CLI).
 
         If an HTML version is not possible, then it should return None (and avoid returning
         a string that does not contain any HTML).
-        '''
+        """
         return None

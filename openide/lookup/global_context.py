@@ -1,39 +1,47 @@
-# -*- coding: utf-8 -*-
 # Copyright (c) 2021 Contributors as noted in the AUTHORS file
 #
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
+from __future__ import annotations
+
 # System imports
+from typing import TYPE_CHECKING
 
 # Third-party imports
-from lookups import Lookup, LookupProvider, DelegatedLookup, EmptyLookup
+from lookups import DelegatedLookup, EmptyLookup, Lookup, LookupProvider
 
 # Local imports
-from openide.lookups import ServiceProvider, ServiceSingletonABCMeta
+from openide.lookup import ServiceProvider, ServiceSingletonABCMeta
 from openide.windows import ContextTracker
+
+if TYPE_CHECKING:
+    from openide.windows.top_component import TopComponent
 
 
 class GlobalContext(Lookup, metaclass=ServiceSingletonABCMeta):
-
     pass
 
 
 @ServiceProvider(service=GlobalContext)
 class DefaultGlobalContext(DelegatedLookup, LookupProvider, GlobalContext):
-
-    def __init__(self):
-        self._default_lookup = EmptyLookup()
-        self._current_lookup = self._default_lookup
+    def __init__(self) -> None:
+        self._default_lookup: Lookup = EmptyLookup()
+        self._current_lookup: Lookup = self._default_lookup
         ContextTracker().on(ContextTracker.Events.Activated, self._context_changed)
 
         super().__init__(self)
 
-    def get_lookup(self):
+    def get_lookup(self) -> Lookup:
         return self._current_lookup
 
-    def _context_changed(self, event, tc, old=None):
+    def _context_changed(
+        self,
+        event: ContextTracker.Events,
+        tc: TopComponent | None,
+        old=None,
+    ) -> None:
         if event != ContextTracker.Events.Activated:
             return
 

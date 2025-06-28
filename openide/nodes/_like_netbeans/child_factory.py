@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Copyright (c) 2021 Contributors as noted in the AUTHORS file
 #
 # This Source Code Form is subject to the terms of the Mozilla Public
@@ -11,39 +10,36 @@ from __future__ import annotations
 
 # System imports
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, final, Generic, TypeVar
+from typing import TYPE_CHECKING, Generic, TypeVar, final
 from weakref import ReferenceType
 
 # Third-party imports
-
 # Local imports
-from openide.utils.classes import Debug
 from openide.nodes._like_netbeans.children import Children
 from openide.nodes._like_netbeans.filter_node import FilterNode
 from openide.nodes._like_netbeans.generic_node import GenericNode
-
+from openide.utils.classes import Debug
 
 T = TypeVar('T')
 if TYPE_CHECKING:
-    from collections.abc import Sequence, MutableSequence
-    from typing import Optional, Any
+    from collections.abc import MutableSequence, Sequence
+    from typing import Any
+
     from openide.nodes._like_netbeans.node import Node
 
 
 class ChildFactory(ABC, Generic[T], Debug(f'{__name__}.ChildFactory')):
-
     class Observer(ABC):
         @abstractmethod
-        def refresh(self, immediate: bool) -> None:
-            raise NotImplementedError()  # pragma: no cover
+        def refresh(self, *, immediate: bool) -> None:
+            raise NotImplementedError  # pragma: no cover
 
     class __WaitFilterNode(FilterNode):
-        '''This class exists to mark any node returned by create_wait_node()
+        """This class exists to mark any node returned by create_wait_node()
         such that AsyncChildren can identify it and not forward it to create_nodes_for_key()
-        '''
+        """
 
     class __DefaultWaitNode(GenericNode):
-
         def __init__(self) -> None:
             super().__init__(Children.LEAF)
 
@@ -57,29 +53,30 @@ class ChildFactory(ABC, Generic[T], Debug(f'{__name__}.ChildFactory')):
     def __init__(self) -> None:
         super().__init__()
 
-        self.__observer_ref: Optional[ReferenceType[ChildFactory.Observer]] = None
+        self.__observer_ref: ReferenceType[ChildFactory.Observer] | None = None
 
-    def _create_node_for_key(self, key: T) -> Optional[Node]:
-        raise NotImplementedError(
+    def _create_node_for_key(self, key: T) -> Node | None:
+        msg = (
             'Neither create_node_for_key() nor create_nodes_for_key() '
             f'have been overridden in {type(self).__name__}'
         )
+        raise NotImplementedError(msg)
 
-    def _create_nodes_for_key(self, key: T) -> Optional[Sequence[Node]]:
+    def _create_nodes_for_key(self, key: T) -> Sequence[Node] | None:
         node = self._create_node_for_key(key)
-        return (node, ) if node is not None else None
+        return (node,) if node is not None else None
 
     @abstractmethod
     def _create_keys(self, to_populate: MutableSequence[T]) -> bool:
-        raise NotImplementedError()  # pragma: no cover
+        raise NotImplementedError  # pragma: no cover
 
     @final
-    def _refresh(self, immediate: bool) -> None:
+    def _refresh(self, *, immediate: bool) -> None:
         if (observer := self.__observer) is not None:
-            observer.refresh(immediate)
+            observer.refresh(immediate=immediate)
 
     @property
-    def _wait_node(self) -> Optional[Node]:
+    def _wait_node(self) -> Node | None:
         if (node := self._create_wait_node()) is not None:
             return ChildFactory.__WaitFilterNode(node)
         else:
@@ -92,7 +89,7 @@ class ChildFactory(ABC, Generic[T], Debug(f'{__name__}.ChildFactory')):
         return node
 
     @property
-    def __observer(self) -> Optional[ChildFactory.Observer]:
+    def __observer(self) -> ChildFactory.Observer | None:
         if (observer_ref := self.__observer_ref) is not None:
             return observer_ref()
         else:
@@ -101,13 +98,15 @@ class ChildFactory(ABC, Generic[T], Debug(f'{__name__}.ChildFactory')):
     @final
     def __set_observer(self, observer: ChildFactory.Observer) -> None:
         if self.__observer_ref is not None:
-            raise RuntimeError(
+            msg = (
                 'Attempting to create two Children objects for a single '
                 f'ChildFactory {type(self).__name__}. Use FilterNode.Children '
                 'over the existing Children object instead'
             )
+            raise RuntimeError(msg)
 
         self.__observer_ref = ReferenceType(observer)
+
     _observer = property(None, __set_observer, None)
 
     def _remove_notify(self) -> None:
@@ -120,7 +119,7 @@ class ChildFactory(ABC, Generic[T], Debug(f'{__name__}.ChildFactory')):
         pass
 
     @staticmethod
-    def _is_wait_node(node: Any) -> bool:
+    def _is_wait_node(node: Any) -> bool:  # noqa: ANN401
         return isinstance(node, ChildFactory.__WaitFilterNode)
 
 

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Copyright (c) 2021 Contributors as noted in the AUTHORS file
 #
 # This Source Code Form is subject to the terms of the Mozilla Public
@@ -13,22 +12,19 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, TypeVar
 
 # Third-party imports
-
 # Local imports
-from openide.utils.typing import override
-from openide.nodes._like_netbeans.children import Keys
 from openide.nodes._like_netbeans.child_factory import ChildFactory
-
+from openide.nodes._like_netbeans.children import Keys
+from openide.utils.typing import override
 
 T = TypeVar('T')
 if TYPE_CHECKING:
-    from collections.abc import Sequence, MutableSequence
-    from typing import Optional
+    from collections.abc import MutableSequence, Sequence
+
     from openide.nodes._like_netbeans.node import Node
 
 
 class SyncChildren(Keys[T], ChildFactory.Observer):
-
     # OK, Match
     def __init__(self, factory: ChildFactory[T]) -> None:
         super().__init__()
@@ -41,7 +37,7 @@ class SyncChildren(Keys[T], ChildFactory.Observer):
     def _add_notify(self) -> None:
         self._active = True
         self.__factory._add_notify()
-        self.refresh(True)
+        self.refresh(immediate=True)
 
     # OK, Match
     @override  # Children
@@ -52,7 +48,7 @@ class SyncChildren(Keys[T], ChildFactory.Observer):
 
     # OK, Match
     @override  # Keys
-    def _create_nodes(self, key: T) -> Optional[Sequence[Node]]:
+    def _create_nodes(self, key: T) -> Sequence[Node] | None:
         return self.__factory._create_nodes_for_key(key)
 
     # OK, Match
@@ -63,7 +59,7 @@ class SyncChildren(Keys[T], ChildFactory.Observer):
 
     # OK, Match
     @override  # ChildFactory.Observer
-    def refresh(self, immediate: bool) -> None:
+    def refresh(self, *, immediate: bool) -> None:
         print(f'SyncChildren.refresh: {self._active=}')
         if self._active:
             to_populate: MutableSequence[T] = []

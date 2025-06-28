@@ -1,26 +1,31 @@
-# -*- coding: utf-8 -*-
 # Copyright (c) 2021 Contributors as noted in the AUTHORS file
 #
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
+from __future__ import annotations
+
 # System imports
 import logging
 from functools import partial
+from typing import TYPE_CHECKING
 from weakref import WeakKeyDictionary, WeakValueDictionary
 
 # Third-party imports
 from lookups import Lookup
 from qtpy.QtCore import Qt
-from qtpy.QtWidgets import QMainWindow, QTabWidget, QDockWidget, QApplication
+from qtpy.QtWidgets import QApplication, QDockWidget, QMainWindow, QTabWidget
 
 # Local imports
 from openide import IDEApplication
-from openide.lookups import ServiceProvider
+from openide.lookup import ServiceProvider
 from openide.utils import MetaClassResolver, class_loader
-from openide.windows import WindowManager, TopComponent, ContextTracker
+from openide.windows import ContextTracker, Location, TopComponent, WindowManager
 
+if TYPE_CHECKING:
+    from qtpy.QtGui import QAction
+    from qtpy.QtWidgets import QMenu, QWidget
 
 _logger = logging.getLogger(__name__)
 
@@ -30,48 +35,46 @@ DEFAULT_TC_NAME = 'untitled_tc'
 
 @ServiceProvider(service=WindowManager)
 class MainWindow(MetaClassResolver(WindowManager, QMainWindow)):
-
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__()
 
-        self.locations = dict(
-            central=QTabWidget(),
-            explorer=QTabWidget(),
-        )
+        self.locations: dict[Location, QTabWidget] = {
+            Location.Central: QTabWidget(),
+            Location.Explorer: QTabWidget(),
+        }
         for location, tab_widget in self.locations.items():
             tab_widget.setMovable(True)
             tab_widget.setTabsClosable(True)
             tab_widget.tabCloseRequested.connect(partial(self._tab_close_requested, location))
 
-        self.setCentralWidget(self.locations['central'])
-        self.docks = dict(
-            explorer=QDockWidget()
-        )
-        self.docks['explorer'].setWidget(self.locations['explorer'])
-        self.addDockWidget(Qt.LeftDockWidgetArea, self.docks['explorer'])
-        self.menus = {}
-        self.actions = []
-        self._component_to_id = WeakKeyDictionary()
-        self._id_to_component = WeakValueDictionary()
+        self.setCentralWidget(self.locations[Location.Central])
+        self.docks: dict[Location, QDockWidget] = {Location.Explorer: QDockWidget()}
+        self.docks[Location.Explorer].setWidget(self.locations[Location.Explorer])
+        self.addDockWidget(Qt.LeftDockWidgetArea, self.docks[Location.Explorer])
+        self.menus: dict[str, QMenu] = {}
+        self.actions: list[QAction] = []
+        self._component_to_id = WeakKeyDictionary[TopComponent, str]()
+        self._id_to_component = WeakValueDictionary[str, TopComponent]()
 
         Lookup.get_default().lookup(QApplication).focusChanged.connect(self._focus_changed)
 
-    def load(self):
+    def load(self) -> None:
         for action in IDEApplication().config.get('actions', {}):
             for ref in action.get('references', []):
                 paths = ref['path'].split('/')
                 if paths[0] == 'Menu':
                     if paths[1] not in self.menus:
                         self.menus[paths[1]] = self.menuBar().addMenu(paths[1])
-                    action_obj = class_loader(action['cls'])(**action.get('kwargs', {}))
+                    action_obj: QAction = class_loader(action['cls'])(**action.get('kwargs', {}))
                     self.menus[paths[1]].addAction(action_obj)
                     self.actions.append(action_obj)
 
+        instance = None
         for fqname, component in IDEApplication().config.get('components', {}).items():
             if not component.get('open_at_startup', False):
                 continue
+            _logger.info('Loading startup component %s', fqname)
 
-            instance = None
             preferred_id = component.get('preferred_id', '')
             if preferred_id:
                 instance = self.find_top_component(preferred_id)
@@ -82,12 +85,13 @@ class MainWindow(MetaClassResolver(WindowManager, QMainWindow)):
 
             instance.open()
 
-        instance.request_active()
+        if instance:
+            instance.request_active()
 
         for dock in self.docks.values():
             self._update_dock(dock)
 
-    def _focus_changed(self, old, new):
+    def _focus_changed(self, old: QWidget, new: QWidget | None) -> None:
         if new is None:  # Window lost focus
             return
 
@@ -98,13 +102,13 @@ class MainWindow(MetaClassResolver(WindowManager, QMainWindow)):
                 break
             parent = parent.parentWidget()
 
-    def _update_dock(self, dock):
+    def _update_dock(self, dock: QDockWidget) -> None:
         if not dock.widget().count():
             dock.hide()
         else:
             dock.show()
 
-    def _create_component_id(self, component):
+    def _create_component_id(self, component: TopComponent) -> str:
         preferred_id = component.preferred_id
         component_name = preferred_id if preferred_id else DEFAULT_TC_NAME
 
@@ -120,25 +124,29 @@ class MainWindow(MetaClassResolver(WindowManager, QMainWindow)):
         _logger.info('Registering component ID %s', name)
         return name
 
-    def find_mode(self, name):
+    def find_mode(self, name: str) -> None:
         if not name:
             name = 'central'
 
-    def find_top_component(self, target_id: str) -> TopComponent:
+    def find_top_component(self, target_id: str) -> TopComponent | None:
         return self._id_to_component.get(target_id, None)
 
-    def top_component_open(self, component, tab_position=-1):
+    def top_component_open(self, component: TopComponent, tab_position: int = -1) -> None:
         if component not in self._component_to_id:
             component_id = self._create_component_id(component)
             self._component_to_id[component] = component_id
             self._id_to_component[component_id] = component
 
+        _logger.info(f'Opening {component} at location {component.location}')
         if component.icon:
             self.locations[component.location].insertTab(
-                tab_position, component, component.icon, component.name)
+                tab_position,
+                component,
+                component.icon,
+                component.name,
+            )
         else:
-            self.locations[component.location].insertTab(
-                tab_position, component, component.name)
+            self.locations[component.location].insertTab(tab_position, component, component.name)
 
         component.show()
 
@@ -147,9 +155,9 @@ class MainWindow(MetaClassResolver(WindowManager, QMainWindow)):
 
         ContextTracker().top_component_opened(component)
 
-    def _tab_close_requested(self, location, index):
+    def _tab_close_requested(self, location: Location, index: int) -> None:
         tab_widget = self.locations[location]
-        component = tab_widget.widget(index)
+        component: TopComponent = tab_widget.widget(index)
         tab_widget.removeTab(index)
         component.hide()
 
@@ -166,7 +174,7 @@ class MainWindow(MetaClassResolver(WindowManager, QMainWindow)):
             else:
                 self.top_component_request_active(current)
 
-    def top_component_request_active(self, component):
+    def top_component_request_active(self, component: TopComponent) -> None:
         self.locations[component.location].setCurrentWidget(component)
         component.activateWindow()
         component.window().raise_()

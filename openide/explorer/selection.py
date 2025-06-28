@@ -7,45 +7,48 @@
 from __future__ import annotations
 
 # System imports
+import contextlib
 from collections.abc import Iterable
 from typing import TYPE_CHECKING, Generic, cast
 
 # Third-party imports
 from qtpy.QtCore import (
-    Slot, Signal, QAbstractItemModel,
-    QItemSelectionModel, QItemSelection,
-    QModelIndex, QPersistentModelIndex
+    QAbstractItemModel,
+    QItemSelection,
+    QItemSelectionModel,
+    QModelIndex,
+    QPersistentModelIndex,
+    Signal,
+    Slot,
 )
 
 # Local imports
-from openide.explorer.model import NodeModel, _N
-from openide.utils.typing import override
+from openide.explorer.model import _N, NodeModel
 from openide.nodes._like_netbeans import Node
-
+from openide.utils.typing import override
 
 if TYPE_CHECKING:
-    from collections.abc import Generator, Iterable
-    from typing import Any, Optional, Union
+    from collections.abc import Generator
+    from typing import Any
 
     from openide.explorer.model import ModelIndex
 
 
 class NodeSelection(QItemSelection, Generic[_N]):
-
     def __init__(self, *args: Any, node_model: NodeModel[_N], **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
 
         assert node_model is not None
         self.__node_model = node_model
 
-    def __to_index(self, index_or_node: Union[ModelIndex, _N]) -> ModelIndex:
+    def __to_index(self, index_or_node: ModelIndex | _N) -> ModelIndex:
         if isinstance(index_or_node, (QModelIndex, QPersistentModelIndex)):
             return index_or_node
         else:
             return self.__node_model.index_for_node(index_or_node)
 
     @override  # QItemSelection
-    def __add__(self, arg__1: Union[QItemSelection, Iterable[_N]]) -> QItemSelection:
+    def __add__(self, arg__1: QItemSelection | Iterable[_N]) -> QItemSelection:
         if isinstance(arg__1, QItemSelection):
             return super().__add__(arg__1)
         else:
@@ -79,7 +82,7 @@ class NodeSelection(QItemSelection, Generic[_N]):
     # TODO: __radd__, __rsub__
 
     @override  # QItemSelection
-    def contains(self, index_or_node: Union[ModelIndex, _N]) -> bool:
+    def contains(self, index_or_node: ModelIndex | _N) -> bool:
         return super().contains(self.__to_index(index_or_node))
 
     __contains__ = contains
@@ -89,10 +92,8 @@ class NodeSelection(QItemSelection, Generic[_N]):
         gen = self.__node_model.nodes_for_indexes(self.indexes())
         try:
             while True:
-                try:
+                with contextlib.suppress(IndexError):  # In case node was removed
                     yield next(gen)
-                except IndexError:  # Node was removed
-                    pass
         except StopIteration:
             pass
 
@@ -105,7 +106,7 @@ class NodeSelection(QItemSelection, Generic[_N]):
             select(index, index)
 
     @override  # QItemSelection
-    def select(self, top_left: Union[ModelIndex, _N], bottom_right: Union[ModelIndex, _N]) -> None:
+    def select(self, top_left: ModelIndex | _N, bottom_right: ModelIndex | _N) -> None:
         super().select(self.__to_index(top_left), self.__to_index(bottom_right))
 
     def __str__(self) -> str:
@@ -113,7 +114,6 @@ class NodeSelection(QItemSelection, Generic[_N]):
 
 
 class NodeSelectionModel(QItemSelectionModel, Generic[_N]):
-
     def __init__(self, model: NodeModel[_N], **kwargs: Any) -> None:
         assert isinstance(model, NodeModel), 'Model must be a subclass of NodeModel'
 
@@ -122,7 +122,7 @@ class NodeSelectionModel(QItemSelectionModel, Generic[_N]):
         self.currentChanged.connect(self.__watch_current_changed)
         self.selectionChanged.connect(self.__watch_selection_changed)
 
-    def __to_index(self, index_or_node: Union[ModelIndex, _N, None]) -> ModelIndex:
+    def __to_index(self, index_or_node: ModelIndex | _N | None) -> ModelIndex:
         if index_or_node is None:
             return QModelIndex()
         elif isinstance(index_or_node, (QModelIndex, QPersistentModelIndex)):
@@ -143,10 +143,10 @@ class NodeSelectionModel(QItemSelectionModel, Generic[_N]):
 
     @override  # QItemSelectionModel
     def model(self) -> NodeModel[_N]:
-        return cast(NodeModel[_N], super().model())
+        return cast('NodeModel[_N]', super().model())
 
     @override  # QItemSelectionModel
-    def setModel(self, model: Union[QAbstractItemModel, NodeModel[_N]]) -> None:
+    def setModel(self, model: QAbstractItemModel | NodeModel[_N]) -> None:  # noqa: N802
         assert isinstance(model, NodeModel), 'Model must be a subclass of NodeModel'
 
         super().setModel(model)
@@ -200,15 +200,15 @@ class NodeSelectionModel(QItemSelectionModel, Generic[_N]):
     # Selection, get
 
     @override  # QItemSelectionModel
-    def isColumnSelected(self, column: int, parent: Union[ModelIndex, _N, None] = None) -> bool:
+    def isColumnSelected(self, column: int, parent: ModelIndex | _N | None = None) -> bool:  # noqa: N802
         return super().isColumnSelected(column, self.__to_index(parent))
 
     @override  # QItemSelectionModel
-    def isRowSelected(self, row: int, parent: Union[ModelIndex, _N, None] = None) -> bool:
+    def isRowSelected(self, row: int, parent: ModelIndex | _N | None = None) -> bool:  # noqa: N802
         return super().isRowSelected(row, self.__to_index(parent))
 
     @override  # QItemSelectionModel
-    def isSelected(self, index_or_node: Union[ModelIndex, _N]) -> bool:
+    def isSelected(self, index_or_node: ModelIndex | _N) -> bool:  # noqa: N802
         return super().isSelected(self.__to_index(index_or_node))
 
     def selected_columns(self, row: int = 0) -> Generator[_N, None, None]:
@@ -233,8 +233,8 @@ class NodeSelectionModel(QItemSelectionModel, Generic[_N]):
     @Slot(Iterable, QItemSelectionModel.SelectionFlag)
     def select(
         self,
-        to_select: Union[QItemSelection, QModelIndex, _N, Iterable[_N]],
-        command: QItemSelectionModel.SelectionFlag
+        to_select: QItemSelection | QModelIndex | _N | Iterable[_N],
+        command: QItemSelectionModel.SelectionFlag,
     ) -> None:
         if isinstance(to_select, QItemSelection):
             super().select(to_select, command)
@@ -249,15 +249,15 @@ class NodeSelectionModel(QItemSelectionModel, Generic[_N]):
 
     @Slot(QModelIndex, QModelIndex)
     def __watch_selection_changed(
-        self,
-        selected: QItemSelection,
-        deselected: QItemSelection
+        self, selected: QItemSelection, deselected: QItemSelection
     ) -> None:
         node_model = self.node_model
-        self.selection_node_changed.emit((
-            NodeSelection[_N](selected, node_model=node_model),
-            NodeSelection[_N](deselected, node_model=node_model),
-        ))
+        self.selection_node_changed.emit(
+            (
+                NodeSelection[_N](selected, node_model=node_model),
+                NodeSelection[_N](deselected, node_model=node_model),
+            )
+        )
 
     # We have to mangle our NodeSelection instances behind a tuple
     # to avoid Qt detecting these are QItemSelection, and pass them around
@@ -267,8 +267,5 @@ class NodeSelectionModel(QItemSelectionModel, Generic[_N]):
 
     def __str__(self) -> str:
         return (
-            f'{type(self).__name__}['
-            f'current={self.current_node!s}, '
-            f'selected={self.selection()!s}'
-            ']'
+            f'{type(self).__name__}[current={self.current_node!s}, selected={self.selection()!s}]'
         )

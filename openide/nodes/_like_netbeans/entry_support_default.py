@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Copyright (c) 2021 Contributors as noted in the AUTHORS file
 #
 # This Source Code Form is subject to the terms of the Mozilla Public
@@ -13,48 +12,45 @@ from __future__ import annotations
 import logging
 import threading
 import time
-from threading import RLock, Condition, Thread
-from typing import TYPE_CHECKING, final
+from threading import Condition, RLock, Thread
+from typing import TYPE_CHECKING, Self, final
 from weakref import ReferenceType
 
 # Third-party imports
-
 # Local imports
-from openide.utils.classes import Debug
-from openide.utils.typing import override
-from openide.nodes._like_netbeans.entry_support import EntrySupport
+from openide.nodes._like_netbeans import node_operations
 from openide.nodes._like_netbeans.children import Children
 from openide.nodes._like_netbeans.children_storage import ChildrenStorage
+from openide.nodes._like_netbeans.entry_support import EntrySupport
 from openide.nodes._like_netbeans.node import Node
-from openide.nodes._like_netbeans import node_operations
-
+from openide.utils.classes import Debug
+from openide.utils.typing import override
 
 if TYPE_CHECKING:
     from collections.abc import (
-        Iterable, Sized, Collection, Sequence, Mapping,
+        Collection,
+        Iterable,
+        Mapping,
         MutableSequence,
+        Sequence,
+        Sized,
     )
-    from typing import Optional, Any
+    from typing import Any
 
 
 _logger = logging.getLogger(__name__)
 
 
 # OK, Match
-class _DefaultSnapshot(tuple[Node]):
+class _DefaultSnapshot(tuple[Node]):  # noqa: SLOT001
+    # Sadly, we cannot define a descendent of tuple with a non-empty __slots__.
+    # But we need the extra attribute _holder
+    # Therefore, we have to stick with a dict instance on that one.
 
-    def __new__(
-        cls,
-        nodes: Iterable[Node],
-        storage: Optional[ChildrenStorage]
-    ) -> _DefaultSnapshot:
+    def __new__(cls, nodes: Iterable[Node], storage: ChildrenStorage | None) -> Self:
         return super().__new__(cls, nodes)  # type: ignore[arg-type]
 
-    def __init__(
-        self,
-        nodes: Iterable[Node],
-        storage: Optional[ChildrenStorage]
-    ) -> None:
+    def __init__(self, nodes: Iterable[Node], storage: ChildrenStorage | None) -> None:
         super().__init__()  # In that case it seems to go directly to object.__init__()
 
         self._holder = storage
@@ -62,11 +58,13 @@ class _DefaultSnapshot(tuple[Node]):
 
 # OK, Match
 class _StorageRef(ReferenceType[ChildrenStorage]):
-
     def __new__(
-        cls, entry_support: Optional[EntrySupportDefault],
-        reference: ChildrenStorage, weak: bool,
-    ) -> _StorageRef:
+        cls,
+        entry_support: EntrySupportDefault | None,
+        reference: ChildrenStorage,
+        *,
+        weak: bool,
+    ) -> Self:
         # We need to redefine __new__ because a ref() object initialise itself
         # with __new__ and not __init__.
         # For the finaliser, we can pass our unbounded _finaliser method as
@@ -75,8 +73,11 @@ class _StorageRef(ReferenceType[ChildrenStorage]):
 
     # OK, Match
     def __init__(
-        self, entry_support: Optional[EntrySupportDefault],
-        reference: ChildrenStorage, weak: bool,
+        self,
+        entry_support: EntrySupportDefault | None,
+        reference: ChildrenStorage,
+        *,
+        weak: bool,
     ) -> None:
         super().__init__(reference, self._finaliser)  # type: ignore[call-arg]
 
@@ -91,7 +92,7 @@ class _StorageRef(ReferenceType[ChildrenStorage]):
     #         super_del()
 
     # OK, Match
-    def __call__(self) -> Optional[ChildrenStorage]:
+    def __call__(self) -> ChildrenStorage | None:
         return super().__call__() if self._is_weak else self._hard_ref
 
     # OK, Match
@@ -109,11 +110,9 @@ class _StorageRef(ReferenceType[ChildrenStorage]):
 
 
 class EntrySupportDefault(EntrySupport, Debug(f'{__name__}.EntrySupportDefault')):
-
     # OK, Match
     @final
     class _Info:
-
         # OK, Match
         def __init__(self, entry_support: EntrySupportDefault, entry: Children.Entry) -> None:
             self._entry_support = entry_support
@@ -126,9 +125,10 @@ class EntrySupportDefault(EntrySupport, Debug(f'{__name__}.EntrySupportDefault')
             return self.__entry
 
         # OK, Match
-        def nodes(self, has_to_exist: bool) -> MutableSequence[Node]:
+        def nodes(self, *, has_to_exist: bool) -> MutableSequence[Node]:
             assert (not has_to_exist) or (
-                self._entry_support._EntrySupportDefault__storage() is not None), 'ChildrenStorage is not initialised'
+                self._entry_support._EntrySupportDefault__storage() is not None
+            ), 'ChildrenStorage is not initialised'
 
             storage = self._entry_support._EntrySupportDefault__get_storage()
             return storage.nodes_for(self, has_to_exist)
@@ -146,7 +146,7 @@ class EntrySupportDefault(EntrySupport, Debug(f'{__name__}.EntrySupportDefault')
 
     # This storage gets deleted immediately, effectively making it a dead ref
     # TODO: Review
-    __EMPTY = _StorageRef(None, ChildrenStorage(_fake=True), True)
+    __EMPTY = _StorageRef(None, ChildrenStorage(_fake=True), weak=True)
 
     __LOCK = Condition()
 
@@ -161,7 +161,7 @@ class EntrySupportDefault(EntrySupport, Debug(f'{__name__}.EntrySupportDefault')
         self.__storage: _StorageRef = EntrySupportDefault.__EMPTY
         self.__map = dict[Children.Entry, EntrySupportDefault._Info]()
         self.__map_lock = RLock()
-        self.__init_thread: Optional[Thread] = None
+        self.__init_thread: Thread | None = None
         self.__inited = False
         self.__must_notify_set_entries = False
 
@@ -177,9 +177,9 @@ class EntrySupportDefault(EntrySupport, Debug(f'{__name__}.EntrySupportDefault')
     @override  # EntrySupport
     def is_initialised(self) -> bool:
         return (
-            self.__inited and
-            ((storage := self.__storage()) is not None) and
-            (storage.is_initialised)
+            self.__inited
+            and ((storage := self.__storage()) is not None)
+            and (storage.is_initialised)
         )
 
     # OK, Match
@@ -198,7 +198,7 @@ class EntrySupportDefault(EntrySupport, Debug(f'{__name__}.EntrySupportDefault')
     # TODO: Two properties, nodes and nodes_optimal?
     @final
     @override  # EntrySupport
-    def get_nodes(self, optimal_result: bool = False) -> list[Node]:
+    def get_nodes(self, *, optimal_result: bool = False) -> list[Node]:
         # print(f'get_nodes, {optimal_result=}')
         if optimal_result:
             hold = self.__get_storage()  # noqa: F841
@@ -231,12 +231,12 @@ class EntrySupportDefault(EntrySupport, Debug(f'{__name__}.EntrySupportDefault')
     # OK, Match
     @final
     @override  # EntrySupport
-    def get_nodes_count(self, optimal_result: bool) -> int:
-        return len(self.get_nodes(optimal_result))
+    def get_nodes_count(self, *, optimal_result: bool) -> int:
+        return len(self.get_nodes(optimal_result=optimal_result))
 
     # OK, Match
     @override  # EntrySupport
-    def get_node_at(self, index: int) -> Optional[Node]:
+    def get_node_at(self, index: int) -> Node | None:
         nodes = self.get_nodes()
         return nodes[index] if index < len(nodes) else None
 
@@ -247,12 +247,13 @@ class EntrySupportDefault(EntrySupport, Debug(f'{__name__}.EntrySupportDefault')
         nodes = list[Node]()
         for entry in self.__entries:
             info = self.__find_info(entry)
-            nodes += info.nodes(False)
+            nodes += info.nodes(has_to_exist=False)
 
         for i, node in enumerate(nodes):
             if node is None:
                 _logger.warning('None node among children! index=%d ; nodes=%s', i, nodes)
-                raise RuntimeError(f'Node {i} is None')
+                msg = f'Node {i} is None'
+                raise RuntimeError(msg)
 
             node._assign_to(self.children, i)
             # print(f'EntrySupportDefault._just_compute_nodes: fire parentNode on {node=}')
@@ -282,7 +283,7 @@ class EntrySupportDefault(EntrySupport, Debug(f'{__name__}.EntrySupportDefault')
 
     # OK, Match
     @override  # EntrySupport
-    def _set_entries(self, entries: Iterable[Children.Entry], no_check: bool = False) -> None:
+    def _set_entries(self, entries: Iterable[Children.Entry], *, no_check: bool = False) -> None:
         # print('EntrySupportDefault._set_entries', time.monotonic(), self, no_check)
         assert no_check or Children.MUTEX.is_write_access
 
@@ -290,7 +291,9 @@ class EntrySupportDefault(EntrySupport, Debug(f'{__name__}.EntrySupportDefault')
         current = holder.nodes if holder is not None else None
 
         # print(
-        #     f'EntrySupportDefault._set_entries: {holder=}, {current=}, {self.__must_notify_set_entries=}')
+        #     'EntrySupportDefault._set_entries: '
+        #     f'{holder=}, {current=}, {self.__must_notify_set_entries=}',
+        # )
         if self.__must_notify_set_entries:
             if holder is None:
                 holder = self.__get_storage()
@@ -328,19 +331,20 @@ class EntrySupportDefault(EntrySupport, Debug(f'{__name__}.EntrySupportDefault')
     # OK, Match
     def __check_info(
         self,
-        info: Optional[EntrySupportDefault._Info],
+        info: EntrySupportDefault._Info | None,
         entry: Children.Entry,
         entries: Iterable[Children.Entry],
         map: Mapping[Children.Entry, EntrySupportDefault._Info],
     ) -> None:
         if info is None:
             raise RuntimeError(
-                f'Error in {type(self).__name__} with entry {entry} from among entries:\n  ' +
-                '\n  '.join([f'{entry} contained: {entry in map}' for entry in entries]) + '\n'
+                f'Error in {type(self).__name__} with entry {entry} from among entries:\n  '
+                + '\n  '.join([f'{entry} contained: {entry in map}' for entry in entries])
+                + '\n'
                 'probably caused by faulty key implementation. The key __hash__() and __eq__() '
                 'methods must behave as for an IMMUTABLE object and __hash__() must return the '
-                ' same value for __eq__() keys.\nmapping:\n  ' +
-                '\n  '.join([f'{k} => {v}' for k, v in map.items()])
+                ' same value for __eq__() keys.\nmapping:\n  '
+                + '\n  '.join([f'{k} => {v}' for k, v in map.items()]),
             )
 
     # OK, Match
@@ -360,10 +364,10 @@ class EntrySupportDefault(EntrySupport, Debug(f'{__name__}.EntrySupportDefault')
                 info = self.__map.get(entry)
                 del self.__map[entry]
 
-                self.__check_info(info, entry, tuple(), self.__map)
+                self.__check_info(info, entry, (), self.__map)
                 assert info is not None
 
-                nodes += info.nodes(True)
+                nodes += info.nodes(has_to_exist=True)
                 storage._remove(info)
                 self.__entries.remove(entry)
 
@@ -441,7 +445,7 @@ class EntrySupportDefault(EntrySupport, Debug(f'{__name__}.EntrySupportDefault')
         nodes = list[Node]()
         with self.__map_lock:
             for info in infos:
-                nodes += info.nodes(False)
+                nodes += info.nodes(has_to_exist=False)
                 self.__map[info._entry] = info
 
         self.__entries = entries
@@ -466,7 +470,7 @@ class EntrySupportDefault(EntrySupport, Debug(f'{__name__}.EntrySupportDefault')
             if (info := self.__map.get(entry)) is None:
                 return
 
-        old_nodes = info.nodes(False)
+        old_nodes = info.nodes(has_to_exist=False)
         # Warning, entry.nodes() could return None, from Children.Map._refresh_key
         new_nodes = info._entry.nodes(None)
         if old_nodes == new_nodes:
@@ -491,7 +495,7 @@ class EntrySupportDefault(EntrySupport, Debug(f'{__name__}.EntrySupportDefault')
         self,
         entry: Children.Entry,
         old_nodes: Collection[Node],
-        new_nodes: MutableSequence[Node]
+        new_nodes: MutableSequence[Node],
     ) -> list[Node]:
         to_add = list[Node]()
         old_nodes_set = set(old_nodes)
@@ -502,11 +506,10 @@ class EntrySupportDefault(EntrySupport, Debug(f'{__name__}.EntrySupportDefault')
             if node in old_nodes_set:
                 old_nodes_set.remove(node)
                 perm_array.append(node)
+            elif node not in to_process:
+                to_add.append(node)
             else:
-                if node not in to_process:
-                    to_add.append(node)
-                else:
-                    new_nodes.remove(node)
+                new_nodes.remove(node)
 
         perm = node_operations.compute_permutation(old_nodes, perm_array)
         if perm:
@@ -519,16 +522,12 @@ class EntrySupportDefault(EntrySupport, Debug(f'{__name__}.EntrySupportDefault')
         return to_add
 
     # OK, Match
-    def _notify_remove(
-        self,
-        nodes: Collection[Node],
-        current: Sequence[Node]
-    ) -> Collection[Node]:
+    def _notify_remove(self, nodes: Collection[Node], current: Sequence[Node]) -> Collection[Node]:
         children = self.children
 
         if children._parent is not None:
             if children._entry_support_raw is self:
-                children._parent._fire_sub_nodes_change(False, nodes, current)
+                children._parent._fire_sub_nodes_change(False, nodes, current)  # noqa: FBT003
 
             for node in nodes:
                 node._deassign_from(children)
@@ -546,13 +545,15 @@ class EntrySupportDefault(EntrySupport, Debug(f'{__name__}.EntrySupportDefault')
 
         parent = self.children._parent
         # print(
-        #     f'EntrySupportDefault._notify_add: {nodes=}, {parent=}, {self.children._entry_support_raw=}, {self=}')
+        #     f'EntrySupportDefault._notify_add: '
+        #     f'{nodes=}, {parent=}, {self.children._entry_support_raw=}, {self=}',
+        # )
         if (parent is not None) and (self.children._entry_support_raw is self):
-            parent._fire_sub_nodes_change(True, nodes, None)
+            parent._fire_sub_nodes_change(True, nodes, None)  # noqa: FBT003
 
     # OK, Match
     @override  # EntrySupport
-    def test_nodes(self) -> Optional[list[Node]]:
+    def test_nodes(self) -> list[Node] | None:
         storage = self.__storage()
         if storage is None:
             return None
@@ -562,14 +563,15 @@ class EntrySupportDefault(EntrySupport, Debug(f'{__name__}.EntrySupportDefault')
 
     # OK, Match
     def __get_storage(
-        self, cannot_work_better: Optional[MutableSequence[bool]] = None
+        self,
+        cannot_work_better: MutableSequence[bool] | None = None,
     ) -> ChildrenStorage:
         do_initialise = False
 
         with EntrySupportDefault.__LOCK:
             if (storage := self.__storage()) is None:
                 storage = ChildrenStorage()
-                self._register_children_storage(storage, False)
+                self._register_children_storage(storage, weak=False)
                 do_initialise = True
                 self.__init_thread = threading.current_thread()
 
@@ -593,9 +595,9 @@ class EntrySupportDefault(EntrySupport, Debug(f'{__name__}.EntrySupportDefault')
 
         elif self.__init_thread is not None:
             if (
-                Children.MUTEX.is_read_access or
-                Children.MUTEX.is_write_access or
-                (self.__init_thread == threading.current_thread())
+                Children.MUTEX.is_read_access
+                or Children.MUTEX.is_write_access
+                or (self.__init_thread == threading.current_thread())
             ):
                 if cannot_work_better is not None:
                     cannot_work_better[0] = True
@@ -616,16 +618,16 @@ class EntrySupportDefault(EntrySupport, Debug(f'{__name__}.EntrySupportDefault')
 
     # OK, Match
     @final
-    def _register_children_storage(self, storage: ChildrenStorage, weak: bool) -> None:
+    def _register_children_storage(self, storage: ChildrenStorage, *, weak: bool) -> None:
         with EntrySupportDefault.__LOCK:
             if (
-                (self.__storage is not None) and
-                (self.__storage() is storage) and
-                (self.__storage._is_weak is weak)
+                (self.__storage is not None)
+                and (self.__storage() is storage)
+                and (self.__storage._is_weak is weak)
             ):
                 return
 
-            self.__storage = _StorageRef(self, storage, weak)
+            self.__storage = _StorageRef(self, storage, weak=weak)
 
     # OK, Match
     @final
@@ -643,9 +645,9 @@ class EntrySupportDefault(EntrySupport, Debug(f'{__name__}.EntrySupportDefault')
 
         try:
             Children.MUTEX.post_write_request(run)
-        except RuntimeError:
-            raise RuntimeError(
-                f'Proot at {time.monotonic()} in {self} with storage ref={caller}=>{caller()}')
+        except RuntimeError as ex:
+            msg = f'Proot at {time.monotonic()} in {self} with storage ref={caller}=>{caller()}'
+            raise RuntimeError(msg) from ex
 
     # OK, Match
     @property

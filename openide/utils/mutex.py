@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Copyright (c) 2021 Contributors as noted in the AUTHORS file
 #
 # This Source Code Form is subject to the terms of the Mozilla Public
@@ -13,12 +12,11 @@ from __future__ import annotations
 import logging
 import queue
 import sys
-import time
 import threading
+import time
 import warnings
 from abc import ABC, abstractmethod
-from collections.abc import Callable, MutableMapping, MutableSequence
-from contextlib import contextmanager, AbstractContextManager
+from contextlib import AbstractContextManager, contextmanager
 from dataclasses import dataclass, field
 from enum import Enum
 from functools import partial
@@ -27,15 +25,13 @@ from threading import Condition, RLock, Thread
 from typing import TYPE_CHECKING
 
 # Third-party imports
-
 # Local imports
 from openide.utils.classes import Debug
 
-
 if TYPE_CHECKING:
-    from collections.abc import Generator
+    from collections.abc import Callable, Generator, MutableMapping, MutableSequence
     from types import TracebackType
-    from typing import Optional, Union, Any
+    from typing import Any, ClassVar, Self
 
 
 _logger = logging.getLogger(__name__)
@@ -55,20 +51,19 @@ def _debug(*args: Any, **kwargs: Any) -> None:
 
 
 class _TimeMeasure(AbstractContextManager):
-
     def __init__(
         self,
         message: str,
-        time_fn: Optional[Callable[[], Union[float, int]]] = None
+        time_fn: Callable[[], float | int] | None = None,
     ) -> None:
         if not _DEBUG_ACCESS:
             return
 
         self._message = message + '... '
         self._time_fn = time_fn or time.monotonic
-        self._t1: Union[float, int]
+        self._t1: float | int
 
-    def __enter__(self) -> _TimeMeasure:
+    def __enter__(self) -> Self:
         if not _DEBUG_ACCESS:
             return self
 
@@ -80,9 +75,9 @@ class _TimeMeasure(AbstractContextManager):
 
     def __exit__(
         self,
-        exc_type: Optional[type[BaseException]],
-        exc_value: Optional[BaseException],
-        exc_tb: Optional[TracebackType]
+        exc_type: type[BaseException] | None,
+        exc_value: BaseException | None,
+        exc_tb: TracebackType | None,
     ) -> bool:
         if not _DEBUG_ACCESS:
             return False
@@ -99,41 +94,40 @@ class _TimeMeasure(AbstractContextManager):
 
 
 class MutexImplementation(ABC):
-
     @property
     @abstractmethod
     def is_read_access(self) -> bool:
-        raise NotImplementedError()  # pragma: no cover
+        raise NotImplementedError  # pragma: no cover
 
     @contextmanager
     @abstractmethod
     def read_access(self) -> Generator[None, None, None]:
-        raise NotImplementedError()  # pragma: no cover
+        raise NotImplementedError  # pragma: no cover
 
     @abstractmethod
     def post_read_request(self, run: Callable[[], None]) -> None:
-        raise NotImplementedError()  # pragma: no cover
+        raise NotImplementedError  # pragma: no cover
 
     @property
     @abstractmethod
     def is_write_access(self) -> bool:
-        raise NotImplementedError()  # pragma: no cover
+        raise NotImplementedError  # pragma: no cover
 
     @contextmanager
     @abstractmethod
     def write_access(self) -> Generator[None, None, None]:
-        raise NotImplementedError()  # pragma: no cover
+        raise NotImplementedError  # pragma: no cover
 
     @abstractmethod
     def post_write_request(self, run: Callable[[], None]) -> None:
-        raise NotImplementedError()  # pragma: no cover
+        raise NotImplementedError  # pragma: no cover
 
 
 class Mutex(Debug(f'{__name__}.Mutex')):
-
     def __init__(
-        self, implementation: Optional[MutexImplementation] = None,
-        lock: Optional[RLock] = None
+        self,
+        implementation: MutexImplementation | None = None,
+        lock: RLock | None = None,
     ) -> None:
         super().__init__()
 
@@ -169,14 +163,13 @@ class Mutex(Debug(f'{__name__}.Mutex')):
 
 
 class DefaultMutexImplementation(MutexImplementation):
-
     class _Modes(Enum):
         NONE = 0
         CHAIN = 1
         EXCL = 2
         SHARED = 3
 
-    _CMATRIX = [  # [requested][granted]
+    _CMATRIX: ClassVar = [  # [requested][granted]
         None,  # NONE
         None,  # CHAIN
         [True, False, False, False],  # EXCL
@@ -184,7 +177,6 @@ class DefaultMutexImplementation(MutexImplementation):
     ]
 
     class _ThreadInfo:
-
         def __init__(self, thread: Thread, mode: DefaultMutexImplementation._Modes) -> None:
             self.thread = thread
             self.mode = mode
@@ -192,7 +184,8 @@ class DefaultMutexImplementation(MutexImplementation):
             self.counts = [0] * n_modes
             self.counts[mode.value] = 1
             self.post_requests: tuple[
-                MutableSequence[Callable[[], None]], ...
+                MutableSequence[Callable[[], None]],
+                ...,
             ] = tuple([] for _ in range(n_modes))
 
             self.forced = False
@@ -202,8 +195,10 @@ class DefaultMutexImplementation(MutexImplementation):
             n_excl = self.counts[DefaultMutexImplementation._Modes.EXCL.value]
             n_shared = self.counts[DefaultMutexImplementation._Modes.SHARED.value]
 
-            return f'ThreadInfo(thread={self.thread} ; mode={self.mode} ; ' \
-                   f'EXCL={n_excl} ; SHARED={n_shared})'
+            return (
+                f'ThreadInfo(thread={self.thread} ; mode={self.mode} ; '
+                f'EXCL={n_excl} ; SHARED={n_shared})'
+            )
 
     @dataclass(order=True)
     class _QueueCell(Condition):
@@ -217,19 +212,16 @@ class DefaultMutexImplementation(MutexImplementation):
             self.left = False
             self._signal = False
 
-        def sleep(self, timeout: Optional[float] = None) -> None:
+        def sleep(self, timeout: float | None = None) -> None:
             with self:
-                self.wait_for(
-                    partial(getattr, self, '_signal'),
-                    timeout
-                )
+                self.wait_for(partial(getattr, self, '_signal'), timeout)
 
         def wake_me_up(self) -> None:
             with self:
                 self._signal = True
                 self.notify_all()
 
-    def __init__(self, lock: Optional[RLock] = None) -> None:
+    def __init__(self, lock: RLock | None = None) -> None:
         super().__init__()
 
         if lock is None:
@@ -239,7 +231,9 @@ class DefaultMutexImplementation(MutexImplementation):
         self.__granted_mode = self._Modes.NONE
         self.__original_mode = self._Modes.NONE
         self.__registered_threads: MutableMapping[
-            Thread, DefaultMutexImplementation._ThreadInfo] = {}
+            Thread,
+            DefaultMutexImplementation._ThreadInfo,
+        ] = {}
         self._readers_num = 0
         self._waiters: queue.Queue = queue.PriorityQueue()
 
@@ -249,14 +243,13 @@ class DefaultMutexImplementation(MutexImplementation):
 
         with self._LOCK:
             info = self._get_thread_info(thread)
-            if info is not None:
-                if info.counts[self._Modes.SHARED.value] > 0:
-                    return True
+            if (info is not None) and (info.counts[self._Modes.SHARED.value] > 0):
+                return True
 
         return False
 
     @contextmanager
-    def read_access(self, timeout: Optional[float] = None) -> Generator[None, None, None]:
+    def read_access(self, timeout: float | None = None) -> Generator[None, None, None]:
         thread = threading.current_thread()
 
         if _DEBUG_ACCESS:
@@ -289,14 +282,13 @@ class DefaultMutexImplementation(MutexImplementation):
 
         with self._LOCK:
             info = self._get_thread_info(thread)
-            if info is not None:
-                if info.counts[self._Modes.EXCL.value] > 0:
-                    return True
+            if (info is not None) and (info.counts[self._Modes.EXCL.value] > 0):
+                return True
 
         return False
 
     @contextmanager
-    def write_access(self, timeout: Optional[float] = None) -> Generator[None, None, None]:
+    def write_access(self, timeout: float | None = None) -> Generator[None, None, None]:
         thread = threading.current_thread()
 
         if _DEBUG_ACCESS:
@@ -319,22 +311,25 @@ class DefaultMutexImplementation(MutexImplementation):
 
     def post_write_request(self, run: Callable[[], None]) -> None:
         if self._LOCK._is_owned():
-            raise RuntimeError('Cannot post write request while we are doing some mutex operation')
+            msg = 'Cannot post write request while we are doing some mutex operation'
+            raise RuntimeError(msg)
 
         if _DEBUG_ACCESS:
             self._post_request_debug(self._Modes.EXCL, run)
         else:
             self._post_request(self._Modes.EXCL, run)
 
-    def _enter(
-        self, requested: DefaultMutexImplementation._Modes,
-        thread: Thread, timeout: Optional[float],
+    def _enter(  # noqa: C901, PLR0912, PLR0915
+        self,
+        requested: DefaultMutexImplementation._Modes,
+        thread: Thread,
+        timeout: float | None,
     ) -> bool:
         cell = None
         loop_counter = 0
 
-        EXCL = self._Modes.EXCL
-        SHARED = self._Modes.SHARED
+        EXCL = self._Modes.EXCL  # noqa: N806
+        SHARED = self._Modes.SHARED  # noqa: N806
 
         while True:
             loop_counter += 1
@@ -345,21 +340,27 @@ class DefaultMutexImplementation(MutexImplementation):
 
                 if info is not None:
                     if self._granted_mode == self._Modes.NONE:
-                        raise RuntimeError('Thread already entered, but has no mode?! ')
+                        msg = 'Thread already entered, but has no mode?! '
+                        raise RuntimeError(msg)
 
-                    if any((
-                        (info.mode == SHARED) and (self._granted_mode == EXCL),
-                        (info.mode == EXCL) and (self._granted_mode == SHARED),
-                    )):
-                        raise RuntimeError('Discrepency between thread mode and granted mode')
+                    if any(
+                        (
+                            (info.mode == SHARED) and (self._granted_mode == EXCL),
+                            (info.mode == EXCL) and (self._granted_mode == SHARED),
+                        ),
+                    ):
+                        msg = 'Discrepency between thread mode and granted mode'
+                        raise RuntimeError(msg)
 
-                    if (info.mode == EXCL) or (info.mode == requested):
+                    if info.mode in (EXCL, requested):
                         if info.forced:
                             info.forced = False
                         else:
                             if (requested == EXCL) and (info.counts[SHARED.value] > 0):
-                                warnings.warn(
-                                    'Going from read_access to write_access', RuntimeWarning)
+                                warnings.warn(  # noqa: B028
+                                    'Going from read_access to write_access',
+                                    RuntimeWarning,
+                                )
                             info.counts[requested.value] += 1
                             if (requested == SHARED) and (info.counts[requested.value] == 1):
                                 self._readers_num += 1
@@ -367,32 +368,30 @@ class DefaultMutexImplementation(MutexImplementation):
                         return True
 
                     elif self._can_upgrade(info.mode, requested):
-                        warnings.warn(
-                            'Going from read_access to write_access', RuntimeWarning)
+                        warnings.warn('Going from read_access to write_access', RuntimeWarning)  # noqa: B028
                         info.mode = EXCL
                         info.counts[requested.value] += 1
                         info.rsnapshot = info.counts[SHARED.value]
                         if self._granted_mode == SHARED:
                             self._granted_mode = EXCL
                         elif self._granted_mode == EXCL:
-                            raise RuntimeError('Cannot go to write mode, we alread are in it?!')
+                            msg = 'Cannot go to write mode, we alread are in it?!'
+                            raise RuntimeError(msg)
 
                         return True
 
                     else:
-                        warnings.warn(
-                            'Going from read_access to write_access', RuntimeWarning)
+                        warnings.warn('Going from read_access to write_access', RuntimeWarning)  # noqa: B028
 
-                else:
-                    if self._is_compatible(requested):
-                        _debug(f'We are compatible ({requested=}), registering')
-                        self._granted_mode = requested
-                        self._registered_threads[thread] = self._ThreadInfo(thread, requested)
+                elif self._is_compatible(requested):
+                    _debug(f'We are compatible ({requested=}), registering')
+                    self._granted_mode = requested
+                    self._registered_threads[thread] = self._ThreadInfo(thread, requested)
 
-                        if requested == SHARED:
-                            self._readers_num += 1
+                    if requested == SHARED:
+                        self._readers_num += 1
 
-                        return True
+                    return True
 
                 if (timeout is not None) and (timeout == 0):
                     return False
@@ -406,29 +405,35 @@ class DefaultMutexImplementation(MutexImplementation):
                 timeout = 0
 
     def _reenter(self, thread: Thread, mode: DefaultMutexImplementation._Modes) -> bool:
-        Modes = self._Modes
+        Modes = self._Modes  # noqa: N806
         granted_mode = self._granted_mode
 
         if mode == Modes.SHARED:
-            if (self._granted_mode != Modes.NONE) and (self._granted_mode != Modes.SHARED):
-                raise RuntimeError(f'Cannot enter shared mode as we are in {self._granted_mode}')
+            if self._granted_mode not in (Modes.NONE, Modes.SHARED):
+                msg = f'Cannot enter shared mode as we are in {self._granted_mode}'
+                raise RuntimeError(msg)
 
             self._enter(mode, thread, None)
             return False
 
         info = self._get_thread_info(thread)
-        if any((
-            granted_mode in (Modes.EXCL, Modes.NONE),
-            all((
-                self._granted_mode == Modes.CHAIN,
-                (info is not None) and (info.counts[Modes.EXCL.value] > 0),
-            ))
-        )):
+        if any(
+            (
+                granted_mode in (Modes.EXCL, Modes.NONE),
+                all(
+                    (
+                        self._granted_mode == Modes.CHAIN,
+                        (info is not None) and (info.counts[Modes.EXCL.value] > 0),
+                    ),
+                ),
+            ),
+        ):
             self._enter(mode, thread, None)
             return False
 
         if self._readers_num == 0:
-            raise RuntimeError('No readers?!')
+            msg = 'No readers?!'
+            raise RuntimeError(msg)
 
         info = self._ThreadInfo(thread, mode)
         self._registered_threads[thread] = info
@@ -457,8 +462,9 @@ class DefaultMutexImplementation(MutexImplementation):
                 if self._readers_num == 0:
                     try:
                         highest_cell = self._waiters.get_nowait()
-                    except queue.Empty:
-                        raise RuntimeError('No cell waiting, not even our own?!')
+                    except queue.Empty as ex:
+                        msg = 'No cell waiting, not even our own?!'
+                        raise RuntimeError(msg) from ex
 
                     if highest_cell == cell:
                         self._waiters.task_done()
@@ -471,28 +477,30 @@ class DefaultMutexImplementation(MutexImplementation):
 
             cell.sleep()
 
-    def _leave(self, thread: Thread) -> None:
-        Modes = self._Modes
+    def _leave(self, thread: Thread) -> None:  # noqa: PLR0912
+        Modes = self._Modes  # noqa: N806
         posted_mode = Modes.NONE
         need_lock = False
 
         with self._LOCK:
             info = self._get_thread_info(thread)
             if info is None:
-                raise RuntimeError('No info on thread in a leave?!')
+                msg = 'No info on thread in a leave?!'
+                raise RuntimeError(msg)
 
             granted_mode = self._granted_mode
             if granted_mode == Modes.NONE:
-                raise RuntimeError('Cannot leave from None mode')
+                msg = 'Cannot leave from None mode'
+                raise RuntimeError(msg)
 
-            elif granted_mode == Modes.CHAIN:
+            elif granted_mode == Modes.CHAIN:  # noqa: RET506
                 if info.counts[Modes.EXCL.value] > 0:
                     posted_mode = self._leave_excl(info)
                 elif info.counts[Modes.SHARED.value] > 0:
                     posted_mode = self._leave_shared(info)
                 else:
-                    raise RuntimeError(
-                        'Cannot leave chain mode without any exclusive or shared users')
+                    msg = 'Cannot leave chain mode without any exclusive or shared users'
+                    raise RuntimeError(msg)
 
             elif granted_mode == Modes.EXCL:
                 posted_mode = self._leave_excl(info)
@@ -520,14 +528,15 @@ class DefaultMutexImplementation(MutexImplementation):
                 self._leave(thread)
 
     def _leave_excl(
-        self, info: DefaultMutexImplementation._ThreadInfo
+        self,
+        info: DefaultMutexImplementation._ThreadInfo,
     ) -> DefaultMutexImplementation._Modes:
-        Modes = self._Modes
-        if any((
-            info.counts[Modes.EXCL.value] <= 0,
-            info.rsnapshot > info.counts[Modes.SHARED.value]
-        )):
-            raise RuntimeError('Cannot leave exclusive, thread is not in exclusive mode...')
+        Modes = self._Modes  # noqa: N806
+        if any(
+            (info.counts[Modes.EXCL.value] <= 0, info.rsnapshot > info.counts[Modes.SHARED.value]),
+        ):
+            msg = 'Cannot leave exclusive, thread is not in exclusive mode...'
+            raise RuntimeError(msg)
 
         if info.rsnapshot == info.counts[Modes.SHARED.value]:
             info.counts[Modes.EXCL.value] -= 1
@@ -552,24 +561,28 @@ class DefaultMutexImplementation(MutexImplementation):
 
         else:
             if info.counts[Modes.SHARED.value] <= 0:
-                raise RuntimeError('Is rsnapshot negative?!')
+                msg = 'Is rsnapshot negative?!'
+                raise RuntimeError(msg)
 
             info.counts[Modes.SHARED.value] -= 1
             if info.counts[Modes.SHARED.value] == 0:
                 if self._readers_num <= 0:
-                    raise RuntimeError('No more readers?!')
+                    msg = 'No more readers?!'
+                    raise RuntimeError(msg)
                 self._readers_num -= 1
 
                 return Modes.EXCL
 
         return Modes.NONE
 
-    def _leave_shared(
-        self, info: DefaultMutexImplementation._ThreadInfo
+    def _leave_shared(  # noqa: PLR0912
+        self,
+        info: DefaultMutexImplementation._ThreadInfo,
     ) -> DefaultMutexImplementation._Modes:
-        Modes = self._Modes
+        Modes = self._Modes  # noqa: N806
         if (info.counts[Modes.SHARED.value] <= 0) or (info.counts[Modes.EXCL.value] > 0):
-            raise RuntimeError('Cannot leave shared, conditions are not met')
+            msg = 'Cannot leave shared, conditions are not met'
+            raise RuntimeError(msg)
 
         info.counts[Modes.SHARED.value] -= 1
 
@@ -578,7 +591,8 @@ class DefaultMutexImplementation(MutexImplementation):
             del self._registered_threads[info.thread]
 
             if self._readers_num <= 0:
-                raise RuntimeError('No more readers?!')
+                msg = 'No more readers?!'
+                raise RuntimeError(msg)
             self._readers_num -= 1
 
             if self._readers_num == 0:
@@ -596,8 +610,9 @@ class DefaultMutexImplementation(MutexImplementation):
                 while self._waiters.qsize():
                     try:
                         cell = self._waiters.get_nowait()
-                    except queue.Empty:
-                        raise RuntimeError('Hum, non-empty queue is... empty?!')
+                    except queue.Empty as ex:
+                        msg = 'Hum, non-empty queue is... empty?!'
+                        raise RuntimeError(msg) from ex
 
                     with cell:
                         if cell.left:
@@ -609,7 +624,8 @@ class DefaultMutexImplementation(MutexImplementation):
                             if cell_info.mode == Modes.SHARED:
                                 if cell.mode != Modes.EXCL:
                                     self._waiters.put(cell)
-                                    raise RuntimeError('Cell in wrong mode to be awaken')
+                                    msg = 'Cell in wrong mode to be awaken'
+                                    raise RuntimeError(msg)
 
                                 if self._waiters.qsize() == 0:
                                     self._granted_mode = Modes.EXCL
@@ -627,8 +643,10 @@ class DefaultMutexImplementation(MutexImplementation):
         return Modes.NONE
 
     def _chain(
-        self, requested: DefaultMutexImplementation._Modes,
-        thread: Thread, priority: float
+        self,
+        requested: DefaultMutexImplementation._Modes,
+        thread: Thread,
+        priority: float,
     ) -> DefaultMutexImplementation._QueueCell:
         cell = self._QueueCell(priority=priority, mode=requested, thread=thread)
         self._waiters.put(cell)
@@ -636,13 +654,15 @@ class DefaultMutexImplementation(MutexImplementation):
 
     def _wake_up_others(self) -> None:
         if self._granted_mode in (self._Modes.EXCL, self._Modes.CHAIN):
-            raise RuntimeError('Wrong mode to wake up others')
+            msg = 'Wrong mode to wake up others'
+            raise RuntimeError(msg)
 
         while self._waiters.qsize():
             try:
                 cell = self._waiters.get_nowait()
-            except queue.Empty:
-                raise RuntimeError('Hum, non-empty queue is... empty?!')
+            except queue.Empty as ex:
+                msg = 'Hum, non-empty queue is... empty?!'
+                raise RuntimeError(msg) from ex
 
             with cell:
                 if cell.left:
@@ -675,8 +695,9 @@ class DefaultMutexImplementation(MutexImplementation):
         while self._waiters.qsize():
             try:
                 cell = self._waiters.get_nowait()
-            except queue.Empty:
-                raise RuntimeError('Hum, non-empty queue is... empty?!')
+            except queue.Empty as ex:
+                msg = 'Hum, non-empty queue is... empty?!'
+                raise RuntimeError(msg) from ex
 
             with cell:
                 if cell.left:
@@ -702,10 +723,11 @@ class DefaultMutexImplementation(MutexImplementation):
             self._waiters.put(cell)
 
     def _post_request(
-        self, mutex_mode: DefaultMutexImplementation._Modes,
-        run: Callable[[], None]
+        self,
+        mutex_mode: DefaultMutexImplementation._Modes,
+        run: Callable[[], None],
     ) -> None:
-        Modes = self._Modes
+        Modes = self._Modes  # noqa: N806
         thread = threading.current_thread()
 
         with self._LOCK:
@@ -728,10 +750,11 @@ class DefaultMutexImplementation(MutexImplementation):
             self._leave(thread)
 
     def _post_request_debug(
-        self, mutex_mode: DefaultMutexImplementation._Modes,
-        run: Callable[[], None]
+        self,
+        mutex_mode: DefaultMutexImplementation._Modes,
+        run: Callable[[], None],
     ) -> None:
-        Modes = self._Modes
+        Modes = self._Modes  # noqa: N806
         thread = threading.current_thread()
 
         with self._LOCK:
@@ -759,29 +782,32 @@ class DefaultMutexImplementation(MutexImplementation):
                 self._leave(thread)
 
     def _is_compatible(self, requested: DefaultMutexImplementation._Modes) -> bool:
-        if all((
-            requested == self._Modes.SHARED,
-            self._granted_mode == self._Modes.CHAIN,
-            self._original_mode == self._Modes.SHARED,
-        )):
+        if all(
+            (
+                requested == self._Modes.SHARED,
+                self._granted_mode == self._Modes.CHAIN,
+                self._original_mode == self._Modes.SHARED,
+            ),
+        ):
             return True
         else:
             return self._CMATRIX[requested.value][self._granted_mode.value]
 
-    def _get_thread_info(
-        self, thread: Thread
-    ) -> Optional[DefaultMutexImplementation._ThreadInfo]:
+    def _get_thread_info(self, thread: Thread) -> DefaultMutexImplementation._ThreadInfo | None:
         return self._registered_threads.get(thread)
 
     def _can_upgrade(
-        self, thread_mode: DefaultMutexImplementation._Modes,
-        requested: DefaultMutexImplementation._Modes
+        self,
+        thread_mode: DefaultMutexImplementation._Modes,
+        requested: DefaultMutexImplementation._Modes,
     ) -> bool:
-        return all((
-            thread_mode == self._Modes.SHARED,
-            requested == self._Modes.EXCL,
-            self._readers_num == 1
-        ))
+        return all(
+            (
+                thread_mode == self._Modes.SHARED,
+                requested == self._Modes.EXCL,
+                self._readers_num == 1,
+            ),
+        )
 
     @property
     def _granted_mode(self) -> DefaultMutexImplementation._Modes:
@@ -803,8 +829,6 @@ class DefaultMutexImplementation(MutexImplementation):
         return self.__original_mode
 
     @property
-    def _registered_threads(
-        self
-    ) -> MutableMapping[Thread, DefaultMutexImplementation._ThreadInfo]:
+    def _registered_threads(self) -> MutableMapping[Thread, DefaultMutexImplementation._ThreadInfo]:
         assert self._LOCK._is_owned()  # type: ignore[attr-defined]
         return self.__registered_threads

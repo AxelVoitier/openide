@@ -1,33 +1,34 @@
-# -*- coding: utf-8 -*-
 # Copyright (c) 2021 Contributors as noted in the AUTHORS file
 #
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
+from __future__ import annotations
+
 # System imports
 import logging
-import pkg_resources
 import sys
+
+import pkg_resources
 
 # Third-party imports
 import yaml
 
 # Local imports
-from openide.utils import SingletonMeta, RecursiveDict
+from openide.utils import RecursiveDict, SingletonMeta
 
 _logger = logging.getLogger(__name__)
 
 
 class IDEApplication(metaclass=SingletonMeta):
-
-    def __init__(self):
+    def __init__(self) -> None:
         self._gui_started = False
 
         self._setup_logger()
         self._load_config()
 
-    def _setup_logger(self):
+    def _setup_logger(self) -> None:
         logging.basicConfig(level=logging.INFO)
         logger = logging.getLogger()
         logger.setLevel(logging.INFO)
@@ -35,12 +36,14 @@ class IDEApplication(metaclass=SingletonMeta):
             logger.removeHandler(handler)
 
         formatter = logging.Formatter(
-            fmt='{levelname:<7}: {threadName}: {name}: {message}', style='{')
+            fmt='{levelname:<7}: {threadName}: {name}: {message}',
+            style='{',
+        )
         handler = logging.StreamHandler(sys.stdout)
         handler.setFormatter(formatter)
         logger.addHandler(handler)
 
-    def _load_config(self):
+    def _load_config(self) -> None:
         self._config = RecursiveDict()
         for dist in pkg_resources.working_set:
             if not dist.has_metadata('openide.yaml'):
@@ -50,18 +53,19 @@ class IDEApplication(metaclass=SingletonMeta):
             self._config.merge(yaml.safe_load(dist.get_metadata('openide.yaml')))
 
     @property
-    def config(self):
+    def config(self) -> RecursiveDict:
         return self._config
 
-    def start(self):
+    def start(self) -> None:
         # For now, only supporting GUI mode. CLI mode will come later
         self.gui_start()
 
-    def gui_start(self):
-        from qtpy.QtCore import Qt
-        from qtpy.QtWidgets import QApplication
-        from openide.lookups import MainLookup
-        from openide.windows import WindowManager
+    def gui_start(self) -> None:
+        from qtpy.QtCore import Qt  # noqa: PLC0415
+        from qtpy.QtWidgets import QApplication  # noqa: PLC0415
+
+        from openide.lookup import MainLookup  # noqa: PLC0415
+        from openide.windows import WindowManager  # noqa: PLC0415
 
         if self._gui_started:
             _logger.warning('Attempting to start GUI but it is already started')
@@ -74,7 +78,7 @@ class IDEApplication(metaclass=SingletonMeta):
         QApplication.setAttribute(Qt.AA_ShareOpenGLContexts, True)  # Avoids pesky warning
         self._qt_app = QApplication(sys.argv)
         MainLookup().register(self._qt_app)
-        self._main_window = WindowManager()
+        self._main_window = WindowManager()  # pyright: ignore[reportAbstractUsage]
         self._main_window.load()
 
         # Temporary solution

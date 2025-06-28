@@ -14,20 +14,18 @@ from typing import TYPE_CHECKING
 # Local imports
 
 if TYPE_CHECKING:
-    from typing import Optional
     from collections.abc import Collection
+
     from openide.nodes._like_netbeans.node import Node
 
 
-def compute_permutation(
-    nodes1: Collection[Node],
-    nodes2: Collection[Node]
-) -> Optional[list[int]]:
+def compute_permutation(nodes1: Collection[Node], nodes2: Collection[Node]) -> list[int] | None:
     if len(nodes1) != len(nodes2):
-        raise ValueError(
+        msg = (
             'Cannot compute permutations between two collections of Node '
             f'that do not have the same length: {nodes1=} ; {nodes2=}'
         )
+        raise ValueError(msg)
 
     new_positions_map = {node: i for i, node in enumerate(nodes2)}
     perm = [-1] * len(nodes1)
@@ -35,7 +33,8 @@ def compute_permutation(
     for i, node in enumerate(nodes1):
         new_pos = new_positions_map.get(node)
         if new_pos is None:
-            raise ValueError(f'Missing permutation index {i}')
+            msg = f'Missing permutation index {i}'
+            raise ValueError(msg)
 
         perm[i] = new_pos
         if new_pos != i:

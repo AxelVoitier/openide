@@ -1,23 +1,22 @@
-# -*- coding: utf-8 -*-
 # Copyright (c) 2021 Contributors as noted in the AUTHORS file
 #
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-# System imports
+from __future__ import annotations
 
+# System imports
 # Third-party imports
-from lookups import ProxyLookup, GenericLookup, InstanceContent, Convertor
+from lookups import Convertor, GenericLookup, InstanceContent, ProxyLookup
 
 # Local imports
-from openide.lookups import EggInfoLookup
-from openide.utils import SingletonMeta, MetaClassResolver
+from openide.lookup import EggInfoLookup
+from openide.utils import MetaClassResolver, SingletonMeta
 
 
 class MainLookup(MetaClassResolver(ProxyLookup, extra_metas=[SingletonMeta])):
-
-    def __init__(self):
+    def __init__(self) -> None:
         self._egg_info_lookup = EggInfoLookup('services')
         self._instance_content = InstanceContent()
         self.register(self)

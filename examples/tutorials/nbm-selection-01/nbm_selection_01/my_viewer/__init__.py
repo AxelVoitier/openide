@@ -1,6 +1,6 @@
 from openide.actions import ActionReference
-from openide.lookups import GlobalContext
-from openide.windows.top_component import TopComponent
+from openide.lookup import GlobalContext
+from openide.windows.top_component import Location, TopComponent
 
 from nbm_selection_01.my_api.event import Event
 
@@ -9,18 +9,15 @@ from nbm_selection_01.my_api.event import Event
     preferred_id='MyViewerTopComponent',
 )
 @TopComponent.Registration(
-    location='explorer',
+    location=Location.Explorer,
     open_at_startup=True,
 )
 @TopComponent.OpenActionRegistration(
     display_name='MyViewer',
     target_id='MyViewerTopComponent',
-    references=[
-        ActionReference(path='Menu/Window')
-    ],
+    references=[ActionReference(path='Menu/Window')],
 )
 class MyViewerTopComponent(TopComponent):
-
     def __init__(self):
         print('MyViewerTopComponent created')
         super().__init__()

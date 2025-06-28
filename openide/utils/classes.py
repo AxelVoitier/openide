@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Copyright (c) 2021 Contributors as noted in the AUTHORS file
 #
 # This Source Code Form is subject to the terms of the Mozilla Public
@@ -12,8 +11,8 @@ import functools
 import importlib
 import logging
 from abc import ABCMeta
-from functools import lru_cache
-from typing import TYPE_CHECKING, TypeVar, Type
+from contextlib import contextmanager
+from typing import TYPE_CHECKING, ClassVar, Self, TypeVar
 
 # Third-party imports
 from qtpy.QtCore import QObject
@@ -23,20 +22,22 @@ from qtpy.QtCore import QObject
 
 _logger = logging.getLogger(__name__)
 
-C = TypeVar('C', bound=Type)
+C = TypeVar('C', bound=type)
 if TYPE_CHECKING:
-    from collections.abc import Iterable
-    from typing import Optional, Any
+    from collections.abc import Callable, Iterable, Iterator
+    from typing import Any, TypeAlias
+
+    ClassDecorator: TypeAlias = Callable[[type[C]], type[C]]
 
 
 class SingletonMeta(type):
-    '''
+    """
     Uses like this:
     > class YourClass(metaclass=SingletonMeta):
     >     ...
-    '''
+    """
 
-    _instances = dict[Type['SingletonMeta'], 'SingletonMeta']()
+    _instances: ClassVar = dict[type['SingletonMeta'], 'SingletonMeta']()
 
     def __call__(cls, *args: Any, **kwargs: Any) -> SingletonMeta:
         if cls not in cls._instances:
@@ -46,7 +47,7 @@ class SingletonMeta(type):
 
 
 # Needed to make Generics work on user classes, despite all the "error" here...
-_QObjectType: Type[Type[QObject]] = type(QObject)  # type: ignore[valid-type]
+_QObjectType: type[type[QObject]] = type(QObject)  # type: ignore[valid-type]
 
 
 class _QObjectTypeFence(_QObjectType):  # type: ignore[valid-type,misc]
@@ -58,7 +59,7 @@ class _QABCMeta(_QObjectTypeFence, ABCMeta, _QObjectType):  # type: ignore[valid
 
 
 class QABC(metaclass=_QABCMeta):
-    '''A simpler variant of what MetaClassResolver does, but just for
+    """A simpler variant of what MetaClassResolver does, but just for
     the very common case of QObject + ABC.
 
     This one has the advantage of keeping mypy and pylance happy,
@@ -70,22 +71,23 @@ class QABC(metaclass=_QABCMeta):
         ...
 
     Note: Put it _before_ the first Qt class in the subclasses declaration.
-    '''
+    """
 
-    def __new__(cls, *args: Any, **kwargs: Any) -> QABC:
+    def __new__(cls, *args: Any, **kwargs: Any) -> Self:
         obj = super().__new__(cls, *args, **kwargs)
         if obj.__abstractmethods__:
             s = 's' if len(obj.__abstractmethods__) > 1 else ''
-            raise TypeError(
-                f'Can\'t instantiate abstract class {cls.__name__} '
+            msg = (
+                f"Can't instantiate abstract class {cls.__name__} "
                 f'with abstract method{s} {", ".join(obj.__abstractmethods__)}'
             )
+            raise TypeError(msg)
 
         return obj
 
 
-def MetaClassResolver(*subclasses: C, extra_metas: Optional[Iterable[Type]] = None) -> Type[C]:
-    '''Function to be called as a subclass definition, passing it all the subclasses you actually
+def MetaClassResolver(*subclasses: C, extra_metas: Iterable[type] | None = None) -> type[C]:  # noqa: N802
+    """Function to be called as a subclass definition, passing it all the subclasses you actually
     want, plus some extra metaclasses if you need.
     It will create a composite metaclass made of the metaclasses of all subclasses.
 
@@ -103,7 +105,7 @@ def MetaClassResolver(*subclasses: C, extra_metas: Optional[Iterable[Type]] = No
     Can also be used to quickly declare several metaclasses:
     class MyClass(MetaClassResolver(extra_metas=[ABCMeta, SingletonMeta])):
         ...
-    '''
+    """
     # Main principle of a metaclass resolver is to generate a dynamic metaclass
     # subclassing all metaclasses of the subclasses we are interested to have.
     #
@@ -187,6 +189,7 @@ def MetaClassResolver(*subclasses: C, extra_metas: Optional[Iterable[Type]] = No
     # objects), the behaviour is yet to be defined...
     all_meta_types = list({type(meta): meta for meta in all_metas if type(meta) is not type}.keys())
     if all_meta_types:
+
         class _MetaTypeFence(*all_meta_types):
             pass
 
@@ -202,8 +205,7 @@ def MetaClassResolver(*subclasses: C, extra_metas: Optional[Iterable[Type]] = No
     # - Subclass all given subclasses
     # - Mix and fix their metaclasses
     class _Resolver(*subclasses, metaclass=_ResolverMeta):
-
-        def __new__(cls, *args, **kwargs):
+        def __new__(cls, *args: Any, **kwargs: Any) -> Self:
             obj = super().__new__(cls, *args, **kwargs)
             if (ABCMeta in all_metas) and obj.__abstractmethods__:
                 # In case an ABC is used along a QObject (for instance), it turns out
@@ -216,42 +218,46 @@ def MetaClassResolver(*subclasses: C, extra_metas: Optional[Iterable[Type]] = No
                 # do have abstract methods, the normal abstraction check will happen
                 # before we reach this one.
                 s = 's' if len(obj.__abstractmethods__) > 1 else ''
-                raise TypeError(
-                    f'Can\'t instantiate abstract class {cls.__name__} '
+                msg = (
+                    f"Can't instantiate abstract class {cls.__name__} "
                     f'with abstract method{s} {", ".join(obj.__abstractmethods__)}'
                 )
+                raise TypeError(msg)
             return obj
 
     return _Resolver
 
 
-def dig_wrapped(cls):
+def dig_wrapped(cls: type[C]) -> type[C]:
     while hasattr(cls, '__wrapped__'):
-        cls = cls.__wrapped__
+        cls = cls.__wrapped__  # pyright: ignore[reportAttributeAccessIssue]
     return cls
 
 
-def class_decorator(cls):
-    '''A utility to act as a class decorator. To be returned by a callable decorator.'''
+def class_decorator(cls: type[C]) -> type[C]:
+    """A utility to act as a class decorator. To be returned by a callable decorator."""
     return cls
 
 
-def class_decorator_ext(callback):
-    '''Another helper for callable decorator, this time allowing to specify a callback to which we
-    will pass the actual decorated class.'''
-    def class_decorator(cls):
+# TODO: Not sure of the type signatures here...
+def class_decorator_ext(callback: Callable[[type[C]], Any]) -> ClassDecorator:
+    """Another helper for callable decorator, this time allowing to specify a callback to which we
+    will pass the actual decorated class."""
+
+    def class_decorator(cls: type[C]) -> type[C]:
         callback(dig_wrapped(cls))
 
         @functools.wraps(cls)
-        def wrapper(*args, **kwargs):
+        def wrapper(*args: Any, **kwargs: Any) -> Any:  # noqa: ANN401
             return cls(*args, **kwargs)
+
         return wrapper
 
     return class_decorator
 
 
-@lru_cache(maxsize=None)
-def class_loader(fqname):
+@functools.cache
+def class_loader(fqname: str) -> type:
     _logger.info('Loading class %s', fqname)
     module_path, qualname = fqname.split(':')
     module = importlib.import_module(module_path)

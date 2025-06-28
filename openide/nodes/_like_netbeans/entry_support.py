@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Copyright (c) 2021 Contributors as noted in the AUTHORS file
 #
 # This Source Code Form is subject to the terms of the Mozilla Public
@@ -18,14 +17,13 @@ from typing import TYPE_CHECKING
 # Local imports
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable, Sequence, MutableSequence
-    from typing import Optional
-    from openide.nodes._like_netbeans.node import Node
+    from collections.abc import Iterable, MutableSequence, Sequence
+
     from openide.nodes._like_netbeans.children import Children
+    from openide.nodes._like_netbeans.node import Node
 
 
 class EntrySupport(ABC):
-
     # OK, Match
     def __init__(self, children: Children) -> None:
         super().__init__()
@@ -39,53 +37,53 @@ class EntrySupport(ABC):
 
     # OK, Match
     @abstractmethod
-    def get_nodes_count(self, optimal_result: bool) -> int:
-        raise NotImplementedError()  # pragma: no cover
+    def get_nodes_count(self, *, optimal_result: bool) -> int:
+        raise NotImplementedError  # pragma: no cover
 
     # OK, Match
     @abstractmethod
-    def get_nodes(self, optimal_result: bool) -> Sequence[Node]:
-        raise NotImplementedError()  # pragma: no cover
+    def get_nodes(self, *, optimal_result: bool) -> Sequence[Node]:
+        raise NotImplementedError  # pragma: no cover
 
     # OK, Match
     # TODO: __getitem__?
     @abstractmethod
-    def get_node_at(self, index: int) -> Optional[Node]:
-        raise NotImplementedError()  # pragma: no cover
+    def get_node_at(self, index: int) -> Node | None:
+        raise NotImplementedError  # pragma: no cover
 
     # OK, Match
     @abstractmethod
-    def test_nodes(self) -> Optional[Sequence[Node]]:
-        raise NotImplementedError()  # pragma: no cover
+    def test_nodes(self) -> Sequence[Node] | None:
+        raise NotImplementedError  # pragma: no cover
 
     # OK, Match
     @property
     @abstractmethod
     def is_initialised(self) -> bool:
-        raise NotImplementedError()  # pragma: no cover
+        raise NotImplementedError  # pragma: no cover
 
     # OK, Match
     @abstractmethod
     def _notify_set_entries(self) -> None:
-        raise NotImplementedError()  # pragma: no cover
+        raise NotImplementedError  # pragma: no cover
 
     # OK, Match
     @abstractmethod
-    def _set_entries(self, entries: Iterable[Children.Entry], no_check: bool = False) -> None:
-        raise NotImplementedError()  # pragma: no cover
+    def _set_entries(self, entries: Iterable[Children.Entry], *, no_check: bool = False) -> None:
+        raise NotImplementedError  # pragma: no cover
 
     # OK, Match
     @property
     @abstractmethod
     def _entries(self) -> MutableSequence[Children.Entry]:
-        raise NotImplementedError()  # pragma: no cover
+        raise NotImplementedError  # pragma: no cover
 
     # OK, Match
     @abstractmethod
     def _snapshot(self) -> Sequence[Node]:
-        raise NotImplementedError()  # pragma: no cover
+        raise NotImplementedError  # pragma: no cover
 
     # OK, Match
     @abstractmethod
     def _refresh_entry(self, entry: Children.Entry) -> None:
-        raise NotImplementedError()  # pragma: no cover
+        raise NotImplementedError  # pragma: no cover

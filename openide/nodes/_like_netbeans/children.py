@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Copyright (c) 2021 Contributors as noted in the AUTHORS file
 #
 # This Source Code Form is subject to the terms of the Mozilla Public
@@ -15,25 +14,24 @@ from abc import ABC, abstractmethod
 from collections.abc import Hashable
 from copy import copy
 from threading import RLock
-from typing import TYPE_CHECKING, final, cast, Generic, TypeVar
+from typing import TYPE_CHECKING, ClassVar, Generic, TypeVar, cast, final
 
 # Third-party imports
-
 # Local imports
 from openide.utils import Mutex
 from openide.utils.classes import Debug
 from openide.utils.typing import override
 
-
 T = TypeVar('T')
 T_Hashable = TypeVar('T_Hashable', bound=Hashable)
 K = TypeVar('K')
 if TYPE_CHECKING:
-    from collections.abc import Iterable, Sequence, MutableSequence, MutableMapping
-    from typing import Optional, Union, Callable, Type, Any
-    from openide.nodes._like_netbeans.node import Node
-    from openide.nodes._like_netbeans.entry_support import EntrySupport
+    from collections.abc import Iterable, MutableMapping, MutableSequence, Sequence
+    from typing import Any, Callable
+
     from openide.nodes._like_netbeans.child_factory import ChildFactory
+    from openide.nodes._like_netbeans.entry_support import EntrySupport
+    from openide.nodes._like_netbeans.node import Node
 
 
 _logger = logging.getLogger(__name__)
@@ -45,30 +43,28 @@ _logger = logging.getLogger(__name__)
 
 
 class Children(ABC, Debug(f'{__name__}.Children')):
-
     MUTEX = Mutex()
     _LOCK = RLock()  # Class lock
 
     class Entry(ABC):
-
         @abstractmethod
-        def nodes(self, source: Any) -> MutableSequence[Node]:
-            raise NotImplementedError()  # pragma: no cover
+        def nodes(self, source: Any) -> MutableSequence[Node]:  # noqa: ANN401
+            raise NotImplementedError  # pragma: no cover
 
     # Set later, for Java API compat
     LEAF: Children = None  # type: ignore[assignment]
-    Array: Type[Array] = None  # type: ignore[assignment]
-    SortedArray: Type[SortedArray] = None  # type: ignore[assignment]
-    Map: Type[Map] = None  # type: ignore[assignment]
-    Keys: Type[Keys] = None  # type: ignore[assignment]
+    Array: type[Array] = None  # type: ignore[assignment]
+    SortedArray: type[SortedArray] = None  # type: ignore[assignment]
+    Map: type[Map] = None  # type: ignore[assignment]
+    Keys: type[Keys] = None  # type: ignore[assignment]
 
     # OK, Match
-    def __init__(self, _lazy: bool = False) -> None:
+    def __init__(self, *, _lazy: bool = False) -> None:
         super().__init__()
 
-        self.__entry_support: Optional[EntrySupport] = None
+        self.__entry_support: EntrySupport | None = None
         self._lazy_support = _lazy
-        self._parent: Optional[Node] = None
+        self._parent: Node | None = None
         self._lock = RLock()  # Instance lock
 
     # OK, Match
@@ -77,11 +73,13 @@ class Children(ABC, Debug(f'{__name__}.Children')):
         with Children._LOCK:
             if (entry_support := self._entry_support_raw) is None:
                 if self._lazy_support:
-                    from openide.nodes._like_netbeans.entry_support_lazy import EntrySupportLazy
+                    from openide.nodes._like_netbeans.entry_support_lazy import EntrySupportLazy  # noqa: I001, PLC0415
 
                     entry_support = EntrySupportLazy(self)
                 else:
-                    from openide.nodes._like_netbeans.entry_support_default import EntrySupportDefault
+                    from openide.nodes._like_netbeans.entry_support_default import (  # noqa: PLC0415
+                        EntrySupportDefault,
+                    )
 
                     entry_support = EntrySupportDefault(self)
 
@@ -111,8 +109,8 @@ class Children(ABC, Debug(f'{__name__}.Children')):
 
         with self._lock:
             if self._parent is not None:
-                raise RuntimeError(
-                    'An instance of Children may not be used for more than one parent node')
+                msg = 'An instance of Children may not be used for more than one parent node'
+                raise RuntimeError(msg)
 
             self._parent = parent
 
@@ -137,7 +135,8 @@ class Children(ABC, Debug(f'{__name__}.Children')):
 
         with self._lock:
             if (old_parent := self._parent) is None:
-                raise RuntimeError('Trying to detach children which do not have parent')
+                msg = 'Trying to detach children which do not have parent'
+                raise RuntimeError(msg)
 
             self._parent = None
 
@@ -146,21 +145,21 @@ class Children(ABC, Debug(f'{__name__}.Children')):
             if not nodes:
                 return
 
-            for i, node in enumerate(nodes):
+            for node in nodes:
                 node._deassign_from(self)
                 node._fire_own_property_change('parentNode', old_parent, None)
 
     # OK, Match
     @staticmethod
-    def create(factory: ChildFactory, asynchronous: bool) -> Children:
+    def create(factory: ChildFactory, *, asynchronous: bool) -> Children:
         children: Children
         if not asynchronous:
-            from openide.nodes._like_netbeans.sync_children import SyncChildren
+            from openide.nodes._like_netbeans.sync_children import SyncChildren  # noqa: PLC0415
 
             children = SyncChildren(factory)
 
         else:
-            from openide.nodes._like_netbeans.async_children import AsyncChildren
+            from openide.nodes._like_netbeans.async_children import AsyncChildren  # noqa: PLC0415
 
             children = AsyncChildren(factory)
 
@@ -175,37 +174,37 @@ class Children(ABC, Debug(f'{__name__}.Children')):
 
     # OK, Match
     @property
-    def node(self) -> Optional[Node]:
+    def node(self) -> Node | None:
         return self._parent
 
     # TODO: Review
     def __deepcopy__(self, memo: dict[int, Any]) -> Children:
-        '''
+        """
         Subclasses should first call super().__deepcopy__() to get
         an instance. And then call their own SubClass.__init__(instance, ...)
         (or do the initialisation in __deepcopy__ as they see fit).
 
         Subclasses that don't want to be cloned should overload
         and just return Children.LEAF.
-        '''
+        """
 
         new = Children.__new__(type(self))
-        Children.__init__(new, self._lazy_support)
+        Children.__init__(new, _lazy=self._lazy_support)
 
         return new
 
     # OK, Match
     @abstractmethod
     def add(self, nodes: Sequence[Node]) -> bool:
-        raise NotImplementedError()  # pragma: no cover
+        raise NotImplementedError  # pragma: no cover
 
     # OK, Match
     @abstractmethod
     def remove(self, nodes: Sequence[Node]) -> bool:
-        raise NotImplementedError()  # pragma: no cover
+        raise NotImplementedError  # pragma: no cover
 
     # OK, Match
-    def find_child(self, system_name: Optional[str]) -> Optional[Node]:
+    def find_child(self, system_name: str | None) -> Node | None:
         nodes = self.get_nodes()
 
         if not nodes:
@@ -217,8 +216,8 @@ class Children(ABC, Debug(f'{__name__}.Children')):
         for node in nodes:
             if node.system_name == system_name:
                 return node
-        else:
-            return None
+
+        return None
 
     # OK, Match
     @property
@@ -229,7 +228,7 @@ class Children(ABC, Debug(f'{__name__}.Children')):
     # OK, Match
     # TODO: __getitem__?
     @final
-    def get_node_at(self, index: int) -> Optional[Node]:
+    def get_node_at(self, index: int) -> Node | None:
         self._check_support()
         return self._entry_support.get_node_at(index)
 
@@ -237,17 +236,17 @@ class Children(ABC, Debug(f'{__name__}.Children')):
     # TODO: Transform into 2 properties, "nodes" (final), and "nodes_optimal" (or something
     # like that). Potentially propagate to EntrySupport (and all its implementations).
     # Note: getNodes() is final, but getNodes(optimalResult) is not.
-    def get_nodes(self, optimal_result: bool = False) -> Sequence[Node]:
+    def get_nodes(self, *, optimal_result: bool = False) -> Sequence[Node]:
         self._check_support()
-        return self._entry_support.get_nodes(optimal_result)
+        return self._entry_support.get_nodes(optimal_result=optimal_result)
 
     # OK, Match
     # TODO: __len__? (Using the False default for optimal)
     # Or just let client code do len(children.nodes) or len(children.nodes_optimal)?
     # Note: getNodesCount() is final, but getNodesCount(optimalResult) is not.
-    def get_nodes_count(self, optimal_result: bool = False) -> int:
+    def get_nodes_count(self, *, optimal_result: bool = False) -> int:
         self._check_support()
-        return self._entry_support.get_nodes_count(optimal_result)
+        return self._entry_support.get_nodes_count(optimal_result=optimal_result)
 
     # OK, Match
     @final
@@ -280,7 +279,7 @@ class Children(ABC, Debug(f'{__name__}.Children')):
         pass
 
     # OK, Match
-    def __test_nodes(self) -> Optional[Sequence[Node]]:
+    def __test_nodes(self) -> Sequence[Node] | None:
         if (entry_support := self.__entry_support) is not None:
             # Note: Compared to original, we are skipping the getter, sparing us a lock acquisition
             return entry_support.test_nodes()
@@ -289,19 +288,18 @@ class Children(ABC, Debug(f'{__name__}.Children')):
 
     # OK, Match
     @property
-    def _entry_support_raw(self) -> Optional[EntrySupport]:
+    def _entry_support_raw(self) -> EntrySupport | None:
         return self.__entry_support
 
     # OK, Match
     @_entry_support_raw.setter
     @final
-    def _entry_support_raw(self, value: Optional[EntrySupport]) -> None:
+    def _entry_support_raw(self, value: EntrySupport | None) -> None:
         assert Children._LOCK._is_owned()  # type: ignore[attr-defined]
         self.__entry_support = value
 
 
 class __Empty(Children):
-
     @override  # Children
     def add(self, nodes: Sequence[Node]) -> bool:
         return False
@@ -315,19 +313,17 @@ Children.LEAF = __Empty()
 
 
 class Array(Children):
-
     __COLLECTION_LOCK = RLock()
 
     # OK, Match
     class __ArrayEntry(Children.Entry):
-
         def __init__(self, array: Array) -> None:
             super().__init__()
             self._array = array
 
         # OK, Match
         @override  # Children.Entry
-        def nodes(self, source: Any) -> MutableSequence[Node]:
+        def nodes(self, source: Any) -> MutableSequence[Node]:  # noqa: ANN401
             if not (collection := self._array._collection):
                 return []
             else:
@@ -335,14 +331,14 @@ class Array(Children):
                     return list(collection)
 
     # OK, Match
-    def __init__(self, _nodes: Optional[MutableSequence[Node]] = None, _lazy: bool = False) -> None:
+    def __init__(self, _nodes: MutableSequence[Node] | None = None, *, _lazy: bool = False) -> None:
         if _nodes is not None:
             # Match original behaviour of protected constructors
             _lazy = False
 
-        super().__init__(_lazy)
+        super().__init__(_lazy=_lazy)
 
-        self._nodes_entry: Optional[Children.Entry] = None
+        self._nodes_entry: Children.Entry | None = None
         if not _lazy:
             self._nodes_entry = self._create_nodes_entry()
 
@@ -355,14 +351,14 @@ class Array(Children):
             if self._nodes_entry is None:
                 self._nodes_entry = self._create_nodes_entry()
 
-            entry_support._set_entries((self._nodes_entry, ), True)
+            entry_support._set_entries((self._nodes_entry,), no_check=True)
 
         elif self._nodes_entry is not None:
             self._nodes_entry = None
 
     # TODO: Review
     def __deepcopy__(self, memo: dict[int, Any]) -> Array:
-        new = cast(Array, super().__deepcopy__(memo))
+        new = cast('Array', super().__deepcopy__(memo))
 
         new._nodes_entry = None
         if not new._lazy_support:
@@ -379,7 +375,7 @@ class Array(Children):
 
     # OK, Match
     def _init_collection(self) -> MutableSequence[Node]:
-        return list()
+        return []
 
     # OK, Match
     # Note: Inlined refreshImpl as it did not seemed to be (locally) subclassed
@@ -394,7 +390,7 @@ class Array(Children):
 
             if self._is_initialised:
                 self._entry_support._refresh_entry(self._nodes_entry)
-                self._entry_support.get_nodes(False)
+                self._entry_support.get_nodes(optimal_result=False)
 
             elif self._nodes is not None:
                 for node in self._nodes:
@@ -458,35 +454,33 @@ Children.Array = Array
 
 
 class SortedArray(Array):
-
     # OK, Match
     class __SortedArrayEntry(Children.Entry):
-
         def __init__(self, array: SortedArray) -> None:
             super().__init__()
             self._array = array
 
         # OK, reversed is an additional behaviour
         @override  # Children.Entry
-        def nodes(self, source: Any) -> MutableSequence[Node]:
+        def nodes(self, source: Any) -> MutableSequence[Node]:  # noqa: ANN401
             collection = self._array._collection
             return sorted(collection, key=self._array.key, reverse=self._array.is_reversed)
 
     # OK, reversed is an additional behaviour
-    def __init__(self, _nodes: Optional[MutableSequence[Node]] = None) -> None:
+    def __init__(self, _nodes: MutableSequence[Node] | None = None) -> None:
         super().__init__(_nodes=_nodes)
 
-        self.__key: Optional[Callable[[Node], Any]] = None
+        self.__key: Callable[[Node], Any] | None = None
         self._reversed = False
 
     # OK, Match
     @property
-    def key(self) -> Optional[Callable[[Node], Any]]:
+    def key(self) -> Callable[[Node], Any] | None:
         return self.__key
 
     # OK, Match
     @key.setter
-    def key(self, key: Optional[Callable[[Node], Any]]) -> None:
+    def key(self, key: Callable[[Node], Any] | None) -> None:
         with Children.MUTEX.write_access():
             self.__key = key
             self._refresh()
@@ -511,11 +505,9 @@ Children.SortedArray = SortedArray
 
 
 class Map(Children, Generic[T_Hashable]):
-
     # OK, Match
     # TODO: For some reasons, original does not have this one private?!
     class _MapEntry(Children.Entry):
-
         def __init__(self, key: T_Hashable, node: Node) -> None:
             super().__init__()
 
@@ -524,7 +516,7 @@ class Map(Children, Generic[T_Hashable]):
 
         # OK, Match
         @override  # Children.Entry
-        def nodes(self, source: Any) -> MutableSequence[Node]:
+        def nodes(self, source: Any) -> MutableSequence[Node]:  # noqa: ANN401
             return [self.node]
 
         # OK, Match
@@ -532,14 +524,14 @@ class Map(Children, Generic[T_Hashable]):
             return hash(self.key)
 
         # OK, Match
-        def __eq__(self, other: Any) -> bool:
+        def __eq__(self, other: object) -> bool:
             if isinstance(other, Map._MapEntry):
                 return self.key == (other.key)
             else:
                 return False
 
     # OK, Match
-    def __init__(self, _map: Optional[MutableMapping[T_Hashable, Node]] = None) -> None:
+    def __init__(self, _map: MutableMapping[T_Hashable, Node] | None = None) -> None:
         super().__init__()
 
         self._nodes = _map
@@ -557,7 +549,7 @@ class Map(Children, Generic[T_Hashable]):
     @final
     @override  # Children
     def _call_add_notify(self) -> None:
-        self._entry_support._set_entries(self._create_entries(self._map), True)
+        self._entry_support._set_entries(self._create_entries(self._map), no_check=True)
         super()._call_add_notify()
 
     # OK, Match
@@ -606,7 +598,7 @@ class Map(Children, Generic[T_Hashable]):
         with Children.MUTEX.write_access():
             our_map = self._map
             changed = False
-            for key in map.keys():
+            for key in map:
                 if key in our_map:
                     del our_map[key]
                     changed = True
@@ -623,7 +615,7 @@ class Map(Children, Generic[T_Hashable]):
 
     # OK, Match
     def _init_map(self) -> MutableMapping[T_Hashable, Node]:
-        return dict()
+        return {}
 
     # OK, Match
     @override  # Children
@@ -643,25 +635,23 @@ Children.Map = Map
 
 
 class Keys(Array, ABC, Generic[T]):
-
     _LOCK = RLock()
-    __LAST_RUNS: MutableMapping[Keys, Callable[[], None]] = dict()
+    __LAST_RUNS: ClassVar[MutableMapping[Keys, Callable[[], None]]] = {}
 
     # OK, Match
     # Note: Original separates it in two classes Dupl+KE, with Dupl being
     # protected (ie. package-private). But apparently, that's just for testing reason.
     class _KeyEntry(Children.Entry, Generic[K]):
-
         # OK, Match
-        def __init__(self, keys: Keys, key: Optional[K] = None) -> None:
+        def __init__(self, keys: Keys, key: K | None = None) -> None:
             super().__init__()
 
             self._keys = keys
-            self._key: Optional[Union[K, Keys._KeyEntry[K]]] = key
+            self._key: K | Keys._KeyEntry[K] | None = key
 
         # OK, Match
         @override  # Children.Entry
-        def nodes(self, source: Any) -> MutableSequence[Node]:
+        def nodes(self, source: Any) -> MutableSequence[Node]:  # noqa: ANN401
             nodes = self._keys._create_nodes(self.key)
             return list(nodes) if nodes is not None else []
 
@@ -673,10 +663,10 @@ class Keys(Array, ABC, Generic[T]):
             self,
             source: Sequence[K],
             target: MutableSequence[Children.Entry],
-            counter: Optional[MutableMapping[K, int]] = None,
+            counter: MutableMapping[K, int] | None = None,
         ) -> None:
             if counter is None:
-                counter = dict()
+                counter = {}
 
             for obj in source:
                 count = counter.get(obj, 0)
@@ -685,7 +675,7 @@ class Keys(Array, ABC, Generic[T]):
 
         # OK, Match
         @property
-        def key(self) -> Optional[K]:
+        def key(self) -> K | None:
             if isinstance(self._key, Keys._KeyEntry):
                 return self._key.key  # Yo dawg
             else:
@@ -696,7 +686,7 @@ class Keys(Array, ABC, Generic[T]):
         @property
         def count(self) -> int:
             counter = 0
-            d: Optional[Union[K, Keys._KeyEntry]] = self
+            d: K | Keys._KeyEntry | None = self
 
             while isinstance(d, Keys._KeyEntry):
                 d = d._key
@@ -724,21 +714,21 @@ class Keys(Array, ABC, Generic[T]):
             return hash(self.key)
 
         # OK, Match
-        def __eq__(self, other: Any) -> bool:
+        def __eq__(self, other: object) -> bool:
             if isinstance(other, Keys._KeyEntry):
                 return (self.key == other.key) and (self.count == other.count)
             else:
                 return False
 
     # OK, Match
-    def __init__(self, _lazy: bool = False) -> None:
+    def __init__(self, *, _lazy: bool = False) -> None:
         super().__init__(_lazy=_lazy)
 
         self.__before = False
 
     # TODO: Review
     def __deepcopy__(self, memo: dict[int, Any]) -> Keys:
-        new = cast(Keys, super().__deepcopy__(memo))
+        new = cast('Keys', super().__deepcopy__(memo))
         new.__before = self.__before
 
         return new
@@ -751,12 +741,11 @@ class Keys(Array, ABC, Generic[T]):
 
     # OK, Match
     def _fallback_to_default_support(self) -> None:
-        _logger.warning(
-            'Falling back to non lazy entry support. A Children.Array methods was used')
-        self._switch_support(False)
+        _logger.warning('Falling back to non lazy entry support. A Children.Array methods was used')
+        self._switch_support(to_lazy=False)
 
     # OK, Match
-    def _switch_support(self, to_lazy: bool) -> None:
+    def _switch_support(self, *, to_lazy: bool) -> None:
         if to_lazy == self._lazy_support:
             return
 
@@ -769,7 +758,7 @@ class Keys(Array, ABC, Generic[T]):
                 snapshot = entry_support._snapshot()
                 if snapshot:
                     indexes = list(range(len(snapshot)))
-                    self._parent._fire_sub_nodes_change_idx(False, indexes, None, [], snapshot)
+                    self._parent._fire_sub_nodes_change_idx(False, indexes, None, [], snapshot)  # noqa: FBT003
 
             with Children._LOCK:
                 self._entry_support_raw = None
@@ -854,8 +843,8 @@ class Keys(Array, ABC, Generic[T]):
 
     # OK, Match
     @abstractmethod
-    def _create_nodes(self, key: T) -> Optional[Sequence[Node]]:
-        raise NotImplementedError()  # pragma: no cover
+    def _create_nodes(self, key: T) -> Sequence[Node] | None:
+        raise NotImplementedError  # pragma: no cover
 
     # OK, Match
     @override  # Children
@@ -889,13 +878,12 @@ Children.Keys = Keys  # type: ignore[misc]
 
 
 class _LazyChildren(Children):
-
     # OK, Match
     def __init__(self, factory: Callable[[], Children]) -> None:
         super().__init__()
 
         self.__factory = factory
-        self.__original: Optional[Children] = None
+        self.__original: Children | None = None
         self.__original_lock = RLock()
 
     # OK, Match
@@ -935,5 +923,5 @@ class _LazyChildren(Children):
 
     # OK, Match
     @override  # Children
-    def find_child(self, name: Optional[str]) -> Optional[Node]:
+    def find_child(self, name: str | None) -> Node | None:
         return self._original.find_child(name)

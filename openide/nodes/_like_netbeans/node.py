@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Copyright (c) 2021 Contributors as noted in the AUTHORS file
 #
 # This Source Code Form is subject to the terms of the Mozilla Public
@@ -15,32 +14,33 @@ import warnings
 from abc import ABC, abstractmethod
 from copy import deepcopy
 from threading import RLock
-from typing import TYPE_CHECKING, final, TypeVar
+from typing import TYPE_CHECKING, TypeVar, final
 
 # Third-party imports
 from lookups import LookupProvider
-# from observable import Observable
 
+# from observable import Observable
 # Local imports
-from openide.utils.classes import Debug
-from openide.utils.typing import override
+from openide.nodes._like_netbeans.node_listener import NodeEvent, NodeMemberEvent, NodeReorderEvent
 from openide.nodes._like_netbeans.properties import (
-    Property, IndexedProperty, FeatureDescriptor,
+    FeatureDescriptor,
+    IndexedProperty,
+    Property,
     PropertySet,
 )
-from openide.nodes._like_netbeans.node_listener import NodeEvent, NodeMemberEvent, NodeReorderEvent
+from openide.utils.classes import Debug
+from openide.utils.typing import override
 
 T = TypeVar('T')
 E = TypeVar('E')
 if TYPE_CHECKING:
-    from collections.abc import Collection, Sequence, MutableSequence
-    from typing import Optional, Union, Callable, Type, Any
-    from typing_extensions import TypeAlias
+    from collections.abc import Collection, MutableSequence, Sequence
+    from typing import Any, Callable, TypeAlias
 
-    from qtpy.QtGui import QIcon, QPixmap, QColor
     from lookups import Lookup, Result
+    from qtpy.QtGui import QColor, QIcon, QPixmap
 
-    from openide.nodes._like_netbeans.children import Children
+    from openide.nodes._like_netbeans.children import Children  # noqa: TC004  # No it's not
     from openide.nodes._like_netbeans.children_storage import ChildrenStorage
     from openide.nodes._like_netbeans.node_listener import NodeListener
 
@@ -76,11 +76,11 @@ class Node(Debug(f'{__name__}.Node'), FeatureDescriptor, LookupProvider, ABC):
     # Set in generic_node.py
     EMPTY: Node = None  # type: ignore[assignment]
 
-    Cookie: 'TypeAlias' = _Cookie
-    Handle: 'TypeAlias' = _Handle
-    PropertySet: 'TypeAlias' = PropertySet
-    Property: 'TypeAlias' = Property
-    IndexedProperty: 'TypeAlias' = IndexedProperty
+    Cookie: TypeAlias = _Cookie
+    Handle: TypeAlias = _Handle
+    PropertySet: TypeAlias = PropertySet
+    Property: TypeAlias = Property
+    IndexedProperty: TypeAlias = IndexedProperty
 
     # TODO: All property names?
     # TODO: lookups?
@@ -90,10 +90,10 @@ class Node(Debug(f'{__name__}.Node'), FeatureDescriptor, LookupProvider, ABC):
     _LOCK = RLock()
 
     # TODO: Review
-    def __init__(self, children: Children, lookup: Optional[Lookup] = None):
+    def __init__(self, children: Children, lookup: Lookup | None = None) -> None:
         super().__init__()
 
-        self._parent: Optional[Union[Children, ChildrenStorage]] = None
+        self._parent: Children | ChildrenStorage | None = None
         self._hiearchy = children
 
         # TODO: transient  # TODO: Actually,
@@ -123,11 +123,11 @@ class Node(Debug(f'{__name__}.Node'), FeatureDescriptor, LookupProvider, ABC):
 
     # TODO: Review
     def __deepcopy__(self, memo: dict[int, Any]) -> Node:
-        '''
+        """
         Subclasses should first call super().__deepcopy__() to get
         an instance. And then call their own SubClass.__init__(instance, ...)
         (or do the initialisation in __deepcopy__ as they see fit).
-        '''
+        """
         raise NotImplementedError()  # pragma: no cover
         new = Node.__new__(type(self))
         memo[id(self)] = new
@@ -144,8 +144,9 @@ class Node(Debug(f'{__name__}.Node'), FeatureDescriptor, LookupProvider, ABC):
 
     # OK, Match
     @property
-    def _parent_children(self) -> Optional[Children]:
-        from openide.nodes._like_netbeans.children_storage import ChildrenStorage
+    def _parent_children(self) -> Children | None:
+        from openide.nodes._like_netbeans.children_storage import ChildrenStorage  # noqa: PLC0415
+
         if isinstance(self._parent, ChildrenStorage):
             return self._parent.children
         else:
@@ -157,13 +158,15 @@ class Node(Debug(f'{__name__}.Node'), FeatureDescriptor, LookupProvider, ABC):
         with Node._LOCK:
             p_children = self._parent_children
             if (p_children is not None) and (p_children != parent):
-                raise ValueError(
+                msg = (
                     f'Cannot initialise {index}th child of node {parent.node} ; '
                     f'It already belongs to node {p_children.node} '
                     '(did you forgot to use Node.clone()?)'
                 )
+                raise ValueError(msg)
 
-            from openide.nodes._like_netbeans.children_storage import ChildrenStorage
+            from openide.nodes._like_netbeans.children_storage import ChildrenStorage  # noqa: I001, PLC0415
+
             if not isinstance(self._parent, ChildrenStorage):
                 self._parent = parent
 
@@ -171,11 +174,12 @@ class Node(Debug(f'{__name__}.Node'), FeatureDescriptor, LookupProvider, ABC):
     @final
     def _reassign_to(self, current_parent: Children, children_array: ChildrenStorage) -> None:
         with Node._LOCK:
-            if (self._parent != current_parent) and (self._parent != children_array):
-                raise ValueError(
+            if self._parent not in (current_parent, children_array):
+                msg = (
                     f'Unauthorised call to change parent: {current_parent} '
                     f'when it should be {self._parent}'
                 )
+                raise ValueError(msg)
 
             self._parent = children_array
 
@@ -185,14 +189,12 @@ class Node(Debug(f'{__name__}.Node'), FeatureDescriptor, LookupProvider, ABC):
         with Node._LOCK:
             p_children = self._parent_children
             if parent != p_children:
-                raise ValueError(
-                    f'Deassign from wrong parent: {parent} '
-                    f'when it should be {p_children}'
-                )
+                msg = f'Deassign from wrong parent: {parent} when it should be {p_children}'
+                raise ValueError(msg)
 
             self._parent = None
 
-    def __set_property(self, name: str, value: Optional[str]) -> None:
+    def __set_property(self, name: str, value: str | None) -> None:
         old = getattr(super(), name)
 
         if old != value:
@@ -205,55 +207,58 @@ class Node(Debug(f'{__name__}.Node'), FeatureDescriptor, LookupProvider, ABC):
     # OK, Match
     @FeatureDescriptor.system_name.setter  # type: ignore[attr-defined]  # mypy bug #5936
     @override  # FeatureDescriptor
-    def system_name(self, value: Optional[str]) -> None:
+    def system_name(self, value: str | None) -> None:
         self.__set_property('system_name', value)
 
     # OK, Match
     @FeatureDescriptor.display_name.setter  # type: ignore[attr-defined]  # mypy bug #5936
     @override  # FeatureDescriptor
-    def display_name(self, value: Optional[str]) -> None:
+    def display_name(self, value: str | None) -> None:
         self.__set_property('display_name', value)
 
     # OK, Match
     @FeatureDescriptor.short_description.setter  # type: ignore[attr-defined]  # mypy bug #5936
     @override  # FeatureDescriptor
-    def short_description(self, value: Optional[str]) -> None:
+    def short_description(self, value: str | None) -> None:
         self.__set_property('short_description', value)
 
     # OK, Match
     @FeatureDescriptor.is_hidden.setter  # type: ignore[attr-defined]  # mypy bug #5936
     @override  # FeatureDescriptor
-    def is_hidden(self, value: bool) -> None:
-        warnings.warn(RuntimeWarning(
-            'Setting Node.is_hidden does not do what you think it does. '
-            'To hide a node you should remove it from the children of its parent. '
-            'For instance, with Children.Keys._set_keys(keys_set) and a smaller keys_set.'
-        ), stacklevel=2)
+    def is_hidden(self, value: bool) -> None:  # noqa: FBT001
+        warnings.warn(
+            RuntimeWarning(
+                'Setting Node.is_hidden does not do what you think it does. '
+                'To hide a node you should remove it from the children of its parent. '
+                'For instance, with Children.Keys._set_keys(keys_set) and a smaller keys_set.'
+            ),
+            stacklevel=2,
+        )
         super(Node, type(self)).is_hidden.fset(self, value)  # type: ignore[attr-defined]  # bug5936
 
     # TODO: Input type parameter
     @property
     @abstractmethod
-    def icon(self) -> Union[QIcon, QPixmap, QColor]:
-        raise NotImplementedError()  # pragma: no cover
+    def icon(self) -> QIcon | QPixmap | QColor:
+        raise NotImplementedError  # pragma: no cover
 
     # TODO: Input type parameter
     @property
     @abstractmethod
-    def opened_icon(self) -> Union[QIcon, QPixmap, QColor]:
+    def opened_icon(self) -> QIcon | QPixmap | QColor:
         # Actually useless thanks to Qt who can embed that info directly in a QIcon (On state)
-        raise NotImplementedError()  # pragma: no cover
+        raise NotImplementedError  # pragma: no cover
 
     # TODO: Define return type
     @property
     @abstractmethod
     def help_context(self):  # type: ignore[no-untyped-def]
-        raise NotImplementedError()  # pragma: no cover
+        raise NotImplementedError  # pragma: no cover
 
     # OK, Match
     # TODO: Resolve Children.LazyChildren
     def _update_children(self) -> None:
-        from openide.nodes._like_netbeans.children import _LazyChildren
+        from openide.nodes._like_netbeans.children import _LazyChildren  # noqa: PLC0415
 
         if isinstance(self._hiearchy, _LazyChildren):
             self._children = self._hiearchy._original
@@ -268,12 +273,12 @@ class Node(Debug(f'{__name__}.Node'), FeatureDescriptor, LookupProvider, ABC):
     @_children.setter
     @final
     def _children(self, value: Children) -> None:
-        from openide.nodes._like_netbeans.children import Children
+        from openide.nodes._like_netbeans.children import Children  # noqa: PLC0415
 
         def implementation() -> None:
-            snapshot: Optional[Sequence[Node]] = None
+            snapshot: Sequence[Node] | None = None
             was_initialised = self._hiearchy._is_initialised
-            was_leaf = (self._hiearchy is Children.LEAF)
+            was_leaf = self._hiearchy is Children.LEAF
             if was_initialised and not was_leaf:
                 snapshot = self._hiearchy.snapshot()
 
@@ -282,17 +287,17 @@ class Node(Debug(f'{__name__}.Node'), FeatureDescriptor, LookupProvider, ABC):
             if snapshot:
                 self._hiearchy = Children.LEAF
                 indexes = list(range(len(snapshot)))
-                self._fire_sub_nodes_change_idx(False, indexes, None, [], snapshot)
+                self._fire_sub_nodes_change_idx(False, indexes, None, [], snapshot)  # noqa: FBT003
 
             self._hiearchy = value
             self._hiearchy._attach_to(self)
 
-            is_leaf = (self._hiearchy is Children.LEAF)
+            is_leaf = self._hiearchy is Children.LEAF
             if was_initialised and (not was_leaf) and (not is_leaf):
                 self._hiearchy.get_nodes_count()
-                if (snapshot := self._hiearchy.snapshot()):
+                if snapshot := self._hiearchy.snapshot():
                     indexes = list(range(len(snapshot)))
-                    self._fire_sub_nodes_change_idx(True, indexes, None, snapshot, [])
+                    self._fire_sub_nodes_change_idx(True, indexes, None, snapshot, [])  # noqa: FBT003
 
             if was_leaf != is_leaf:
                 self._fire_own_property_change('leaf', was_leaf, is_leaf)
@@ -303,7 +308,7 @@ class Node(Debug(f'{__name__}.Node'), FeatureDescriptor, LookupProvider, ABC):
     @final
     @property
     def is_leaf(self) -> bool:
-        from openide.nodes._like_netbeans.children import Children
+        from openide.nodes._like_netbeans.children import Children  # noqa: PLC0415
 
         self._update_children()
         return self._hiearchy is Children.LEAF
@@ -311,7 +316,7 @@ class Node(Debug(f'{__name__}.Node'), FeatureDescriptor, LookupProvider, ABC):
     # OK, Match
     @final
     @property
-    def parent_node(self) -> Optional[Node]:
+    def parent_node(self) -> Node | None:
         p_children = self._parent_children
         return p_children.node if p_children is not None else None
 
@@ -319,22 +324,22 @@ class Node(Debug(f'{__name__}.Node'), FeatureDescriptor, LookupProvider, ABC):
     @property
     @abstractmethod
     def can_rename(self) -> bool:
-        raise NotImplementedError()  # pragma: no cover
+        raise NotImplementedError  # pragma: no cover
 
     # OK, Match
     @property
     @abstractmethod
     def can_destroy(self) -> bool:
-        raise NotImplementedError()  # pragma: no cover
+        raise NotImplementedError  # pragma: no cover
 
     # OK, Match
     def destroy(self) -> None:
-        from openide.nodes._like_netbeans.children import Children
+        from openide.nodes._like_netbeans.children import Children  # noqa: PLC0415
 
         def implementation() -> None:
             p_children = self._parent_children
             if p_children is not None:
-                p_children.remove((self, ))
+                p_children.remove((self,))
 
             self._fire_node_destroyed()
 
@@ -343,53 +348,53 @@ class Node(Debug(f'{__name__}.Node'), FeatureDescriptor, LookupProvider, ABC):
     @property
     @abstractmethod
     def property_sets(self) -> Sequence[PropertySet]:
-        raise NotImplementedError()  # pragma: no cover
+        raise NotImplementedError  # pragma: no cover
 
     # TODO: Define return type
     @property
     @abstractmethod
     def clipboard_copy(self):  # type: ignore[no-untyped-def]
-        raise NotImplementedError()  # pragma: no cover
+        raise NotImplementedError  # pragma: no cover
 
     # TODO: Define return type
     @property
     @abstractmethod
     def clipboard_cut(self):  # type: ignore[no-untyped-def]
-        raise NotImplementedError()  # pragma: no cover
+        raise NotImplementedError  # pragma: no cover
 
     # TODO: Define return type
     @property
     @abstractmethod
     def drag(self):  # type: ignore[no-untyped-def]
-        raise NotImplementedError()  # pragma: no cover
+        raise NotImplementedError  # pragma: no cover
 
     # OK, Match
     @property
     @abstractmethod
     def can_copy(self) -> bool:
-        raise NotImplementedError()  # pragma: no cover
+        raise NotImplementedError  # pragma: no cover
 
     # OK, Match
     @property
     @abstractmethod
     def can_cut(self) -> bool:
-        raise NotImplementedError()  # pragma: no cover
+        raise NotImplementedError  # pragma: no cover
 
     # TODO: Define return type
     @abstractmethod
     def get_paste_types(self, transferable):  # type: ignore[no-untyped-def]
-        raise NotImplementedError()  # pragma: no cover
+        raise NotImplementedError  # pragma: no cover
 
     # TODO: Define return type
     @abstractmethod
     def get_drop_type(self, transferable, action, index: int):  # type: ignore[no-untyped-def]
-        raise NotImplementedError()  # pragma: no cover
+        raise NotImplementedError  # pragma: no cover
 
     # TODO: Define return type
     @property
     @abstractmethod
     def new_types(self):  # type: ignore[no-untyped-def]
-        raise NotImplementedError()  # pragma: no cover
+        raise NotImplementedError  # pragma: no cover
 
     # TODO: getActions(boolean context)
 
@@ -398,7 +403,7 @@ class Node(Debug(f'{__name__}.Node'), FeatureDescriptor, LookupProvider, ABC):
     # TODO: Actually deprecated
     @property
     def actions(self):  # type: ignore[no-untyped-def]
-        from . import NodeOp
+        from . import NodeOp  # noqa: PLC0415
 
         return NodeOp.default_actions
 
@@ -424,24 +429,24 @@ class Node(Debug(f'{__name__}.Node'), FeatureDescriptor, LookupProvider, ABC):
     @property
     @final
     def context_menu(self):  # type: ignore[no-untyped-def]
-        from . import NodeOp
+        from . import NodeOp  # noqa: PLC0415
 
-        return NodeOp.find_context_menu((self, ))
+        return NodeOp.find_context_menu((self,))
 
     # OK, Match
     @property
     @abstractmethod
     def has_customiser(self) -> bool:
-        raise NotImplementedError()  # pragma: no cover
+        raise NotImplementedError  # pragma: no cover
 
     # TODO: Define return type
     @property
     @abstractmethod
     def customiser(self):  # type: ignore[no-untyped-def]
-        raise NotImplementedError()  # pragma: no cover
+        raise NotImplementedError  # pragma: no cover
 
     # TODO: Review
-    def get_cookie(self, cls: Type[T]) -> Optional[T]:
+    def get_cookie(self, cls: type[T]) -> T | None:
         lookup = self._internal_lookup
 
         if lookup is None:
@@ -459,7 +464,7 @@ class Node(Debug(f'{__name__}.Node'), FeatureDescriptor, LookupProvider, ABC):
             return lookup
 
         if self._node_lookup is None:
-            from . import NodeLookup
+            from . import NodeLookup  # noqa: PLC0415
 
             self._node_lookup = NodeLookup(self)
 
@@ -469,15 +474,15 @@ class Node(Debug(f'{__name__}.Node'), FeatureDescriptor, LookupProvider, ABC):
     # TODO: We have the same in Property and PropertySet.
     # Maybe that should move to FeatureDescriptor?
     @property
-    def html_display_name(self) -> Optional[str]:
-        '''
+    def html_display_name(self) -> str | None:
+        """
         Returns an HTML-flavoured version of this property display name.
 
         This HTML will be processed either by Qt (for GUI), or prompt-toolkit (for CLI).
 
         If an HTML version is not possible, then it should return None (and avoid returning
         a string that does not contain any HTML).
-        '''
+        """
         return None
 
     # TODO: registerDelegatingLookup (final)
@@ -487,7 +492,7 @@ class Node(Debug(f'{__name__}.Node'), FeatureDescriptor, LookupProvider, ABC):
     @property
     @abstractmethod
     def handle(self) -> Handle:
-        raise NotImplementedError()  # pragma: no cover
+        raise NotImplementedError  # pragma: no cover
 
     # OK, Match, but
     # TODO: Review the listeners thingies
@@ -513,7 +518,7 @@ class Node(Debug(f'{__name__}.Node'), FeatureDescriptor, LookupProvider, ABC):
     # TODO: Review the listeners thingies
     @final
     def remove_node_listener(self, listener: NodeListener) -> None:
-        try:
+        try:  # noqa: SIM105
             self._node_listeners.remove(listener)
         except ValueError:  # TODO: Case should be handled by listener list implementation
             pass
@@ -522,16 +527,15 @@ class Node(Debug(f'{__name__}.Node'), FeatureDescriptor, LookupProvider, ABC):
     # TODO: Review the listeners thingies
     # TODO: More proper definition of a PropertyChangeListener?
     @final
-    def add_property_change_listener(
-        self, listener: Callable[[Node, str, Any, Any], None]
-    ) -> None:
+    def add_property_change_listener(self, listener: Callable[[Node, str, Any, Any], None]) -> None:
         self._property_listeners.append(listener)
         self._property_change_listener_added(listener)
 
     # OK, Match, but
     # TODO: More proper definition of a PropertyChangeListener?
     def _property_change_listener_added(
-        self, listener: Callable[[Node, str, Any, Any], None]
+        self,
+        listener: Callable[[Node, str, Any, Any], None],
     ) -> None:
         pass
 
@@ -553,7 +557,8 @@ class Node(Debug(f'{__name__}.Node'), FeatureDescriptor, LookupProvider, ABC):
     # TODO: More proper definition of a PropertyChangeListener?
     @final
     def remove_property_change_listener(
-        self, listener: Callable[[Node, str, Any, Any], None]
+        self,
+        listener: Callable[[Node, str, Any, Any], None],
     ) -> None:
         self._property_listeners.remove(listener)
         self._notify_property_change_listener_removed(listener)
@@ -561,7 +566,8 @@ class Node(Debug(f'{__name__}.Node'), FeatureDescriptor, LookupProvider, ABC):
     # OK, Match, but
     # TODO: More proper definition of a PropertyChangeListener?
     def _notify_property_change_listener_removed(
-        self, listener: Callable[[Node, str, Any, Any], None]
+        self,
+        listener: Callable[[Node, str, Any, Any], None],
     ) -> None:
         pass
 
@@ -573,7 +579,7 @@ class Node(Debug(f'{__name__}.Node'), FeatureDescriptor, LookupProvider, ABC):
     # Could that be covered with an enum instead? That would remove the need for
     # the name check, and the _property_sets_are_known thingy.
     @final
-    def _fire_property_change(self, name: str, old: Any, new: Any) -> None:
+    def _fire_property_change(self, name: str, old: Any, new: Any) -> None:  # noqa: ANN401
         if (name is not None) and self._property_sets_are_known:
             for pset in self.property_sets:
                 for prop in pset.properties:
@@ -581,8 +587,10 @@ class Node(Debug(f'{__name__}.Node'), FeatureDescriptor, LookupProvider, ABC):
                         break
             else:
                 # NB: Originaly it was just a warning
-                raise ValueError(
-                    f'Node {self.display_name} is trying to trigger on an unknown property, {name}')
+                msg = (
+                    f'Node {self.display_name} is trying to trigger on an unknown property, {name}'
+                )
+                raise ValueError(msg)
 
         if old == new:
             return
@@ -609,21 +617,19 @@ class Node(Debug(f'{__name__}.Node'), FeatureDescriptor, LookupProvider, ABC):
     @final
     def _fire_sub_nodes_change(
         self,
-        add_action: bool,
+        add_action: bool,  # noqa: FBT001
         nodes_delta: Collection[Node],
-        nodes_from: Optional[Sequence[Node]]
+        nodes_from: Sequence[Node] | None,
     ) -> None:
         if not self._node_listeners:
             return
 
-        if add_action:
-            attr = 'children_added'
-        else:
-            attr = 'children_removed'
+        attr = 'children_added' if add_action else 'children_removed'
 
-        from openide.nodes._like_netbeans.children import Children
+        from openide.nodes._like_netbeans.children import Children  # noqa: PLC0415
+
         with Children.MUTEX.read_access():
-            event = NodeMemberEvent(self, add_action, delta=nodes_delta, from_=nodes_from)
+            event = NodeMemberEvent(self, add=add_action, delta=nodes_delta, from_=nodes_from)
 
             for listener in reversed(self._node_listeners):
                 # TODO: Redo, calling same method (than below) with different args...
@@ -634,23 +640,25 @@ class Node(Debug(f'{__name__}.Node'), FeatureDescriptor, LookupProvider, ABC):
     @final
     def _fire_sub_nodes_change_idx(
         self,
-        added: bool,
+        added: bool,  # noqa: FBT001
         indexes: Sequence[int],
-        source_entry: Optional[Children.Entry],
+        source_entry: Children.Entry | None,
         current: Sequence[Node],
-        previous: Sequence[Node]
+        previous: Sequence[Node],
     ) -> None:
         if not self._node_listeners:
             return
 
-        if added:
-            attr = 'children_added'
-        else:
-            attr = 'children_removed'
+        attr = 'children_added' if added else 'children_removed'
 
         with Children.MUTEX.read_access():
-            event = NodeMemberEvent(self, added, indices=indexes,
-                                    current=current, previous=previous)
+            event = NodeMemberEvent(
+                self,
+                add=added,
+                indices=indexes,
+                current=current,
+                previous=previous,
+            )
             event._source_entry = source_entry
 
             for listener in reversed(self._node_listeners):
@@ -693,7 +701,7 @@ class Node(Debug(f'{__name__}.Node'), FeatureDescriptor, LookupProvider, ABC):
     # firePropertySetsChange, calling this own, using a static string class member.
     # Like for _fire_property_change, use an enum?
     @final
-    def _fire_own_property_change(self, name: str, old: Any, new: Any) -> None:
+    def _fire_own_property_change(self, name: str, old: Any, new: Any) -> None:  # noqa: ANN401
         if old == new:
             return
 

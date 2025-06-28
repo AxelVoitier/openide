@@ -7,9 +7,7 @@
 from __future__ import annotations
 
 # System imports
-
 # Third-party imports
-
 # Local imports
 from openide.nodes._like_netbeans.entry_support import EntrySupport
 

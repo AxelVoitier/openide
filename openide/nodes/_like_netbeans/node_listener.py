@@ -9,7 +9,7 @@ from __future__ import annotations
 # System imports
 from abc import ABC, abstractmethod
 from threading import RLock
-from typing import TYPE_CHECKING, cast, final, TypeVar, Generic
+from typing import TYPE_CHECKING, Generic, TypeVar, cast, final
 
 # Third-party imports
 
@@ -18,14 +18,14 @@ from typing import TYPE_CHECKING, cast, final, TypeVar, Generic
 
 T = TypeVar('T')
 if TYPE_CHECKING:
-    from collections import Iterable, Collection, Sequence, Generator
-    from typing import Optional, Any
-    from openide.nodes._like_netbeans.node import Node
+    from collections.abc import Collection, Generator, Iterable, Sequence
+    from typing import Any
+
     from openide.nodes._like_netbeans.children import Children
+    from openide.nodes._like_netbeans.node import Node
 
 
 class Event(Generic[T]):
-
     def __init__(self, source: T) -> None:
         self._source = source  # transient
 
@@ -43,7 +43,6 @@ class Event(Generic[T]):
 
 
 class NodeEvent(Event):
-
     def __init__(self, node: Node) -> None:
         super().__init__(node)
 
@@ -57,29 +56,28 @@ class NodeEvent(Event):
 
 
 class NodeMemberEvent(NodeEvent):
-
     def __init__(
         self,
         node: Node,
-        add: bool,
         *,
-        delta: Optional[Collection[Node]] = None,
-        from_: Optional[Sequence[Node]] = None,
-        indices: Optional[Iterable[int]] = None,
-        current: Optional[Sequence[Node]] = None,
-        previous: Optional[Sequence[Node]] = None,
+        add: bool,
+        delta: Collection[Node] | None = None,
+        from_: Sequence[Node] | None = None,
+        indices: Iterable[int] | None = None,
+        current: Sequence[Node] | None = None,
+        previous: Sequence[Node] | None = None,
     ) -> None:
         super().__init__(node)
 
-        self.__delta: Optional[Collection[Node]]
-        self.__indices: Optional[list[int]]
-        self.__prev_snapshot: Optional[Sequence[Node]]
+        self.__delta: Collection[Node] | None
+        self.__indices: list[int] | None
+        self.__prev_snapshot: Sequence[Node] | None
         self.__curr_snapshot: Sequence[Node]
 
         self.__lock = RLock()
         self.__add = add
-        self._source_entry: Optional[Children.Entry] = None
-        if (delta is not None):
+        self._source_entry: Children.Entry | None = None
+        if delta is not None:
             self.__delta = delta
             self.__prev_snapshot = from_
             self.__curr_snapshot = node._children.snapshot()
@@ -110,7 +108,7 @@ class NodeMemberEvent(NodeEvent):
     @final
     def delta(self) -> Collection[Node]:
         if (delta := self.__delta) is None:
-            indices = cast(list[int], self.__indices)
+            indices = cast('list[int]', self.__indices)
             prev = self.prev_snapshot
             delta = self.__delta = [prev[index] for index in indices]
 
@@ -127,10 +125,11 @@ class NodeMemberEvent(NodeEvent):
                 indices = self.__indices = [i for i, node in enumerate(nodes) if node in delta_set]
 
                 if len(indices) != len(delta):
-                    raise RuntimeError(
+                    msg = (
                         'Some of a set of deleted nodes are not present in the original one. '
                         'You may need to check that your Children.Keys keys are safely comparable.'
                     )
+                    raise RuntimeError(msg)
 
         return indices
 
@@ -181,23 +180,22 @@ class NodeReorderEvent(NodeEvent):
 
 
 class NodeListener(ABC):
-
     @abstractmethod
-    def property_change(self, node: Node, name: str, old: Any, new: Any) -> None:
-        raise NotImplementedError()  # pragma: no cover
+    def property_change(self, node: Node, name: str, old: Any, new: Any) -> None:  # noqa: ANN401
+        raise NotImplementedError  # pragma: no cover
 
     @abstractmethod
     def children_added(self, event: NodeMemberEvent) -> None:
-        raise NotImplementedError()  # pragma: no cover
+        raise NotImplementedError  # pragma: no cover
 
     @abstractmethod
     def children_removed(self, event: NodeMemberEvent) -> None:
-        raise NotImplementedError()  # pragma: no cover
+        raise NotImplementedError  # pragma: no cover
 
     @abstractmethod
     def children_reordered(self, event: NodeReorderEvent) -> None:
-        raise NotImplementedError()  # pragma: no cover
+        raise NotImplementedError  # pragma: no cover
 
     @abstractmethod
     def node_destroyed(self, event: NodeEvent) -> None:
-        raise NotImplementedError()  # pragma: no cover
+        raise NotImplementedError  # pragma: no cover

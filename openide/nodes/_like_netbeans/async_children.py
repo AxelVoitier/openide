@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Copyright (c) 2021 Contributors as noted in the AUTHORS file
 #
 # This Source Code Form is subject to the terms of the Mozilla Public
@@ -14,15 +13,14 @@ from __future__ import annotations
 from typing import (
     # Optional, Callable, Sequence, Collection,
     # Any, Type, cast, Union, TYPE_CHECKING,
-    Generic, TypeVar,
+    Generic,
+    TypeVar,
 )
 
 # Third-party imports
-
 # Local imports
-from openide.nodes._like_netbeans.children import Keys
 from openide.nodes._like_netbeans.child_factory import ChildFactory
-
+from openide.nodes._like_netbeans.children import Keys
 
 T = TypeVar('T')
 # if TYPE_CHECKING:
@@ -30,7 +28,6 @@ T = TypeVar('T')
 
 
 class AsyncChildren(Keys[T], ChildFactory.Observer, Generic[T]):
-
     def __init__(self, factory: ChildFactory[T]) -> None:
         super().__init__()
 

@@ -7,14 +7,10 @@
 from __future__ import annotations
 
 # System imports
-
 # Third-party imports
-
 # Local imports
 from openide.nodes._like_netbeans.node import Node
 
 
 class FilterNode(Node):  # Stub
-
-    def __init__(self, node: Node):
-        ...
+    def __init__(self, node: Node) -> None: ...

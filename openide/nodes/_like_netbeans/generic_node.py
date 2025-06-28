@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Copyright (c) 2021 Contributors as noted in the AUTHORS file
 #
 # This Source Code Form is subject to the terms of the Mozilla Public
@@ -14,12 +13,11 @@ from threading import RLock
 from typing import TYPE_CHECKING, TypeVar, final
 
 # Third-party imports
-
 # Local imports
-from openide.utils.typing import override
-from openide.nodes._like_netbeans.node import Node
 from openide.nodes._like_netbeans.children import Children
-from openide.nodes._like_netbeans.properties import PropertySet
+from openide.nodes._like_netbeans.node import Node
+from openide.utils.typing import override
+
 # from openide.nodes.sheet import Sheet
 # from openide.nodes.cookie_set import CookieSet
 # from openide.nodes.default_handle import DefaultHandle
@@ -27,15 +25,15 @@ from openide.nodes._like_netbeans.properties import PropertySet
 
 T = TypeVar('T')
 if TYPE_CHECKING:
-    from typing import Optional, Union, Type
     from collections.abc import Sequence
 
-    from qtpy.QtGui import QIcon, QPixmap, QColor
     from lookups import Lookup
+    from qtpy.QtGui import QColor, QIcon, QPixmap
+
+    from openide.nodes._like_netbeans.properties import PropertySet
 
 
 class GenericNode(Node):
-
     # TODO: private static final
     # - icons
     # - ICON_BASE
@@ -48,10 +46,10 @@ class GenericNode(Node):
     # - overridesGetDefaultAction
 
     # TODO: AbstractNode(CookieSet set) constructor
-    def __init__(self, children: Children, lookup: Optional[Lookup] = None):
+    def __init__(self, children: Children, lookup: Lookup | None = None) -> None:
         self._lock = RLock()
 
-        self._display_format: Optional[str] = None
+        self._display_format: str | None = None
 
         # TODO:
         # self.__preferred_action: Optional[Action] = None
@@ -59,12 +57,12 @@ class GenericNode(Node):
         self.__icon_extension = '.png'
 
         self.__lookup = None
-        self.__sheet: Optional[Sheet] = None
+        self.__sheet: Sheet | None = None
 
         # TODO:
         # self._system_actions: Optional[Sequence[SystemAction]] = None  # deprecated
 
-        self.__sheet_cookie_listener: Optional[_SheetAndCookieListener] = None
+        self.__sheet_cookie_listener: _SheetAndCookieListener | None = None
 
         super().__init__(children, lookup)
 
@@ -74,11 +72,11 @@ class GenericNode(Node):
 
     # Needed as it is abstract in Node
     def clone(self) -> Node:
-        raise NotImplementedError('TODO')
+        raise NotImplementedError  # TODO
 
     @Node.system_name.setter  # type: ignore[attr-defined]  # mypy bug #5936
     @override  # Node
-    def system_name(self, value: Optional[str]) -> None:
+    def system_name(self, value: str | None) -> None:
         super(GenericNode, type(self)).system_name.fset(self, value)
 
         if (disp_format := self._display_format) is not None:
@@ -93,7 +91,7 @@ class GenericNode(Node):
     def set_icon_base_with_extension(
         self,
         base: str,
-        extension: Optional[str] = None,
+        extension: str | None = None,
     ) -> None:
         if extension is None:
             try:
@@ -106,7 +104,7 @@ class GenericNode(Node):
             except ValueError:
                 last_slash = -1
 
-            if ((last_slash > last_dot) or (last_dot == -1)):
+            if (last_slash > last_dot) or (last_dot == -1):
                 extension = ''
             else:
                 base, extension = base[:last_dot], base[last_dot:]
@@ -122,20 +120,23 @@ class GenericNode(Node):
     # TODO: Input type parameter
     @property
     @override  # Node
-    def icon(self) -> Union[QIcon, QPixmap, QColor]:
-        from qtpy.QtGui import QIcon
+    def icon(self) -> QIcon | QPixmap | QColor:
+        from qtpy.QtGui import QIcon  # noqa: PLC0415
+
         icon = QIcon()
-        icon.addPixmap(QIcon.fromTheme('folder').pixmap(256),
-                       QIcon.Mode.Normal, QIcon.State.Off)
-        icon.addPixmap(QIcon.fromTheme('folder-open').pixmap(256),
-                       QIcon.Mode.Normal, QIcon.State.On)
+        icon.addPixmap(QIcon.fromTheme('folder').pixmap(256), QIcon.Mode.Normal, QIcon.State.Off)
+        icon.addPixmap(
+            QIcon.fromTheme('folder-open').pixmap(256),
+            QIcon.Mode.Normal,
+            QIcon.State.On,
+        )
         return icon
         # return self.__find_icon(GenericNode.ICON_BASE)
 
     # TODO: Input type parameter
     @property
     @override  # Node
-    def opened_icon(self) -> Union[QIcon, QPixmap, QColor]:
+    def opened_icon(self) -> QIcon | QPixmap | QColor:
         return self.__find_icon(GenericNode.OPENED_ICON_BASE)
 
     # TODO: Implement
@@ -143,19 +144,19 @@ class GenericNode(Node):
     @property
     @override  # Node
     def help_context(self):  # type: ignore[no-untyped-def]
-        raise NotImplementedError('TODO')
+        raise NotImplementedError
 
     # TODO: Input type parameter
     # TODO: Type of input ib parameter
     # TODO: Implement
-    def __find_icon(self, type, ib) -> Union[QIcon, QPixmap, QColor]:
-        raise NotImplementedError('TODO')
+    def __find_icon(self, type, ib) -> QIcon | QPixmap | QColor:
+        raise NotImplementedError
 
     # TODO: Implement
     # TODO: Define return type
     @property
     def _default_icon(self):  # type: ignore[no-untyped-def]
-        raise NotImplementedError('TODO')
+        raise NotImplementedError
 
     @property
     @override  # Node
@@ -189,7 +190,8 @@ class GenericNode(Node):
 
         sheet = self._create_sheet()
         if sheet is None:
-            raise RuntimeError(f'create_sheet returns None in {type(self).__name__}')
+            msg = f'create_sheet returns None in {type(self).__name__}'
+            raise RuntimeError(msg)
 
         self.__set_sheet_implementation(sheet)
 
@@ -211,21 +213,21 @@ class GenericNode(Node):
     @property
     @override  # Node
     def _property_sets_are_known(self) -> bool:
-        return (self.__sheet is not None)
+        return self.__sheet is not None
 
     # TODO: Implement
     # TODO: Define return type
     @property
     @override  # Node
     def clipboard_copy(self):  # type: ignore[no-untyped-def]
-        raise NotImplementedError('TODO')
+        raise NotImplementedError
 
     # TODO: Implement
     # TODO: Define return type
     @property
     @override  # Node
     def clipboard_cut(self):  # type: ignore[no-untyped-def]
-        raise NotImplementedError('TODO')
+        raise NotImplementedError
 
     # TODO: Define return type
     @property
@@ -250,27 +252,27 @@ class GenericNode(Node):
     @final
     @override  # Node
     def get_paste_types(self, transferable):  # type: ignore[no-untyped-def]
-        raise NotImplementedError('TODO')
+        raise NotImplementedError
 
     # TODO: Implement
     # TODO: Define return type
     @override  # Node
     def get_drop_type(self, transferable, action, index: int):  # type: ignore[no-untyped-def]
-        raise NotImplementedError('TODO')
+        raise NotImplementedError
 
     # TODO: Implement
     # TODO: Define return type
     @property
     @override  # Node
     def new_types(self):  # type: ignore[no-untyped-def]
-        raise NotImplementedError('TODO')
+        raise NotImplementedError
 
     # TODO: Implement
     # TODO: Define return type
     @property
     @override  # Node
     def preferred_action(self):  # type: ignore[no-untyped-def]
-        raise NotImplementedError('TODO')
+        raise NotImplementedError
 
     # TODO: Implement
     # TODO: Define return type
@@ -278,7 +280,7 @@ class GenericNode(Node):
     @property
     @override  # Node
     def default_action(self):  # type: ignore[no-untyped-def]
-        raise NotImplementedError('TODO')
+        raise NotImplementedError
 
     # TODO: Actually deprecated
     @default_action.setter
@@ -291,7 +293,7 @@ class GenericNode(Node):
     @property
     @override  # Node
     def actions(self):  # type: ignore[no-untyped-def]
-        raise NotImplementedError('TODO')
+        raise NotImplementedError
 
     # TODO: createActions (deprecated) (protected)
 
@@ -310,7 +312,8 @@ class GenericNode(Node):
     @property
     def _cookie_set(self) -> CookieSet:
         if self._internal_lookup is not None:
-            raise RuntimeError('CookieSet cannot be used when lookup is associated with a node')
+            msg = 'CookieSet cannot be used when lookup is associated with a node'
+            raise RuntimeError(msg)
 
         with self._lock:
             if (cookie_set := self.__lookup) is not None:
@@ -326,7 +329,8 @@ class GenericNode(Node):
     def _cookie_set(self, value: CookieSet) -> None:
         with self._lock:
             if self._internal_lookup is not None:
-                raise RuntimeError('CookieSet cannot be used when lookup is associated with a node')
+                msg = 'CookieSet cannot be used when lookup is associated with a node'
+                raise RuntimeError(msg)
 
             if (listener := self.__sheet_cookie_listener) is None:
                 listener = self.__sheet_cookie_listener = _SheetAndCookieListener(self)
@@ -340,7 +344,7 @@ class GenericNode(Node):
             self._fire_cookie_change()
 
     @override  # Node
-    def get_cookie(self, cls: Type[T]) -> Optional[T]:
+    def get_cookie(self, cls: type[T]) -> T | None:
         if isinstance(self.__lookup, CookieSet):
             return self.__lookup.get_cookie(cls)
         else:
@@ -356,7 +360,6 @@ class GenericNode(Node):
 # TODO: Extends javax.swing.event.ChangeListener
 @final
 class _SheetAndCookieListener:
-
     def __init__(self, node: GenericNode) -> None:
         super().__init__()
 
