@@ -7,13 +7,12 @@
 from __future__ import annotations
 
 # System imports
+import importlib.resources
 import logging
 import warnings
 from enum import StrEnum, auto
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
-
-import pkg_resources
+from typing import TYPE_CHECKING
 
 # Third-party imports
 from lookups import Lookup, LookupProvider
@@ -166,10 +165,6 @@ class TopComponent(MetaClassResolver(LookupProvider, QWidget)):
     def __init__(self) -> None:
         super().__init__()
 
-        _logger.info(
-            f'We, {type(self)}, have been loaded with {self.PREFERRED_ID=}, {self.LOCATION=} ({type(self.LOCATION)})'
-        )
-
         self._lookup: Lookup | None = None
         self._name: str | None = None
         self._tooltip: str | None = None
@@ -185,19 +180,20 @@ class TopComponent(MetaClassResolver(LookupProvider, QWidget)):
         self._lookup = lookup
 
     def load_ui(self, *ui_file: str) -> None:
-        if len(ui_file) == 2:
-            ui_file = pkg_resources.resource_filename(*ui_file)
-        else:
-            ui_file, *_ = ui_file
-            if isinstance(ui_file, str):
-                ui_file = Path(ui_file)
-            if isinstance(ui_file, Path) and not ui_file.is_absolute():
-                ui_file = pkg_resources.resource_filename(
-                    str(ui_file.parent).replace('/', '.'),
-                    ui_file.name,
-                )
+        if len(ui_file) != 2:
+            ui_file_path, *_ = ui_file
+            if not isinstance(ui_file_path, Path):
+                ui_file_path = Path(ui_file_path)
 
-        loadUi(uifile=str(ui_file), baseinstance=self)
+            if ui_file_path.is_absolute():
+                loadUi(uifile=str(ui_file_path), baseinstance=self)
+                return
+
+            ui_file = (str(ui_file_path.parent).replace('/', '.'), ui_file_path.name)
+
+        ref = importlib.resources.files(ui_file[0]) / ui_file[1]
+        with importlib.resources.as_file(ref) as path:
+            loadUi(uifile=path, baseinstance=self)
 
     def open(self) -> None:
         WindowManager().top_component_open(self)  # pyright: ignore[reportAbstractUsage]

@@ -7,10 +7,9 @@
 from __future__ import annotations
 
 # System imports
+import importlib.metadata
 import logging
 import sys
-
-import pkg_resources
 
 # Third-party imports
 import yaml
@@ -45,12 +44,13 @@ class IDEApplication(metaclass=SingletonMeta):
 
     def _load_config(self) -> None:
         self._config = RecursiveDict()
-        for dist in pkg_resources.working_set:
-            if not dist.has_metadata('openide.yaml'):
+        for dist in importlib.metadata.distributions():
+            config = dist.read_text('openide.yaml')
+            if not config:
                 continue
 
-            _logger.info('Loading config for package %s', dist.project_name)
-            self._config.merge(yaml.safe_load(dist.get_metadata('openide.yaml')))
+            _logger.info('Loading config for package %s', dist.name)
+            self._config.merge(yaml.safe_load(config))
 
     @property
     def config(self) -> RecursiveDict:
