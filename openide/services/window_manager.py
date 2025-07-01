@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING
 
 # Third-party imports
 # Local imports
-from openide.lookup import ServiceSingletonABCMeta
+from openide.services import ServiceSingletonABCMeta
 
 if TYPE_CHECKING:
     from openide.windows.top_component import TopComponent

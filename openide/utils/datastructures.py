@@ -40,7 +40,7 @@ class RecursiveDict(dict[Any, Any]):
         return self
 
     def to_dict(self) -> dict[Any, Any]:
-        d = {}
+        d: dict[Any, Any] = {}
         for k, v in self.items():
             if isinstance(v, RecursiveDict):
                 d[k] = v.to_dict()

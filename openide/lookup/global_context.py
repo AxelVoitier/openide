@@ -13,15 +13,13 @@ from typing import TYPE_CHECKING
 from lookups import DelegatedLookup, EmptyLookup, Lookup, LookupProvider
 
 # Local imports
-from openide.lookup import ServiceProvider, ServiceSingletonABCMeta
+from openide.services import GlobalContext, ServiceProvider
 from openide.windows import ContextTracker
 
 if TYPE_CHECKING:
+    from lookups import Lookup
+
     from openide.windows.top_component import TopComponent
-
-
-class GlobalContext(Lookup, metaclass=ServiceSingletonABCMeta):
-    pass
 
 
 @ServiceProvider(service=GlobalContext)

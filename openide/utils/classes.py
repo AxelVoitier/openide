@@ -15,10 +15,9 @@ from contextlib import contextmanager
 from typing import TYPE_CHECKING, ClassVar, Self, TypeVar
 
 # Third-party imports
-from qtpy.QtCore import QObject
+from lookups import Lookup
 
 # Local imports
-
 
 _logger = logging.getLogger(__name__)
 
@@ -44,46 +43,6 @@ class SingletonMeta(type):
             cls._instances[cls] = super().__call__(*args, **kwargs)
 
         return cls._instances[cls]
-
-
-# Needed to make Generics work on user classes, despite all the "error" here...
-_QObjectType: type[type[QObject]] = type(QObject)  # type: ignore[valid-type]
-
-
-class _QObjectTypeFence(_QObjectType):  # type: ignore[valid-type,misc]
-    ...
-
-
-class _QABCMeta(_QObjectTypeFence, ABCMeta, _QObjectType):  # type: ignore[valid-type,misc]
-    ...
-
-
-class QABC(metaclass=_QABCMeta):
-    """A simpler variant of what MetaClassResolver does, but just for
-    the very common case of QObject + ABC.
-
-    This one has the advantage of keeping mypy and pylance happy,
-    compared to MetaClassResolver that cannot even be nicely done
-    using a mypy plugin...
-
-    Usage:
-    class MyClass(APythonABC, QABC, AQtSubclass)):
-        ...
-
-    Note: Put it _before_ the first Qt class in the subclasses declaration.
-    """
-
-    def __new__(cls, *args: Any, **kwargs: Any) -> Self:
-        obj = super().__new__(cls, *args, **kwargs)
-        if obj.__abstractmethods__:
-            s = 's' if len(obj.__abstractmethods__) > 1 else ''
-            msg = (
-                f"Can't instantiate abstract class {cls.__name__} "
-                f'with abstract method{s} {", ".join(obj.__abstractmethods__)}'
-            )
-            raise TypeError(msg)
-
-        return obj
 
 
 def MetaClassResolver(*subclasses: C, extra_metas: Iterable[type] | None = None) -> type[C]:  # noqa: N802

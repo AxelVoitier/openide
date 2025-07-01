@@ -22,14 +22,14 @@ from qtpy.uic import loadUi
 
 # Local imports
 from openide.actions import Actions
-from openide.integration import mark_setup
+from openide.integrations import mark_setup
+from openide.services import WindowManager
 from openide.utils import (
     MetaClassResolver,
     class_decorator,
     class_decorator_ext,
     class_loader,
 )
-from openide.windows import WindowManager
 
 if TYPE_CHECKING:
     from qtpy.QtCore import QObject

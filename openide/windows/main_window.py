@@ -19,9 +19,9 @@ from qtpy.QtWidgets import QApplication, QDockWidget, QMainWindow, QTabWidget
 
 # Local imports
 from openide import IDEApplication
-from openide.lookup import ServiceProvider
+from openide.services import ServiceProvider, WindowManager
 from openide.utils import MetaClassResolver, class_loader
-from openide.windows import ContextTracker, Location, TopComponent, WindowManager
+from openide.windows import ContextTracker, Location, TopComponent
 
 if TYPE_CHECKING:
     from qtpy.QtGui import QAction

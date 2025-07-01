@@ -45,7 +45,7 @@ class IDEApplication(metaclass=SingletonMeta):
     def _load_config(self) -> None:
         self._config = RecursiveDict()
         for dist in importlib.metadata.distributions():
-            config = dist.read_text('openide.yaml')
+            config = dist.read_text('extra_metadata/openide.yaml')
             if not config:
                 continue
 
@@ -65,7 +65,7 @@ class IDEApplication(metaclass=SingletonMeta):
         from qtpy.QtWidgets import QApplication  # noqa: PLC0415
 
         from openide.lookup import MainLookup  # noqa: PLC0415
-        from openide.windows import WindowManager  # noqa: PLC0415
+        from openide.services import WindowManager  # noqa: PLC0415
 
         if self._gui_started:
             _logger.warning('Attempting to start GUI but it is already started')
@@ -88,3 +88,8 @@ class IDEApplication(metaclass=SingletonMeta):
         self._main_window.show()
 
         self._qt_app.exec_()
+
+
+if __name__ == '__main__':
+    app = IDEApplication()
+    app.start()

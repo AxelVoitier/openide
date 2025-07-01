@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING
 
 # Third-party imports
 # Local imports
-from openide.integration import mark_setup
+from openide.integrations import mark_setup
 from openide.utils import class_decorator
 
 if TYPE_CHECKING:

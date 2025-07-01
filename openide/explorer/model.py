@@ -18,8 +18,8 @@ from qtpy.QtCore import QAbstractItemModel, QModelIndex, QPersistentModelIndex, 
 
 # Local imports
 from openide.nodes._like_netbeans import Node, NodeListener
-from openide.utils.classes import QABC
 from openide.utils.typing import override
+from openide.utils_qt import QABC
 
 _N = TypeVar('_N', bound=Node)
 

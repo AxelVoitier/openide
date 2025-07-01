@@ -10,59 +10,17 @@ from __future__ import annotations
 import ast
 import importlib
 from pathlib import Path
-from typing import TYPE_CHECKING
+from pprint import pformat
+from typing import TYPE_CHECKING, override
 
 # Third-party imports
-import yaml
-
 # Local imports
 from openide.utils import RecursiveDict
 
 if TYPE_CHECKING:
     from ast import Call, ClassDef, Import, ImportFrom, Name, expr
-    from collections.abc import Callable, Iterator
-    from typing import Any, Protocol, TypeVar
-
-    from setuptools.command.egg_info import egg_info
-
-    from openide.utils.classes import ClassDecorator
-
-    C = TypeVar('C', bound=type)
-
-    class SetupDecorator(Protocol):
-        # openide_setup: str
-
-        def __call__(self, *args: Any, **kwargs: Any) -> ClassDecorator: ...
-
-    class ConfigDecorator(Protocol):
-        def __call__(
-            self,
-            *args: Any,
-            _config: RecursiveDict | None = None,
-            **kwargs: Any,
-        ) -> ClassDecorator: ...
-
-
-def mark_setup(
-    mark: str,
-    # *,
-    # is_static: bool = True,
-) -> Callable[[SetupDecorator], SetupDecorator]:
-    """Function decorator intended to mark the decorated function as one that participate in
-    OpenIDE setup system."""
-
-    def _inner(
-        # func: SetupDecorator | staticmethod[..., ClassDecorator],
-        func: SetupDecorator,
-    ) -> SetupDecorator:  # | staticmethod[..., ClassDecorator]:
-        func.openide_setup = mark
-        # if is_static:
-        #     return staticmethod(func)
-        # else:
-        #     return func
-        return func
-
-    return _inner
+    from collections.abc import Iterator
+    from typing import Any
 
 
 class LoadNameFinder(ast.NodeVisitor):
@@ -78,7 +36,8 @@ class LoadNameFinder(ast.NodeVisitor):
     def reset(self) -> None:
         self.found: list[Name] = []
 
-    def visit_Name(self, node: Name) -> None:  # noqa: N802
+    @override
+    def visit_Name(self, node: Name) -> None:
         if isinstance(node.ctx, ast.Load):
             self.found.append(node)
         self.generic_visit(node)
@@ -89,6 +48,8 @@ class SetupFinder(ast.NodeVisitor):
     itself has been marked as a setup function (with mark_setup() decorator above)"""
 
     def __init__(self, module_path: str) -> None:
+        super().__init__()
+
         self.module_path = module_path
         self.config = RecursiveDict()  # We merge all the configs returned by config decorators
         self.qualpath: list[str] = []  # Stack of class hierarchy inside the module
@@ -97,7 +58,8 @@ class SetupFinder(ast.NodeVisitor):
             tuple[str, str],  # code name: (module path to import, module attribute to get)
         ] = {}
 
-    def visit_Import(self, node: Import) -> None:  # noqa: N802
+    @override
+    def visit_Import(self, node: Import) -> None:
         """Store import references"""
         for name in node.names:
             code_name = name.asname if name.asname else name.name
@@ -105,7 +67,8 @@ class SetupFinder(ast.NodeVisitor):
 
         self.generic_visit(node)
 
-    def visit_ImportFrom(self, node: ImportFrom) -> None:  # noqa: N802
+    @override
+    def visit_ImportFrom(self, node: ImportFrom) -> None:
         """Store import references, handle possible relative imports"""
         base_path = []
         if node.level:  # Is relative, just back up in our self.module_path
@@ -120,10 +83,13 @@ class SetupFinder(ast.NodeVisitor):
 
         self.generic_visit(node)
 
-    def visit_ClassDef(self, node: ClassDef) -> None:  # noqa: N802
+    @override
+    def visit_ClassDef(self, node: ClassDef) -> None:
         """Check decorators of a class to see if one has been marked by our mark_setup()"""
         # For when a class is referencing another class in the same module:
         self.imports[node.name] = self.module_path, node.name
+
+        # print(f'ClassDef {node.name}')
 
         self.qualpath.append(node.name)
         for decorator in node.decorator_list:
@@ -159,18 +125,22 @@ class SetupFinder(ast.NodeVisitor):
                     attr = getattr(attr, attr_name)
                 decorator_func = attr
 
-            except (KeyError, ImportError, AttributeError):
+            except (KeyError, ImportError, AttributeError) as ex:
+                # print(
+                #     f'[{self.module_path}] {to_import=}, {attr_name=}: {ex}',
+                # )
+
                 # Ignores:
                 # - Decorator (or its owner) not actually imported
                 # - Not importable module (might not be installed yet)
                 # - Non-existant path to decorator function
                 continue
 
-            # print('>>> Function is', func, hasattr(func, 'openide_setup'))
+            # print('>>> Function is', decorator_func, hasattr(decorator_func, 'openide_setup'))
             if not hasattr(decorator_func, 'openide_setup'):
                 continue
 
-            # print('>>> openide_setup is', getattr(func, 'openide_setup'))
+            # print('>>> openide_setup is', getattr(decorator_func, 'openide_setup'))
             # setup_type = getattr(decorator_func, 'openide_setup')
             setup_type = decorator_func.openide_setup
             if setup_type == 'config':
@@ -209,12 +179,16 @@ class SetupFinder(ast.NodeVisitor):
                 module = importlib.import_module(to_import)
                 lcls[elem] = getattr(module, attr_name)
 
-            except (KeyError, ImportError, AttributeError):  # noqa: PERF203
+            except (KeyError, ImportError, AttributeError) as ex:  # noqa: PERF203
+                print(
+                    f'[{self.module_path}] Cannot import {elem} ({to_import=}, {attr_name=}): {ex}',
+                )
+                raise
                 # Silently ignores:
                 # - Decorator (or its owner) not actually imported
                 # - Not importable module (might not be installed yet)
                 # - Non-existant path to decorator function
-                continue
+                # continue
 
         # Provide info about the target class the function decorates
         self.config['_fqname'] = f'{self.module_path}:{".".join(self.qualpath)}'
@@ -240,34 +214,14 @@ class SetupFinder(ast.NodeVisitor):
         del self.config['_fqname']
 
 
-def setup(cmd: egg_info, basename: str, filename: str) -> None:
-    """This is a setuptools hook for writing an egg-info file.
-    It gets triggered by any (third party) package build that already have openide installed in its
-    environment. Which means an openide "plugin" package would need to at least declare openide as a
-    setup dependency for this process to work.
+def parse_file(pkg: str, file_path: Path) -> RecursiveDict:
+    # print(f'parsing {file_path} ({pkg=})')
+    try:
+        tree = ast.parse(file_path.read_text(), filename=file_path.name)
+    except Exception:  # noqa: BLE001
+        return RecursiveDict()
 
-    The point of this setup process is to figure out what is to be declared in the egg-info file
-    openide.yaml, such that it can be "discovered" at run time by the openide framework machinery.
-    That's how, for instance, it will add menu entries, load default components in the GUI,
-    pre-populate some lookups, register lookup listeners, or load some service providers.
+    finder = SetupFinder(f'{pkg}.{file_path.stem}')
+    finder.visit(tree)
 
-    We are going to load and parse every python file of this package. We will walk their AST,
-    searching for class decorators that have been marked as part of the openide setup system, and
-    execute this decorator calls only, such that they can provide us with data to write to this
-    egg-info file.
-    """
-
-    config = RecursiveDict()
-    for pkg in cmd.distribution.packages:  # For every sub-package discovered in this package
-        pkg_path = Path(pkg.replace('.', '/'))
-        for module_file in pkg_path.glob('*.py'):  # For every .py file of this sub-pacakge
-            tree = ast.parse(module_file.read_text(), filename=module_file.name)
-            finder = SetupFinder(f'{pkg}.{module_file.stem}')
-            finder.visit(tree)
-            config.merge(finder.config)
-
-    # We now have all the relevant config declared in all python modules of this package
-    config = config.prune_none().to_dict()
-    # If nothing to config, will delete any previous openide.yaml
-    result = yaml.dump(config) if config else None
-    cmd.write_or_delete_file('OpenIDE setup', filename, result)
+    return finder.config

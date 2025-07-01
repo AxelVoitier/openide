@@ -1,8 +1,7 @@
-from openide.actions import ActionReference
-from openide.lookup import GlobalContext
-from openide.windows.top_component import Location, TopComponent
-
 from nbm_selection_01.my_api.event import Event
+from openide.actions import ActionReference
+from openide.services import GlobalContext
+from openide.windows import Location, TopComponent
 
 
 @TopComponent.Description(

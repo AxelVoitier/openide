@@ -4,5 +4,15 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-from .egg_info import EggInfoLookup  # noqa: F401
-from .main_lookup import MainLookup  # noqa: F401
+from __future__ import annotations
+
+# System imports
+# Third-party imports
+from lookups import Lookup
+
+# Local imports
+from openide.services import ServiceSingletonABCMeta
+
+
+class GlobalContext(Lookup, metaclass=ServiceSingletonABCMeta):
+    pass
