@@ -14,8 +14,8 @@ from weakref import WeakKeyDictionary, WeakValueDictionary
 
 # Third-party imports
 from lookups import Lookup
-from qtpy.QtCore import Qt
-from qtpy.QtWidgets import QApplication, QDockWidget, QMainWindow, QTabWidget
+from PySide6.QtCore import Qt
+from PySide6.QtWidgets import QApplication, QDockWidget, QMainWindow, QTabWidget
 
 # Local imports
 from openide import IDEApplication
@@ -24,8 +24,8 @@ from openide.utils import MetaClassResolver, class_loader
 from openide.windows import ContextTracker, Location, TopComponent
 
 if TYPE_CHECKING:
-    from qtpy.QtGui import QAction
-    from qtpy.QtWidgets import QMenu, QWidget
+    from PySide6.QtGui import QAction
+    from PySide6.QtWidgets import QMenu, QWidget
 
 _logger = logging.getLogger(__name__)
 

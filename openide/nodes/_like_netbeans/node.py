@@ -38,7 +38,7 @@ if TYPE_CHECKING:
     from typing import Any, Callable, TypeAlias
 
     from lookups import Lookup, Result
-    from qtpy.QtGui import QColor, QIcon, QPixmap
+    from PySide6.QtGui import QColor, QIcon, QPixmap
 
     from openide.nodes._like_netbeans.children import Children  # noqa: TC004  # No it's not
     from openide.nodes._like_netbeans.children_storage import ChildrenStorage

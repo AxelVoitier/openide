@@ -28,7 +28,7 @@ if TYPE_CHECKING:
     from collections.abc import Sequence
 
     from lookups import Lookup
-    from qtpy.QtGui import QColor, QIcon, QPixmap
+    from PySide6.QtGui import QColor, QIcon, QPixmap
 
     from openide.nodes._like_netbeans.properties import PropertySet
 
@@ -121,7 +121,7 @@ class GenericNode(Node):
     @property
     @override  # Node
     def icon(self) -> QIcon | QPixmap | QColor:
-        from qtpy.QtGui import QIcon  # noqa: PLC0415
+        from PySide6.QtGui import QIcon  # noqa: PLC0415
 
         icon = QIcon()
         icon.addPixmap(QIcon.fromTheme('folder').pixmap(256), QIcon.Mode.Normal, QIcon.State.Off)

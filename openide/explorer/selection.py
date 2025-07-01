@@ -12,7 +12,7 @@ from collections.abc import Iterable
 from typing import TYPE_CHECKING, Generic, cast
 
 # Third-party imports
-from qtpy.QtCore import (
+from PySide6.QtCore import (
     QAbstractItemModel,
     QItemSelection,
     QItemSelectionModel,
@@ -132,7 +132,7 @@ class NodeSelectionModel(QItemSelectionModel, Generic[_N]):
             return self.node_model.index_for_node(index_or_node)
 
     # def connectNotify(self, signal):
-    #     # from qtpy.QtCore import QMetaMethod
+    #     # from PySide6.QtCore import QMetaMethod
     #     # if signal == QMetaMethod.fromSignal(NodeSelectionModel.current_node_changed):
     #     meta = self.metaObject()
     #     print(str(meta.normalizedSignature('current_node_changed')))

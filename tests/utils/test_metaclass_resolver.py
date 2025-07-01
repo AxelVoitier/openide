@@ -13,7 +13,7 @@ from typing import Type
 
 # Third-party imports
 import pytest
-from qtpy.QtWidgets import QWidget, QApplication
+from PySide6.QtWidgets import QWidget, QApplication
 
 # Local imports
 from openide.utils.classes import MetaClassResolver, SingletonMeta

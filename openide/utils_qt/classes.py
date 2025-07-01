@@ -11,7 +11,7 @@ from abc import ABCMeta
 from typing import Self
 
 # Third-party imports
-from qtpy.QtCore import QObject
+from PySide6.QtCore import QObject
 
 # Needed to make Generics work on user classes, despite all the "error" here...
 _QObjectType: type[type[QObject]] = type(QObject)  # type: ignore[valid-type]

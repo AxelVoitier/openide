@@ -14,7 +14,7 @@ from typing import TYPE_CHECKING, Generic, TypeVar, overload
 
 # from weakref import ReferenceType
 # Third-party imports
-from qtpy.QtCore import QAbstractItemModel, QModelIndex, QPersistentModelIndex, Qt
+from PySide6.QtCore import QAbstractItemModel, QModelIndex, QPersistentModelIndex, Qt
 
 # Local imports
 from openide.nodes._like_netbeans import Node, NodeListener
@@ -27,7 +27,7 @@ if TYPE_CHECKING:
     from collections.abc import Generator, Iterable
     from typing import Any, Union
 
-    from qtpy.QtCore import QObject
+    from PySide6.QtCore import QObject
     from typing_extensions import TypeAlias
 
     from openide.explorer.selection import NodeSelectionModel

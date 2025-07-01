@@ -16,9 +16,8 @@ from typing import TYPE_CHECKING
 
 # Third-party imports
 from lookups import Lookup, LookupProvider
-from qtpy.QtGui import QIcon
-from qtpy.QtWidgets import QAction, QWidget
-from qtpy.uic import loadUi
+from PySide6.QtGui import QAction, QIcon
+from PySide6.QtWidgets import QWidget
 
 # Local imports
 from openide.actions import Actions
@@ -30,10 +29,11 @@ from openide.utils import (
     class_decorator_ext,
     class_loader,
 )
+from openide.utils_qt import load_ui
 
 if TYPE_CHECKING:
-    from qtpy.QtCore import QObject
-    from qtpy.QtGui import QHideEvent, QShowEvent
+    from PySide6.QtCore import QObject
+    from PySide6.QtGui import QHideEvent, QShowEvent
 
     from openide.actions import ActionReference
     from openide.utils.classes import ClassDecorator
@@ -186,14 +186,18 @@ class TopComponent(MetaClassResolver(LookupProvider, QWidget)):
                 ui_file_path = Path(ui_file_path)
 
             if ui_file_path.is_absolute():
-                loadUi(uifile=str(ui_file_path), baseinstance=self)
+                load_ui(
+                    uifile=ui_file_path,
+                    base_instance=self,
+                    working_directory=ui_file_path.parent,
+                )
                 return
 
             ui_file = (str(ui_file_path.parent).replace('/', '.'), ui_file_path.name)
 
         ref = importlib.resources.files(ui_file[0]) / ui_file[1]
         with importlib.resources.as_file(ref) as path:
-            loadUi(uifile=path, baseinstance=self)
+            load_ui(uifile=path, base_instance=self, working_directory=path.parent)
 
     def open(self) -> None:
         WindowManager().top_component_open(self)  # pyright: ignore[reportAbstractUsage]

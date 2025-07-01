@@ -10,8 +10,8 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 # Third-party imports
-# from qtpy.QtCore import Signal
-from qtpy.QtWidgets import QTreeView
+# from PySide6.QtCore import Signal
+from PySide6.QtWidgets import QTreeView
 
 # Local imports
 from openide.explorer.abstract_view import AbstractNodeView

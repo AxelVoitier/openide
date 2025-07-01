@@ -10,9 +10,9 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Generic, cast
 
 # Third-party imports
-from qtpy.QtCore import QAbstractItemModel, QModelIndex, QPersistentModelIndex
+from PySide6.QtCore import QAbstractItemModel, QModelIndex, QPersistentModelIndex
 
-# from qtpy.QtWidgets import QAbstractItemView
+# from PySide6.QtWidgets import QAbstractItemView
 # Local imports
 from openide.explorer.model import _N, NodeModel
 from openide.utils.typing import override

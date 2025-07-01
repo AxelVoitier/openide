@@ -61,8 +61,8 @@ class IDEApplication(metaclass=SingletonMeta):
         self.gui_start()
 
     def gui_start(self) -> None:
-        from qtpy.QtCore import Qt  # noqa: PLC0415
-        from qtpy.QtWidgets import QApplication  # noqa: PLC0415
+        from PySide6.QtCore import Qt  # noqa: PLC0415
+        from PySide6.QtWidgets import QApplication  # noqa: PLC0415
 
         from openide.lookup import MainLookup  # noqa: PLC0415
         from openide.services import WindowManager  # noqa: PLC0415
@@ -87,7 +87,7 @@ class IDEApplication(metaclass=SingletonMeta):
 
         self._main_window.show()
 
-        self._qt_app.exec_()
+        self._qt_app.exec()
 
 
 if __name__ == '__main__':
