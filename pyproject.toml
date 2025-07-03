@@ -42,7 +42,7 @@ dependencies = [
     "lookups",
     "PySide6",
     "PyYaml",
-    "observable",
+    "listeners",
 ]
 
 [project.entry-points.hatch]

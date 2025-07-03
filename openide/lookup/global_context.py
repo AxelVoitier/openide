@@ -27,7 +27,7 @@ class DefaultGlobalContext(DelegatedLookup, LookupProvider, GlobalContext):
     def __init__(self) -> None:
         self._default_lookup: Lookup = EmptyLookup()
         self._current_lookup: Lookup = self._default_lookup
-        ContextTracker().on(ContextTracker.Events.Activated, self._context_changed)
+        ContextTracker()[ContextTracker.Events.Activated].add(self._context_changed)
 
         super().__init__(self)
 

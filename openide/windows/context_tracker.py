@@ -13,10 +13,10 @@ from typing import TYPE_CHECKING, TypeVar
 from weakref import WeakSet, ref
 
 # Third-party imports
-from lookups.weak_observable import WeakObservable
+from listeners import KeyedObservable
 
 # Local imports
-from openide.utils import SingletonMeta
+from openide.utils import MetaClassResolver, SingletonMeta
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -42,14 +42,14 @@ class _ReadOnlySet(Set[T]):
         return iter(self._delegate)
 
 
-class ContextTracker(WeakObservable, metaclass=SingletonMeta):
+class ContextTracker(MetaClassResolver(KeyedObservable, extra_metas=[SingletonMeta])):
     class Events(Enum):
         Opened = 'opened'
         Closed = 'closed'
         Activated = 'activated'
 
     def __init__(self) -> None:
-        super().__init__()
+        super().__init__(keys=ContextTracker.Events)
 
         self._activated_tc: ReferenceType[TopComponent] | None = None
         self._open_components: WeakSet[TopComponent] = WeakSet()
@@ -77,7 +77,7 @@ class ContextTracker(WeakObservable, metaclass=SingletonMeta):
             self._activated_tc = None
 
         event = ContextTracker.Events.Activated
-        self.trigger(event, event, tc, old)
+        self[event](event, tc, old)
 
     def top_component_opened(self, tc: TopComponent) -> None:
         if tc in self._open_components:
@@ -85,7 +85,7 @@ class ContextTracker(WeakObservable, metaclass=SingletonMeta):
 
         self._open_components.add(tc)
         event = ContextTracker.Events.Opened
-        self.trigger(event, event, tc)
+        self[event](event, tc)
 
     def top_component_closed(self, tc: TopComponent) -> None:
         if tc not in self._open_components:
@@ -93,4 +93,4 @@ class ContextTracker(WeakObservable, metaclass=SingletonMeta):
 
         self._open_components.remove(tc)
         event = ContextTracker.Events.Closed
-        self.trigger(event, event, tc)
+        self[event](event, tc)

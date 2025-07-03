@@ -29,10 +29,10 @@ class MyViewerTopComponent(TopComponent):
 
     def component_opened(self):
         self._result = GlobalContext().lookup_result(Event)
-        self._result.add_lookup_listener(self.result_changed)
+        self._result.listeners += self.result_changed
 
     def component_closed(self):
-        self._result.remove_lookup_listener(self.result_changed)
+        self._result.listeners -= self.result_changed
 
     def result_changed(self, result):
         all_events = result.all_instances()

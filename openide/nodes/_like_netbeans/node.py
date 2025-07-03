@@ -109,7 +109,7 @@ class Node(Debug(f'{__name__}.Node'), FeatureDescriptor, LookupProvider, ABC):
         self._node_lookup = None
         if self._internal_lookup:
             self._result = self._internal_lookup.lookup_result(Node.Cookie)
-            self._result.add_lookup_listener(self._lookup_changed)
+            self._result.listeners += self._lookup_changed
             self._result.all_items()
 
         self._hiearchy._attach_to(self)
