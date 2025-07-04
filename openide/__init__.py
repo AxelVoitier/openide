@@ -7,4 +7,8 @@
 # /!\ Be careful of what is included here (in terms of third-party dependencies),
 # as this gets imported during the integration/setup hooks.
 
-from openide.startup.main import IDEApplication  # noqa: F401
+from openide.startup.main import IDEApplication
+
+__all__ = [
+    'IDEApplication',
+]

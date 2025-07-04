@@ -7,7 +7,7 @@
 # /!\ Be careful of what is included here (in terms of third-party dependencies),
 # as this gets imported during the integration/setup hooks.
 
-from .classes import (  # noqa: F401
+from .classes import (
     Debug,
     MetaClassResolver,
     SingletonMeta,
@@ -16,5 +16,18 @@ from .classes import (  # noqa: F401
     class_loader,
     dig_wrapped,
 )
-from .datastructures import RecursiveDict  # noqa: F401
-from .mutex import Mutex, MutexImplementation  # noqa: F401
+from .datastructures import RecursiveDict
+from .mutex import Mutex, MutexImplementation
+
+__all__ = [
+    'Debug',
+    'MetaClassResolver',
+    'Mutex',
+    'MutexImplementation',
+    'RecursiveDict',
+    'SingletonMeta',
+    'class_decorator',
+    'class_decorator_ext',
+    'class_loader',
+    'dig_wrapped',
+]
