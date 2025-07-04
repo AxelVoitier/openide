@@ -10,9 +10,11 @@ from __future__ import annotations
 import functools
 import importlib
 import logging
+import time
 from abc import ABCMeta
 from contextlib import contextmanager
 from typing import TYPE_CHECKING, ClassVar, Self, TypeVar
+from weakref import ReferenceType
 
 # Third-party imports
 from lookups import Lookup
@@ -224,3 +226,134 @@ def class_loader(fqname: str) -> type:
     for attr_name in qualname.split('.'):
         attr = getattr(dig_wrapped(attr), attr_name)
     return attr
+
+
+class _DebugReturn:
+    _GUARD = object()
+
+    def __init__(self) -> None:
+        self._value = _DebugReturn._GUARD
+
+    @property
+    def value(self) -> Any:  # noqa: ANN401
+        if self._value is _DebugReturn._GUARD:
+            return 'FAIL'
+        else:
+            return self._value
+
+    @value.setter
+    def value(self, value: Any) -> None:  # noqa: ANN401
+        self._value = value
+
+
+class _Debug_Dummy: ...  # noqa: N801
+
+
+class _Debug_Real:  # noqa: N801
+    # TODO:
+    # - __init__
+    # - __del__
+    # - set
+    # - qualname on instance attributes, not just the ones defined at class level (ie. mostly methods)
+
+    _INDENT = 0
+    _SILENT = False
+
+    @classmethod
+    @contextmanager
+    def _SILENCE(cls) -> Iterator[None]:  # noqa: N802
+        Debug._SILENT, was_silent = True, Debug._SILENT
+        yield
+        Debug._SILENT = was_silent
+
+    def __getattribute__(self, /, __name: str) -> Any:  # noqa: ANN401, PLR0915
+        attr = None
+
+        def _attr_name() -> str:
+            cls_qn = type(self).__qualname__
+            attr_qn = getattr(getattr(type(self), __name, None), '__qualname__', None)
+            if attr_qn:
+                if not attr_qn.startswith(cls_qn):
+                    return f'{cls_qn}.{attr_qn}'
+                else:
+                    return f'{attr_qn}'
+            else:
+                return f'{cls_qn}.{__name}'
+
+        # print(f'{Debug._INDENT * " "}" _get_ {_attr_name()}')
+
+        @contextmanager
+        def _wrapper(params: str | None = None, *, is_prop: bool = False) -> Iterator[_DebugReturn]:
+            if Debug._SILENT:
+                yield _DebugReturn()
+                return
+
+            indent = Debug._INDENT
+            attr_name = _attr_name()
+            if is_prop:
+                print(f'{indent * " "}> {attr_name}')
+            else:
+                print(f'{indent * " "}> {attr_name}({params})')
+                attr_name += '()'
+
+            Debug._INDENT += 2
+            ret = _DebugReturn()
+            try:
+                t1 = time.monotonic_ns()
+                yield ret
+            finally:
+                t2 = time.monotonic_ns()
+                dt = t2 - t1
+                Debug._INDENT = indent
+                with Debug._SILENCE():
+                    if dt >= 1e9:
+                        print(f'{indent * " "}< {attr_name} => {ret.value} ({dt / 1e9:.02f} s)')
+                    elif dt >= 1e6:
+                        print(f'{indent * " "}< {attr_name} => {ret.value} ({dt / 1e6:.02f} ms)')
+                    elif dt >= 1e3:
+                        print(f'{indent * " "}< {attr_name} => {ret.value} ({dt / 1e3:.02f} us)')
+                    else:
+                        print(f'{indent * " "}< {attr_name} => {ret.value} ({dt} ns)')
+
+        if isinstance(getattr(type(self), __name, None), property):
+            # print(f'{Debug._INDENT * " "}" _get_ {_attr_name()} is a property')
+            with _wrapper(is_prop=True) as ret:
+                ret.value = super().__getattribute__(__name)
+                return ret.value
+        else:
+            attr = super().__getattribute__(__name)
+
+            if callable(attr) and not isinstance(attr, (type, Lookup, ReferenceType)):
+                # print(f'{Debug._INDENT * " "}" _get_ {_attr_name()} is callable')
+
+                def _callable_wrapper(*args: Any, **kwargs: Any) -> Any:  # noqa: ANN401
+                    with Debug._SILENCE():
+                        params = ', '.join(
+                            [str(arg) for arg in args] + [f'{k}={v}' for k, v in kwargs.items()],
+                        )
+
+                    with _wrapper(params) as ret:
+                        ret.value = attr(*args, **kwargs)
+                        return ret.value
+
+                return _callable_wrapper
+
+            else:
+                if not Debug._SILENT:
+                    with Debug._SILENCE():
+                        print(f'{Debug._INDENT * " "}- {_attr_name()} => {attr}')
+                return attr
+
+
+_DEBUG_MAP = {
+}
+
+
+def Debug(name: str | None = None) -> type:  # noqa: N802
+    if name not in _DEBUG_MAP:
+        return _Debug_Dummy  # TODO: Change to a configurable default
+    else:
+        return _DEBUG_MAP[name]
+
+
+# TODO: def debug_method()

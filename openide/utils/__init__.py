@@ -8,6 +8,7 @@
 # as this gets imported during the integration/setup hooks.
 
 from .classes import (  # noqa: F401
+    Debug,
     MetaClassResolver,
     SingletonMeta,
     class_decorator,
