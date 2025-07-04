@@ -16,3 +16,4 @@ from .classes import (  # noqa: F401
     dig_wrapped,
 )
 from .datastructures import RecursiveDict  # noqa: F401
+from .mutex import Mutex, MutexImplementation  # noqa: F401
