@@ -1,0 +1,89 @@
+# Using hatch
+[build-system]
+requires = ["hatchling", "hatch-vcs"]
+build-backend = "hatchling.build"
+
+[project]
+name = "EventManager01"
+description = "Selection tutorial from Netbeans"
+authors = [
+  { name = "Axel Voitier", email = "axel.voitier@advantics.fr" },
+]
+version = "0.1.0"
+requires-python = "~=3.9"
+dependencies = [
+    "openide",
+]
+
+[tool.hatch.metadata]
+allow-direct-references = true
+
+[project.gui-scripts]
+nbm-selection-01 = "nbm_selection_01:main"
+
+[tool.hatch.build.targets.wheel.hooks.openide_integrations]
+dependencies = [
+    "openide",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = [
+    "nbm_selection_01",
+]
+
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.lint]
+select = ["ALL"]
+ignore = [
+  # "C408",  # "Unnecessary" `dict`, `list` or `tuple` calls instead of literals
+  "Q",  # Quotes
+  "SLF001",  # Access private _member
+  "RET505",  # Else after return
+  "ARG001",  # Unused function argument
+  "ARG002",  # Unused method argument
+  "PLW0603",  # Global statement to update variable
+  "PLR0913",  # Too many arguments
+  "PLR2004",  # Magic value in comparison
+  "S101",  # Use of `assert` detected
+  "RET504",  # Unnecessary assignment to `...` before `return` statement
+  "A001",  # Variable `...` is shadowing a Python builtin
+  "A002",  # Function argument `...` is shadowing a Python builtin
+
+  "D",  # Temporarily: docstrings
+  "ERA001",  # Temporarily: commented out code
+]
+
+[tool.ruff.lint.flake8-comprehensions]
+allow-dict-calls-with-keyword-arguments = true
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.lint.mccabe]
+max-complexity = 15
+
+[tool.ruff.lint.flake8-annotations]
+allow-star-arg-any = true
+
+[tool.ruff.lint.flake8-builtins]
+builtins-ignorelist = ["help"]
+
+[tool.ruff.format]
+quote-style = "single"
+skip-magic-trailing-comma = false
+
+[tool.pyright]
+include = [
+  "nbm_selection_01",
+]
+typeCheckingMode = "strict"
+reportPrivateUsage = "none"
+reportImplicitOverride = "error"
+reportImportCycles = "information"
+reportMissingSuperCall = "error"
+reportPropertyTypeMismatch = "information"
+reportShadowedImports = "information"
+reportUninitializedInstanceVariable = "error"
+reportUnnecessaryTypeIgnoreComment = "information"

@@ -4,7 +4,7 @@ This is a reimplementation of [Netbeans Platform selection tutorial, part 1](htt
 
 Install it first in an environment:
 ```
-$ pip install --no-build-isolation .
+$ pip install .
 ```
 
 Then run it with:
