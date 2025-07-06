@@ -11,13 +11,19 @@
 
 # Order matters to avoid cyclic imports
 
-from .registration import ServiceProvider, ServiceSingletonABCMeta, ServiceSingletonMeta
+from .registration import (
+    ServiceConfig,
+    ServiceProvider,
+    ServiceSingletonABCMeta,
+    ServiceSingletonMeta,
+)
 
 from .global_context import GlobalContext
 from .window_manager import WindowManager
 
 __all__ = [
     'GlobalContext',
+    'ServiceConfig',
     'ServiceProvider',
     'ServiceSingletonABCMeta',
     'ServiceSingletonMeta',

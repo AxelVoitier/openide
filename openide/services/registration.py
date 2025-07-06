@@ -9,10 +9,11 @@ from __future__ import annotations
 # System imports
 import logging
 from abc import ABCMeta
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, TypedDict
 
 # Third-party imports
 from lookups import Lookup
+from typing_extensions import NotRequired
 
 # Local imports
 from openide.integrations import mark_setup
@@ -27,21 +28,35 @@ if TYPE_CHECKING:
 _logger = logging.getLogger(__name__)
 
 
+class ServiceConfig(TypedDict):
+    service: str
+    # position
+    # supersedes
+    target_apps: NotRequired[list[str] | None]
+
+
 @mark_setup('config')
 def ServiceProvider(  # noqa: N802
     service: type,
     # position=None,
     # supersedes=None,
+    target_apps: str | list[str] | None = None,
     _config: RecursiveDict | None = None,
 ) -> ClassDecorator:
     if _config is not None:
+        if not target_apps:
+            target_apps = None
+        elif isinstance(target_apps, str):
+            target_apps = [target_apps]
+
         _config.merge(
             dict(
                 services={
-                    _config['_fqname']: dict(
+                    _config['_fqname']: ServiceConfig(
                         service=f'{service.__module__}:{service.__qualname__}',
                         # position=position,
                         # supersedes=supersedes,
+                        target_apps=target_apps,
                     ),
                 },
             ),

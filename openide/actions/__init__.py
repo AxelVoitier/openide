@@ -8,14 +8,18 @@ from __future__ import annotations
 
 # System imports
 import dataclasses
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, TypedDict
 
 # Third-party imports
+from typing_extensions import NotRequired
+
 # Local imports
 from openide.integrations import mark_setup
 from openide.utils import class_decorator
 
 if TYPE_CHECKING:
+    from typing import Any
+
     from openide.utils.classes import ClassDecorator
     from openide.utils.datastructures import RecursiveDict
 
@@ -28,20 +32,44 @@ class ActionReference:
     separator_after: bool = False
 
 
+class _ActionReferenceAsDict(TypedDict):
+    path: str
+    position: int
+    separator_before: NotRequired[bool]
+    separator_after: NotRequired[bool]
+
+
+class ActionConfig(TypedDict):
+    cls: str
+    references: list[_ActionReferenceAsDict]
+    kwargs: NotRequired[dict[str, Any]]
+    target_apps: NotRequired[list[str] | None]
+
+
 class Actions:
     @staticmethod
     @mark_setup('config')
     def Registration(  # noqa: N802
         references: list[ActionReference],
+        target_apps: str | list[str] | None = None,
         _config: RecursiveDict | None = None,
     ) -> ClassDecorator:
         if _config is not None:
+            if not target_apps:
+                target_apps = None
+            elif isinstance(target_apps, str):
+                target_apps = [target_apps]
+
             _config.merge(
                 dict(
                     actions=[
-                        dict(
+                        ActionConfig(
                             cls=_config['_fqname'],
-                            references=[dataclasses.asdict(ref) for ref in references],
+                            references=[
+                                _ActionReferenceAsDict(**dataclasses.asdict(ref))
+                                for ref in references
+                            ],
+                            target_apps=target_apps,
                         ),
                     ],
                 ),

@@ -1,8 +1,8 @@
 from lookups import GenericLookup, InstanceContent
-
-from nbm_selection_01.my_api.event import Event
 from openide.actions import ActionReference
 from openide.windows import Location, TopComponent
+
+from nbm_selection_01.my_api.event import Event
 
 
 @TopComponent.Description(
@@ -11,10 +11,12 @@ from openide.windows import Location, TopComponent
 @TopComponent.Registration(
     location=Location.Central,
     open_at_startup=True,
+    target_apps='nbm-selection-01',
 )
 @TopComponent.OpenActionRegistration(
     display_name='Open Editor',
     references=[ActionReference(path='Menu/Window')],
+    target_apps='nbm-selection-01',
 )
 class MyEditor(TopComponent):
     def __init__(self):

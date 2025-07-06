@@ -12,12 +12,13 @@ import logging
 import warnings
 from enum import StrEnum, auto
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, TypedDict
 
 # Third-party imports
 from lookups import Lookup, LookupProvider
 from PySide6.QtGui import QAction, QIcon
 from PySide6.QtWidgets import QWidget
+from typing_extensions import NotRequired
 
 # Local imports
 from openide.actions import Actions
@@ -47,6 +48,19 @@ class Location(StrEnum):
     Explorer = auto()
 
 
+class ComponentConfigDescription(TypedDict):
+    preferred_id: str
+
+
+class ComponentConfigRegistration(TypedDict):
+    open_at_startup: NotRequired[bool]
+    target_apps: NotRequired[list[str] | None]
+
+
+class ComponentConfig(ComponentConfigDescription, ComponentConfigRegistration):
+    pass
+
+
 class TopComponent(MetaClassResolver(LookupProvider, QWidget)):
     PREFERRED_ID: str | None = None
     ICON_BASE: str | None = None
@@ -67,7 +81,7 @@ class TopComponent(MetaClassResolver(LookupProvider, QWidget)):
             _config.merge(
                 dict(
                     components={
-                        _config['_fqname']: dict(
+                        _config['_fqname']: ComponentConfigDescription(
                             preferred_id=preferred_id,
                             # icon_base=icon_base,  # Not actually loaded from the YAML file
                         ),
@@ -89,18 +103,25 @@ class TopComponent(MetaClassResolver(LookupProvider, QWidget)):
         open_at_startup: bool,  # noqa: FBT001
         # position: int | None = None,
         # perspectives: list | None = None,
+        target_apps: str | list[str] | None = None,
         _config: RecursiveDict | None = None,
     ) -> ClassDecorator:
         if _config is not None:
+            if not target_apps:
+                target_apps = None
+            elif isinstance(target_apps, str):
+                target_apps = [target_apps]
+
             _config.merge(
                 dict(
                     components={
-                        _config['_fqname']: dict(
+                        _config['_fqname']: ComponentConfigRegistration(
                             open_at_startup=open_at_startup,
                             # Not actually loaded from the YAML file:
                             # perspectives=perspectives,
                             # location=location.value,
                             # position=position,
+                            target_apps=target_apps,
                         ),
                     },
                 ),
@@ -148,12 +169,13 @@ class TopComponent(MetaClassResolver(LookupProvider, QWidget)):
         display_name: str,
         references: list[ActionReference],
         target_id: str | None = None,
+        target_apps: str | list[str] | None = None,
         _config: RecursiveDict | None = None,
     ) -> ClassDecorator:
         if _config is not None:
             component = _config['_fqname']
             _config['_fqname'] = f'{__name__}:TopComponent.OpenTopComponentAction'
-            Actions.Registration(references, _config=_config)
+            Actions.Registration(references, target_apps=target_apps, _config=_config)
             _config['actions'][-1]['kwargs'] = dict(
                 display_name=display_name,
                 component=component,

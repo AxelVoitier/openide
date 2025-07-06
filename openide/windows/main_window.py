@@ -59,7 +59,10 @@ class MainWindow(MetaClassResolver(WindowManager, QMainWindow)):
         Lookup.get_default().lookup(QApplication).focusChanged.connect(self._focus_changed)
 
     def load(self) -> None:
-        for action in IDEApplication().config.get('actions', {}):
+        app = IDEApplication()
+        for action in app.config.get('actions', []):
+            if not app.is_targeted(action['cls'], action.get('target_apps')):
+                continue
             for ref in action.get('references', []):
                 paths = ref['path'].split('/')
                 if paths[0] == 'Menu':
@@ -70,7 +73,9 @@ class MainWindow(MetaClassResolver(WindowManager, QMainWindow)):
                     self.actions.append(action_obj)
 
         instance = None
-        for fqname, component in IDEApplication().config.get('components', {}).items():
+        for fqname, component in app.config.get('components', {}).items():
+            if not app.is_targeted(fqname, component.get('target_apps')):
+                continue
             if not component.get('open_at_startup', False):
                 continue
             _logger.info('Loading startup component %s', fqname)

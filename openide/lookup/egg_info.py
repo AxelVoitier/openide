@@ -8,7 +8,7 @@ from __future__ import annotations
 
 # System imports
 import logging
-from typing import TYPE_CHECKING, TypeVar
+from typing import TYPE_CHECKING, Any, Literal, TypeVar
 
 # Third-party imports
 from lookups import Convertor, Lookup
@@ -17,6 +17,7 @@ from lookups.simple import SimpleResult
 
 # Local imports
 from openide import IDEApplication
+from openide.services import ServiceConfig
 from openide.utils import class_loader
 
 T = TypeVar('T')
@@ -30,8 +31,8 @@ _logger = logging.getLogger(__name__)
 
 
 class EggInfoLookup(Lookup):
-    class _FQNameConvertor(Convertor):
-        def convert(self, element: object) -> object:
+    class _FQNameConvertor(Convertor[tuple[str, ServiceConfig], type[Any]]):
+        def convert(self, element: tuple[str, ServiceConfig]) -> Any:  # noqa: ANN401
             fqname = element[0]
             cls = class_loader(fqname)
             return cls()
@@ -39,19 +40,19 @@ class EggInfoLookup(Lookup):
             # kwargs = element[1].get('kwargs', {})
             # return cls(**kwargs)
 
-        def type(self, element: object) -> type:
+        def type(self, element: tuple[str, ServiceConfig]) -> type[Any]:
             fqname = element[1].get('service', element[0])
             module_path, qualname = fqname.split(':')
             name = qualname.split('.')[-1]
             return type(name, (object,), dict(__module__=module_path, __qualname__=qualname))
 
-        def id(self, element: object) -> str:
+        def id(self, element: tuple[str, ServiceConfig]) -> str:
             return element[0]
 
-        def display_name(self, element: object) -> str:
+        def display_name(self, element: tuple[str, ServiceConfig]) -> str:
             return element[0]
 
-    class _FQNameConvertingItem(ConvertingItem):
+    class _FQNameConvertingItem(ConvertingItem[tuple[str, ServiceConfig], type[Any]]):
         def issubclass(self, cls: type) -> bool:
             """The special resolution based on full qualifed name requires
             overloading issubclass(). Unfortunately, it cannot be done with
@@ -69,12 +70,17 @@ class EggInfoLookup(Lookup):
             same_qualname = cls.__qualname__ == item_type.__qualname__
             return same_module and same_qualname
 
-    def __init__(self, section: str) -> None:
-        registry = IDEApplication().config.get(section, {})
+    def __init__(self, section: Literal['services']) -> None:
+        super().__init__()
+
+        app = IDEApplication()
+        registry = app.config.get(section, {})
         self._convertor = self._FQNameConvertor()
 
         self._content = tuple(
-            self._FQNameConvertingItem(element, self._convertor) for element in registry.items()
+            self._FQNameConvertingItem(element, self._convertor)
+            for element in registry.items()
+            if app.is_targeted(element[0], element[1].get('target_apps'))
         )
 
     def lookup(self, cls: type[T]) -> T | None:
@@ -88,8 +94,8 @@ class EggInfoLookup(Lookup):
         return EggInfoServiceResult(self, cls)
 
 
-class EggInfoServiceResult(SimpleResult):  # [T]):
-    def all_items(self) -> Sequence[Item]:
+class EggInfoServiceResult(SimpleResult[T]):
+    def all_items(self) -> Sequence[Item[T]]:
         if self._items is None:
             self._items = tuple(item for item in self.lookup._content if item.issubclass(self.cls))
 

@@ -1,7 +1,8 @@
-from nbm_selection_01.my_api.event import Event
 from openide.actions import ActionReference
 from openide.services import GlobalContext
 from openide.windows import Location, TopComponent
+
+from nbm_selection_01.my_api.event import Event
 
 
 @TopComponent.Description(
@@ -10,11 +11,13 @@ from openide.windows import Location, TopComponent
 @TopComponent.Registration(
     location=Location.Explorer,
     open_at_startup=True,
+    target_apps='nbm-selection-01',
 )
 @TopComponent.OpenActionRegistration(
     display_name='MyViewer',
     target_id='MyViewerTopComponent',
     references=[ActionReference(path='Menu/Window')],
+    target_apps='nbm-selection-01',
 )
 class MyViewerTopComponent(TopComponent):
     def __init__(self):

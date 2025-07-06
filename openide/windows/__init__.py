@@ -7,10 +7,11 @@
 # ruff: noqa: I001  # Order matters to avoid circular imports
 
 from .context_tracker import ContextTracker
-from .top_component import Location, TopComponent
+from .top_component import ComponentConfig, Location, TopComponent
 from .main_window import MainWindow
 
 __all__ = [
+    'ComponentConfig',
     'ContextTracker',
     'Location',
     'MainWindow',
