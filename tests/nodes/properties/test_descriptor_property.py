@@ -3,12 +3,16 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
+#
+# spell-checker:words openide netbeans
+# spell-checker:ignore descr objtype
 
 from __future__ import annotations
 
 # System imports
+from collections.abc import Mapping
 from copy import copy, deepcopy
-from typing import Mapping, Optional, Protocol, Type
+from typing import Any, Generic, Protocol, Self
 
 # Third-party imports
 import pytest
@@ -17,23 +21,30 @@ import pytest
 from openide.nodes._like_netbeans.properties_support import (
     DescriptorProperty,
     GettableDescriptorProtocol,
+    GV_co,
     SettableDescriptorProtocol,
+    SV_contra,
+    T_contra,
 )
 
 
-class RWDescriptorProtocol(GettableDescriptorProtocol, SettableDescriptorProtocol, Protocol):
-    ...
+class RWDescriptorProtocol(
+    GettableDescriptorProtocol[T_contra, GV_co],
+    SettableDescriptorProtocol[T_contra, SV_contra],
+    Protocol,
+): ...
 
 
-class RWTestProtocol(Protocol):
-    def __init__(self) -> None: ...
+class RWTestProtocol(Protocol[GV_co, SV_contra]):
+    # def __init__(self) -> None: ...
 
-    attr: RWDescriptorProtocol
+    attr: RWDescriptorProtocol[Self, GV_co, SV_contra]
 
 
 class RWProperty:
-
     def __init__(self) -> None:
+        super().__init__()
+
         self.__attr = 0
 
     @property
@@ -48,13 +59,11 @@ class RWProperty:
 
 
 class RWDescriptor:
-
     class _RWDescriptor:
-
         def __get__(
             self,
-            obj: Optional[RWDescriptor],
-            objtype: Optional[Type[RWDescriptor]] = None
+            obj: RWDescriptor | None,
+            objtype: type[RWDescriptor] | None = None,
         ) -> int:
             if obj is not None:
                 return obj._value
@@ -65,18 +74,21 @@ class RWDescriptor:
             obj._value = value
 
     def __init__(self) -> None:
+        super().__init__()
+
         self._value = 0
 
     attr = _RWDescriptor()
 
 
 @pytest.mark.parametrize(
-    'rw', [
+    'rw',
+    [
         RWProperty(),
         RWDescriptor(),
-    ]
+    ],
 )
-def test_read_write(rw: RWTestProtocol) -> None:
+def test_read_write(rw: RWTestProtocol[int, int]) -> None:
     def check(prop: DescriptorProperty[int], init_value: int, set_value: int) -> None:
         assert prop.system_name == 'attr'
         assert prop.value_type is int
@@ -100,14 +112,15 @@ def test_read_write(rw: RWTestProtocol) -> None:
 class ROTestProtocol(Protocol):
     def __init__(self, value: int) -> None: ...
 
-    attr: GettableDescriptorProtocol
+    attr: GettableDescriptorProtocol[Self, int]
 
     def set_attr(self, value: int) -> None: ...
 
 
 class ROProperty:
-
     def __init__(self, value: int) -> None:
+        super().__init__()
+
         self.__attr = value
 
     @property
@@ -119,13 +132,11 @@ class ROProperty:
 
 
 class RODescriptor:
-
     class _RODescriptor:
-
         def __get__(
             self,
-            obj: Optional[RODescriptor],
-            objtype: Optional[Type[RODescriptor]] = None
+            obj: RODescriptor | None,
+            objtype: type[RODescriptor] | None = None,
         ) -> int:
             if obj is not None:
                 return obj._value
@@ -133,6 +144,8 @@ class RODescriptor:
                 return -1
 
     def __init__(self, value: int) -> None:
+        super().__init__()
+
         self._value = value
 
     attr = _RODescriptor()
@@ -142,10 +155,11 @@ class RODescriptor:
 
 
 @pytest.mark.parametrize(
-    'ro', [
+    'ro',
+    [
         ROProperty(72),
         RODescriptor(72),
-    ]
+    ],
 )
 def test_read_only(ro: ROTestProtocol) -> None:
     def check(prop: DescriptorProperty[int], init_value: int) -> None:
@@ -175,12 +189,13 @@ class WOTestProtocol(Protocol):
 
     def get_attr(self) -> int: ...
 
-    attr: SettableDescriptorProtocol
+    attr: SettableDescriptorProtocol[Self, int]
 
 
 class WOProperty:
-
     def __init__(self) -> None:
+        super().__init__()
+
         self.__attr = 0
 
     def get_attr(self) -> int:
@@ -193,13 +208,13 @@ class WOProperty:
 
 
 class WODescriptor:
-
     class _WODescriptor:
-
         def __set__(self, obj: WODescriptor, value: int) -> None:
             obj._value = value
 
     def __init__(self) -> None:
+        super().__init__()
+
         self._value = 0
 
     def get_attr(self) -> int:
@@ -209,13 +224,13 @@ class WODescriptor:
 
 
 @pytest.mark.parametrize(
-    'wo', [
+    'wo',
+    [
         WOProperty(),
         WODescriptor(),
-    ]
+    ],
 )
 def test_write_only(wo: WOTestProtocol) -> None:
-
     def check(prop: DescriptorProperty[int], init_value: int, set_value: int) -> None:
         assert prop.system_name == 'attr'
         assert prop.value_type is int
@@ -242,7 +257,7 @@ def test_not_descriptor_direct() -> None:
     with pytest.raises(TypeError):
         DescriptorProperty(
             rw,
-            RWProperty.not_a_descriptor  # type: ignore
+            RWProperty.not_a_descriptor,  # pyright: ignore[reportArgumentType]
         )
 
 
@@ -259,25 +274,23 @@ def test_unknown() -> None:
 
 
 class Plenty:
-
     # Check it does not try to use some special descriptors
     # (slot members, function, class method and static method,
     # and few other peculiar attributes).
     __slots__ = ('_value',)
 
     def __init__(self) -> None:
+        super().__init__()
+
         self._value = 14
 
-    def method(self) -> None:
-        ...
+    def method(self) -> None: ...
 
     @classmethod
-    def class_method(cls) -> None:
-        ...
+    def class_method(cls) -> None: ...
 
     @staticmethod
-    def static_method() -> None:
-        ...
+    def static_method() -> None: ...
 
     class_attr = 'no'
 
@@ -291,16 +304,15 @@ class Plenty:
 
     # attr_bool value_type will be detected from setter
     @property
-    def attr_bool(self):  # type: ignore
+    def attr_bool(self) -> bool:
         return True
 
     @attr_bool.setter
-    def attr_bool(self, value: bool) -> None:
-        ...
+    def attr_bool(self, value: bool) -> None: ...
 
     # attr_something value_type will be given explicitly
     @property
-    def attr_something(self):  # type: ignore
+    def attr_something(self) -> RWProperty:
         return RWProperty()
 
     attr_descr = RODescriptor._RODescriptor()
@@ -346,7 +358,7 @@ def test_all_properties() -> None:
                 assert prop.value == 14
 
             else:
-                assert False, f'{prop.system_name} property should not be here'
+                pytest.fail(f'{prop.system_name} property should not be here')
 
             seen[prop.system_name] = True
 
@@ -360,13 +372,11 @@ def test_all_properties() -> None:
 
 
 class PlentyBad:
-
     @property
     def no_value_type_getter(self):  # type: ignore
         ...
 
-    def _bad_setter(self) -> None:
-        ...
+    def _bad_setter(self) -> None: ...
 
     bad_setter = property(None, _bad_setter, None)  # type: ignore
 
@@ -379,15 +389,16 @@ class PlentyBad:
 
 
 @pytest.mark.parametrize(
-    'attribute, expected_exception', [
+    ('attribute', 'expected_exception'),
+    [
         ('no_value_type_getter', ValueError),
         ('bad_setter', ValueError),
         ('only_deleter_descriptor', TypeError),
         # A property will appear of the right type. However, it will lack getter and setter values
         ('only_deleter_property', ValueError),
-    ]
+    ],
 )
-def test_bad_properties(attribute: str, expected_exception: Type[Exception]) -> None:
+def test_bad_properties(attribute: str, expected_exception: type[Exception]) -> None:
     plenty_bad = PlentyBad()
 
     with pytest.raises(expected_exception):

@@ -3,6 +3,9 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
+#
+# spell-checker:words netbeans
+# spell-checker:ignore
 
 # From: https://github.com/apache/netbeans/blob/master/platform/openide.nodes/src/org/openide/nodes/Node.java  # noqa: E501
 
@@ -34,8 +37,8 @@ from openide.utils.typing import override
 T = TypeVar('T')
 E = TypeVar('E')
 if TYPE_CHECKING:
-    from collections.abc import Collection, MutableSequence, Sequence
-    from typing import Any, Callable, TypeAlias
+    from collections.abc import Callable, Collection, MutableSequence, Sequence
+    from typing import Any, TypeAlias
 
     from lookups import Lookup, Result
     from PySide6.QtGui import QColor, QIcon, QPixmap
@@ -230,7 +233,7 @@ class Node(Debug(f'{__name__}.Node'), FeatureDescriptor, LookupProvider, ABC):
             RuntimeWarning(
                 'Setting Node.is_hidden does not do what you think it does. '
                 'To hide a node you should remove it from the children of its parent. '
-                'For instance, with Children.Keys._set_keys(keys_set) and a smaller keys_set.'
+                'For instance, with Children.Keys._set_keys(keys_set) and a smaller keys_set.',
             ),
             stacklevel=2,
         )

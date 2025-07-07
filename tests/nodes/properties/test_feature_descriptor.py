@@ -3,26 +3,28 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
+#
+# spell-checker:words openide netbeans
+# spell-checker:ignore descr
 
 from __future__ import annotations
 
 # System imports
+from collections.abc import Generator, MutableMapping, Sequence
 from copy import copy, deepcopy
-from typing import Any, Generator, MutableMapping, Optional, Sequence, TypeVar, Union, cast
+from typing import Any, TypeAlias, TypeVar, cast, override
 from weakref import ref
 
 # Third-party imports
 import pytest
-from typing_extensions import TypeAlias
 
 # Local imports
 from openide.nodes._like_netbeans.properties import FeatureDescriptor
 
-
 FD = TypeVar('FD', bound=FeatureDescriptor)
-ValuesType: 'TypeAlias' = MutableMapping[str, Optional[Any]]
-AttrType: 'TypeAlias' = Optional[Union[str, bool, ValuesType]]
-AttrDict: 'TypeAlias' = MutableMapping[str, AttrType]
+ValuesType: TypeAlias = MutableMapping[str, Any | None]
+AttrType: TypeAlias = str | bool | ValuesType | None
+AttrDict: TypeAlias = MutableMapping[str, AttrType]
 
 
 DEFAULT_ATTRS: AttrDict = dict(
@@ -40,9 +42,10 @@ def make_attrs(**additional_attrs: AttrType) -> AttrDict:
     attrs = deepcopy(DEFAULT_ATTRS)
     if 'values' in additional_attrs:
         if 'values' not in attrs:
-            attrs['values'] = dict()
-        cast(ValuesType, attrs['values']).update(
-            cast(ValuesType, additional_attrs.pop('values')))
+            attrs['values'] = {}
+        cast('ValuesType', attrs['values']).update(
+            cast('ValuesType', additional_attrs.pop('values')),
+        )
     attrs.update(additional_attrs)
 
     return attrs
@@ -51,7 +54,7 @@ def make_attrs(**additional_attrs: AttrType) -> AttrDict:
 def apply_attributes(fd: FeatureDescriptor, attrs: AttrDict) -> None:
     for attr_name, attr_value in attrs.items():
         if attr_name == 'values':
-            for name, value in cast(ValuesType, attr_value).items():
+            for name, value in cast('ValuesType', attr_value).items():
                 fd.set_value(name, value)
         else:
             setattr(fd, attr_name, attr_value)
@@ -60,17 +63,17 @@ def apply_attributes(fd: FeatureDescriptor, attrs: AttrDict) -> None:
 def check_attributes(
     sut: FeatureDescriptor,
     attrs: AttrDict,
-    exclude: Optional[Sequence[str]] = None
+    exclude: Sequence[str] | None = None,
 ) -> None:
     if exclude is None:
-        exclude = tuple()
+        exclude = ()
 
     for attr_name, attr_value in attrs.items():
         if attr_name in exclude:
             continue
 
         if attr_name == 'values':
-            attr_value = cast(ValuesType, attr_value)
+            attr_value = cast('ValuesType', attr_value)
             for name, value in attr_value.items():
                 assert sut.get_value(name) is value, (
                     f'Expected value {name}={value}, but got {sut.get_value(name)} instead'
@@ -91,13 +94,14 @@ def test_initialisation() -> None:
 
 
 @pytest.mark.parametrize(
-    'value', [
+    'value',
+    [
         None,
         '',
         'test',
     ],
 )
-def test_system_name(value: Optional[str]) -> None:
+def test_system_name(value: str | None) -> None:
     sut = FeatureDescriptor()
     assert sut.system_name is None
 
@@ -106,10 +110,14 @@ def test_system_name(value: Optional[str]) -> None:
     assert sut.system_name == value
 
     # Check nothing else changed
-    check_attributes(sut, make_attrs(
-        display_name=sut.system_name,
-        short_description=sut.short_description,
-    ), exclude=['system_name'])
+    check_attributes(
+        sut,
+        make_attrs(
+            display_name=sut.system_name,
+            short_description=sut.short_description,
+        ),
+        exclude=['system_name'],
+    )
 
     # Check reinitialising
     sut.system_name = None
@@ -117,7 +125,8 @@ def test_system_name(value: Optional[str]) -> None:
 
 
 @pytest.mark.parametrize(
-    'value, system_name_value, expected', [
+    ('value', 'system_name_value', 'expected'),
+    [
         (None, None, None),
         (None, 'sys', 'sys'),
         ('', None, ''),
@@ -127,9 +136,9 @@ def test_system_name(value: Optional[str]) -> None:
     ],
 )
 def test_display_name(
-    value: Optional[str],
-    system_name_value: Optional[str],
-    expected: Optional[str],
+    value: str | None,
+    system_name_value: str | None,
+    expected: str | None,
 ) -> None:
     sut = FeatureDescriptor()
     assert sut.display_name is None
@@ -140,27 +149,35 @@ def test_display_name(
     assert sut.display_name == expected
 
     # Check nothing else changed
-    check_attributes(sut, make_attrs(
-        system_name=system_name_value,
-        short_description=sut.display_name,
-    ), exclude=['display_name'])
+    check_attributes(
+        sut,
+        make_attrs(
+            system_name=system_name_value,
+            short_description=sut.display_name,
+        ),
+        exclude=['display_name'],
+    )
 
     # Check reinitialising
     sut.display_name = None
-    check_attributes(sut, make_attrs(
-        system_name=system_name_value,
-        display_name=system_name_value,
-        short_description=system_name_value,
-    ))
+    check_attributes(
+        sut,
+        make_attrs(
+            system_name=system_name_value,
+            display_name=system_name_value,
+            short_description=system_name_value,
+        ),
+    )
 
 
 @pytest.mark.parametrize(
-    'value', [
+    'value',
+    [
         False,
         True,
     ],
 )
-def test_is_expert(value: bool) -> None:
+def test_is_expert(value: bool) -> None:  # noqa: FBT001
     sut = FeatureDescriptor()
     assert sut.is_expert is False
 
@@ -173,12 +190,13 @@ def test_is_expert(value: bool) -> None:
 
 
 @pytest.mark.parametrize(
-    'value', [
+    'value',
+    [
         False,
         True,
     ],
 )
-def test_is_hidden(value: bool) -> None:
+def test_is_hidden(value: bool) -> None:  # noqa: FBT001
     sut = FeatureDescriptor()
     assert sut.is_hidden is False
 
@@ -191,12 +209,13 @@ def test_is_hidden(value: bool) -> None:
 
 
 @pytest.mark.parametrize(
-    'value', [
+    'value',
+    [
         False,
         True,
     ],
 )
-def test_is_preferred(value: bool) -> None:
+def test_is_preferred(value: bool) -> None:  # noqa: FBT001
     sut = FeatureDescriptor()
     assert sut.is_preferred is False
 
@@ -209,7 +228,8 @@ def test_is_preferred(value: bool) -> None:
 
 
 @pytest.mark.parametrize(
-    'value, display_name_value, system_name_value, expected', [
+    ('value', 'display_name_value', 'system_name_value', 'expected'),
+    [
         (None, None, None, None),
         (None, None, 'sys', 'sys'),
         (None, 'dis', 'sys', 'dis'),
@@ -219,13 +239,13 @@ def test_is_preferred(value: bool) -> None:
         ('test', None, None, 'test'),
         ('test', None, 'sys', 'test'),
         ('test', 'dis', 'sys', 'test'),
-    ]
+    ],
 )
 def test_short_description(
-    value: Optional[str],
-    display_name_value: Optional[str],
-    system_name_value: Optional[str],
-    expected: Optional[str],
+    value: str | None,
+    display_name_value: str | None,
+    system_name_value: str | None,
+    expected: str | None,
 ) -> None:
     sut = FeatureDescriptor()
     assert sut.short_description is None
@@ -238,22 +258,29 @@ def test_short_description(
 
     # Check nothing else changed
     replacing_value = display_name_value if display_name_value is not None else system_name_value
-    check_attributes(sut, make_attrs(
-        system_name=system_name_value,
-        display_name=replacing_value,
-    ), exclude=['short_description'])
+    check_attributes(
+        sut,
+        make_attrs(
+            system_name=system_name_value,
+            display_name=replacing_value,
+        ),
+        exclude=['short_description'],
+    )
 
     # Check reinitialising
     sut.short_description = None
-    check_attributes(sut, make_attrs(
-        system_name=system_name_value,
-        display_name=replacing_value,
-        short_description=replacing_value,
-    ))
+    check_attributes(
+        sut,
+        make_attrs(
+            system_name=system_name_value,
+            display_name=replacing_value,
+            short_description=replacing_value,
+        ),
+    )
 
 
 class DummyObject:
-
+    @override
     def __str__(self) -> str:
         return 'Dummy!'
 
@@ -263,7 +290,8 @@ object1_ref = ref(object1)
 
 
 @pytest.mark.parametrize(
-    'values', [
+    'values',
+    [
         {},
         dict(a_str='abcd', an_int=12, a_float=3.14, a_bool=True, a_none=None),
         dict(an_object=object1, a_ref=object1_ref),
@@ -277,13 +305,14 @@ def test_values(values: ValuesType) -> None:
     check_attributes(sut, make_attrs(values=values))
 
 
-COPY_PARAMETERS = [
+COPY_PARAMETERS: list[tuple[AttrDict, str | None, str | None]] = [
     ({}, None, None),
     (dict(system_name='sys'), 'another sys', None),
     (dict(system_name='sys', display_name='dis'), 'another_sys', 'another_dis'),
     (
         dict(system_name='sys', display_name='dis', short_description='descr'),
-        'another_sys', 'another_dis'
+        'another_sys',
+        'another_dis',
     ),
     (dict(is_expert=True), None, None),
     (dict(is_hidden=True), None, None),
@@ -291,7 +320,8 @@ COPY_PARAMETERS = [
     (dict(values={}), None, None),
     (
         dict(values=dict(a_str='abcd', an_int=12, a_float=3.14, a_bool=True, a_none=None)),
-        None, None
+        None,
+        None,
     ),
     (dict(values=dict(an_object=object1, a_ref=object1_ref)), None, None),
 ]
@@ -300,8 +330,8 @@ COPY_PARAMETERS = [
 def check_copy(
     initial: FD,
     attributes: AttrDict,
-    post_system_name: Optional[str],
-    post_display_name: Optional[str],
+    post_system_name: str | None,
+    post_display_name: str | None,
 ) -> FD:
     apply_attributes(initial, attributes)
     sut = copy(initial)
@@ -322,23 +352,24 @@ def check_copy(
 
 
 @pytest.mark.parametrize(
-    'attributes, post_system_name, post_display_name', COPY_PARAMETERS,
+    ('attributes', 'post_system_name', 'post_display_name'),
+    COPY_PARAMETERS,
 )
 def test_copy(
     attributes: AttrDict,
-    post_system_name: Optional[str],
-    post_display_name: Optional[str],
+    post_system_name: str | None,
+    post_display_name: str | None,
 ) -> None:
     initial = FeatureDescriptor()
     check_copy(initial, attributes, post_system_name, post_display_name)
 
 
 class SubFeatureDescriptorNoInitArg(FeatureDescriptor):
-
     def __init__(self) -> None:
         super().__init__()
-        self.__other_field: Optional[str] = None
+        self.__other_field: str | None = None
 
+    @override
     def __copy_super__(self, new: FeatureDescriptor) -> None:
         super().__copy_super__(new)
 
@@ -346,13 +377,14 @@ class SubFeatureDescriptorNoInitArg(FeatureDescriptor):
             new.other_field = self.other_field
 
     @property
-    def other_field(self) -> Optional[str]:
+    def other_field(self) -> str | None:
         return self.__other_field
 
     @other_field.setter
-    def other_field(self, value: Optional[str]) -> None:
+    def other_field(self, value: str | None) -> None:
         self.__other_field = value
 
+    @override
     def __str_add__(self) -> Generator[str, None, None]:
         yield from super().__str_add__()
 
@@ -362,14 +394,13 @@ class SubFeatureDescriptorNoInitArg(FeatureDescriptor):
 
 
 @pytest.mark.parametrize(
-    'attributes, post_system_name, post_display_name', COPY_PARAMETERS + [
-        (dict(other_field='test'), None, None),
-    ],
+    ('attributes', 'post_system_name', 'post_display_name'),
+    [*COPY_PARAMETERS, (dict(other_field='test'), None, None)],
 )
 def test_copy_sub_no_init_arg(
     attributes: AttrDict,
-    post_system_name: Optional[str],
-    post_display_name: Optional[str],
+    post_system_name: str | None,
+    post_display_name: str | None,
 ) -> None:
     initial = SubFeatureDescriptorNoInitArg()
     sut = check_copy(initial, attributes, post_system_name, post_display_name)
@@ -377,83 +408,81 @@ def test_copy_sub_no_init_arg(
 
 
 class SubFeatureDescriptorWithInitArg(FeatureDescriptor):
-
-    def __init__(self, other_field: Optional[str]) -> None:
+    def __init__(self, other_field: str | None) -> None:
         super().__init__()
-        self.__other_field: Optional[str] = other_field
+        self.__other_field: str | None = other_field
 
+    @override
     def __copy__(self) -> SubFeatureDescriptorWithInitArg:
         new = type(self)(self.other_field)
         self.__copy_super__(new)
         return new
 
     @property
-    def other_field(self) -> Optional[str]:
+    def other_field(self) -> str | None:
         return self.__other_field
 
 
 @pytest.mark.parametrize(
-    'attributes, post_system_name, post_display_name', COPY_PARAMETERS + [
-        (dict(other_field='test'), None, None),
-    ],
+    ('attributes', 'post_system_name', 'post_display_name'),
+    [*COPY_PARAMETERS, (dict(other_field='test'), None, None)],
 )
 def test_copy_sub_with_init_arg(
     attributes: AttrDict,
-    post_system_name: Optional[str],
-    post_display_name: Optional[str],
+    post_system_name: str | None,
+    post_display_name: str | None,
 ) -> None:
     attributes = dict(attributes)
-    other_field = cast(Optional[str], attributes.pop('other_field', 'default'))
+    other_field = cast('str | None', attributes.pop('other_field', 'default'))
     initial = SubFeatureDescriptorWithInitArg(other_field)
     sut = check_copy(initial, attributes, post_system_name, post_display_name)
     assert sut.other_field == initial.other_field
 
 
 class SupFeatureDescriptorMixins:
-
     def __init__(self) -> None:
-        self.__other_field: Optional[str] = None
+        super().__init__()
+
+        self.__other_field: str | None = None
 
     def __copy_super__(self, new: FeatureDescriptor) -> None:
         if hasattr(super(), '__copy_super__'):
-            super().__copy_super__(new)  # type: ignore
+            super().__copy_super__(new)
 
         if isinstance(new, SupFeatureDescriptorMixins):
             new.other_field = self.other_field
 
     @property
-    def other_field(self) -> Optional[str]:
+    def other_field(self) -> str | None:
         return self.__other_field
 
     @other_field.setter
-    def other_field(self, value: Optional[str]) -> None:
+    def other_field(self, value: str | None) -> None:
         self.__other_field = value
 
 
-class SubFeatureDescriptorWithSupMixins(FeatureDescriptor, SupFeatureDescriptorMixins):
-    ...
+class SubFeatureDescriptorWithSupMixins(FeatureDescriptor, SupFeatureDescriptorMixins): ...
 
 
 @pytest.mark.parametrize(
-    'attributes, post_system_name, post_display_name', COPY_PARAMETERS + [
-        (dict(other_field='test'), None, None),
-    ],
+    ('attributes', 'post_system_name', 'post_display_name'),
+    [*COPY_PARAMETERS, (dict(other_field='test'), None, None)],
 )
 def test_copy_sub_with_sup_mixins(
     attributes: AttrDict,
-    post_system_name: Optional[str],
-    post_display_name: Optional[str],
+    post_system_name: str | None,
+    post_display_name: str | None,
 ) -> None:
     initial = SubFeatureDescriptorWithSupMixins()
     sut = check_copy(initial, attributes, post_system_name, post_display_name)
     assert sut.other_field == initial.other_field
 
 
-MERGE_PARAMETERS = [
+MERGE_PARAMETERS: list[tuple[AttrDict, AttrDict, AttrDict]] = [
     # Defaults
     ({}, {}, {}),
     # system_name
-    (dict(system_name='sys1'), dict(), dict(system_name=None)),
+    (dict(system_name='sys1'), {}, dict(system_name=None)),
     (dict(system_name='sys1'), dict(system_name='sys2'), dict(system_name='sys2')),
     # display_name
     (
@@ -503,12 +532,13 @@ MERGE_PARAMETERS = [
         dict(values=dict(from1=True, common=12)),
         dict(values=dict(from2=True, common=45)),
         dict(values=dict(from1=True, from2=True, common=45)),
-    )
+    ),
 ]
 
 
 @pytest.mark.parametrize(
-    'first_attrs, second_attrs, expected', MERGE_PARAMETERS
+    ('first_attrs', 'second_attrs', 'expected'),
+    MERGE_PARAMETERS,
 )
 def test_merge(
     first_attrs: AttrDict,
@@ -526,15 +556,19 @@ def test_merge(
         expected['display_name'] = expected.get('system_name', None)
     if 'short_description' not in expected:
         expected['short_description'] = expected.get(
-            'display_name', expected.get('system_name', None))
+            'display_name',
+            expected.get('system_name', None),
+        )
     check_attributes(sut, make_attrs(**expected))
 
 
 @pytest.mark.parametrize(
-    'first_attrs, second_attrs, expected', MERGE_PARAMETERS + [
+    ('first_attrs', 'second_attrs', 'expected'),
+    [
+        *MERGE_PARAMETERS,
         (dict(other_field='other1'), dict(other_field=None), dict(other_field=None)),
         (dict(other_field='other1'), dict(other_field='other2'), dict(other_field='other2')),
-    ]
+    ],
 )
 def test_merge_sub_no_init(
     first_attrs: AttrDict,
@@ -552,15 +586,19 @@ def test_merge_sub_no_init(
         expected['display_name'] = expected.get('system_name', None)
     if 'short_description' not in expected:
         expected['short_description'] = expected.get(
-            'display_name', expected.get('system_name', None))
+            'display_name',
+            expected.get('system_name', None),
+        )
     check_attributes(sut, make_attrs(**expected))
 
 
 @pytest.mark.parametrize(
-    'first_attrs, second_attrs, expected', MERGE_PARAMETERS + [
+    ('first_attrs', 'second_attrs', 'expected'),
+    [
+        *MERGE_PARAMETERS,
         (dict(other_field='other1'), dict(other_field=None), dict(other_field=None)),
         (dict(other_field='other1'), dict(other_field='other2'), dict(other_field='other2')),
-    ]
+    ],
 )
 def test_merge_sub_with_init(
     first_attrs: AttrDict,
@@ -568,10 +606,12 @@ def test_merge_sub_with_init(
     expected: AttrDict,
 ) -> None:
     first = SubFeatureDescriptorWithInitArg(
-        cast(Optional[str], first_attrs.pop('other_field', None)))
+        cast('str | None', first_attrs.pop('other_field', None)),
+    )
     apply_attributes(first, first_attrs)
     second = SubFeatureDescriptorWithInitArg(
-        cast(Optional[str], second_attrs.pop('other_field', None)))
+        cast('str | None', second_attrs.pop('other_field', None)),
+    )
     apply_attributes(second, second_attrs)
 
     sut = SubFeatureDescriptorWithInitArg.merge(first, second)
@@ -580,11 +620,13 @@ def test_merge_sub_with_init(
         expected['display_name'] = expected.get('system_name', None)
     if 'short_description' not in expected:
         expected['short_description'] = expected.get(
-            'display_name', expected.get('system_name', None))
+            'display_name',
+            expected.get('system_name', None),
+        )
     check_attributes(sut, make_attrs(**expected))
 
 
-STR_PARAMETERS = [
+STR_PARAMETERS: list[tuple[AttrDict, str]] = [
     ({}, '<<CLASS_NAME>>(system_name=None)'),
     (dict(system_name='sys'), '<<CLASS_NAME>>(system_name=sys)'),
     (dict(display_name='dis'), '<<CLASS_NAME>>(system_name=None, display_name=dis)'),
@@ -596,25 +638,31 @@ STR_PARAMETERS = [
         '<<CLASS_NAME>>(system_name=None, short_description=descr)',
     ),
     (
-        dict(values=dict(a_str='abcd', an_int=12, a_float=3.14,
-                         a_bool=True, another_bool=False, a_none=None)),
+        dict(
+            values=dict(
+                a_str='abcd',
+                an_int=12,
+                a_float=3.14,
+                a_bool=True,
+                another_bool=False,
+                a_none=None,
+            ),
+        ),
         '<<CLASS_NAME>>(system_name=None, values={a_str=abcd, an_int=12, a_float=3.14, '
-        'a_bool=True, another_bool=False, a_none=None})'
+        'a_bool=True, another_bool=False, a_none=None})',
     ),
     (
         dict(values=dict(an_object=object1, a_ref=object1_ref)),
-        '<<CLASS_NAME>>(system_name=None, values={an_object=Dummy!, a_ref=Dummy!})'
-    )
+        '<<CLASS_NAME>>(system_name=None, values={an_object=Dummy!, a_ref=Dummy!})',
+    ),
 ]
 
 
 @pytest.mark.parametrize(
-    'attributes, expected', STR_PARAMETERS
+    ('attributes', 'expected'),
+    STR_PARAMETERS,
 )
-def test_str(
-    attributes: AttrDict,
-    expected: str
-) -> None:
+def test_str(attributes: AttrDict, expected: str) -> None:
     sut = FeatureDescriptor()
     apply_attributes(sut, attributes)
 
@@ -622,14 +670,13 @@ def test_str(
 
 
 @pytest.mark.parametrize(
-    'attributes, expected', STR_PARAMETERS + [
+    ('attributes', 'expected'),
+    [
+        *STR_PARAMETERS,
         (dict(other_field='other'), '<<CLASS_NAME>>(system_name=None, other_field=other)'),
-    ]
+    ],
 )
-def test_str_sub(
-    attributes: AttrDict,
-    expected: str
-) -> None:
+def test_str_sub(attributes: AttrDict, expected: str) -> None:
     sut = SubFeatureDescriptorNoInitArg()
     apply_attributes(sut, attributes)
 

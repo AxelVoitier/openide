@@ -3,6 +3,7 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
+""""""
 
 from __future__ import annotations
 
@@ -20,7 +21,7 @@ VT = TypeVar('VT')
 KT = TypeVar('KT')
 IT = TypeVar('IT')
 if TYPE_CHECKING:
-    from collections.abc import Generator
+    from collections.abc import Iterator
     from typing import Any
 
 
@@ -53,7 +54,7 @@ class FeatureDescriptor:
         - short_description = None
         - No extra attribute value
 
-        Calls super().__init__() at the end.
+        Calls super().__init__() at the end with all the provided keyword arguments.
         """
         self.__system_name: str | None = None
         self.__display_name: str | None = None
@@ -61,7 +62,7 @@ class FeatureDescriptor:
         self.__is_hidden = False
         self.__is_preferred = False
         self.__short_description: str | None = None
-        # Lazy instanciation of dynamic attribute dict
+        # Lazy instantiation of dynamic attribute dict
         self.__values: dict[str, Any] | None = None
 
         super().__init__(**kwargs)
@@ -76,14 +77,14 @@ class FeatureDescriptor:
         """
         Participate in shallow-copy protocol.
 
-        This method only instanciate a new object, and call self.__copy_super__(new) to get
+        This method only instantiate a new object, and call self.__copy_super__(new) to get
         all the members copied to the new instance.
 
         Subclasses that also have a no-arg __init__ don't need to overload this method.
         Instead, they should overload __copy_super__ to set their own members.
 
         Subclasses that do have args in their __init__ should overload __copy__.
-        They should NOT call super().__copy__, but instead instanciate their own object,
+        They should NOT call super().__copy__, but instead instantiate their own object,
         and call self.__copy_super__(new) to get parent, and children, classes copy behaviour.
         """
         new = type(self)(**self.__copy_init_kwargs__())
@@ -92,7 +93,7 @@ class FeatureDescriptor:
 
     def __copy_super__(self, new: FeatureDescriptor) -> None:
         """
-        Does the actual member copying, avoid the object instanciation.
+        Does the actual member copying, avoid the object instantiation.
 
         Subclasses overloading this method should call super().__copy_super__(new).
 
@@ -297,7 +298,7 @@ class FeatureDescriptor:
         mentioning all its set properties (non-None and non-False),
         and its dynamic values.
 
-        Sublcasses should not overload this method unless they want to customise
+        Subclasses should not overload this method unless they want to customise
         the string format. Instead, they should overload __str_add__ generator
         to represent their own members.
         """
@@ -305,7 +306,7 @@ class FeatureDescriptor:
 
     __repr__ = __str__
 
-    def __str_add__(self) -> Generator[str, None, None]:
+    def __str_add__(self) -> Iterator[str]:
         """
         Returns a generator yielding string representation of each members to include
         in the __str__ representation.
@@ -471,7 +472,7 @@ class Property(FeatureDescriptor, Generic[VT], ABC):
         """
         return None
 
-    def __str_add__(self) -> Generator[str, None, None]:
+    def __str_add__(self) -> Iterator[str]:
         yield from super().__str_add__()
 
         value = self.__str_value__('value_type', self.value_type, force_value=True)
@@ -579,7 +580,7 @@ class IndexedProperty(Property, Generic[VT, KT, IT]):
     def indexed_property_editor(self) -> None:
         raise NotImplementedError
 
-    def __str_add__(self) -> Generator[str, None, None]:
+    def __str_add__(self) -> Iterator[str]:
         yield from super().__str_add__()
 
         value = self.__str_value__('index_type', self.index_type, force_value=True)

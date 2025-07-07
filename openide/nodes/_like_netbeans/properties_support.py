@@ -3,28 +3,23 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
+#
+# spell-checker:words openide netbeans
+# spell-checker:ignore objtype getset
 
 from __future__ import annotations
 
 # System imports
 import typing
 from abc import abstractmethod
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from functools import partial
 from itertools import islice
-from typing import (
-    TYPE_CHECKING,
-    Callable,
-    Generic,
-    Protocol,
-    TypeVar,
-    Union,
-    cast,
-    overload,
-    runtime_checkable,
-)
+from typing import TYPE_CHECKING, Generic, Protocol, TypeVar, cast, overload, runtime_checkable
 
 # Third-party imports
+from typing_extensions import Never
+
 # Local imports
 from openide.nodes._like_netbeans.properties import IT, KT, VT, IndexedProperty, Property
 
@@ -82,6 +77,8 @@ class PropertySupport(Property, Generic[VT]):
 
 
 class ReadWriteProperty(PropertySupport[VT]):
+    """A simple read/write property"""
+
     def __init__(
         self,
         system_name: str,
@@ -100,6 +97,8 @@ class ReadWriteProperty(PropertySupport[VT]):
 
 
 class ReadOnlyProperty(PropertySupport[VT]):
+    """A simple read-only property"""
+
     def __init__(
         self,
         system_name: str,
@@ -123,12 +122,14 @@ class ReadOnlyProperty(PropertySupport[VT]):
         raise NotImplementedError  # pragma: no cover
 
     @value.setter
-    def value(self, value: VT) -> None:
+    def value(self, value: VT) -> Never:
         msg = 'Property is not writable'
         raise AttributeError(msg)
 
 
 class WriteOnlyProperty(PropertySupport[VT]):
+    """A simple write-only property"""
+
     def __init__(
         self,
         system_name: str,
@@ -146,7 +147,7 @@ class WriteOnlyProperty(PropertySupport[VT]):
         )
 
     @property
-    def value(self) -> VT:
+    def value(self) -> Never:
         """The value of this property."""
         msg = 'Property is not readable'
         raise AttributeError(msg)
@@ -290,7 +291,7 @@ class SettableDescriptorProtocol(Protocol[T_contra, SV_contra]):
     def __set__(self, obj: T_contra, value: SV_contra) -> None: ...  # pragma: no cover
 
 
-Descriptor: TypeAlias = Union[GettableDescriptorProtocol, SettableDescriptorProtocol]
+Descriptor: TypeAlias = GettableDescriptorProtocol | SettableDescriptorProtocol
 
 
 class _ClassWithSlot:

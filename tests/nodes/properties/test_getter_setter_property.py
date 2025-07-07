@@ -3,6 +3,9 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
+#
+# spell-checker:words openide netbeans
+# spell-checker:ignore
 
 from __future__ import annotations
 
@@ -17,8 +20,9 @@ from openide.nodes._like_netbeans.properties_support import GetterSetterProperty
 
 
 class RWMethods:
-
     def __init__(self) -> None:
+        super().__init__()
+
         self.__attr = 0
 
     def get_attr(self) -> int:
@@ -33,7 +37,7 @@ class RWMethods:
 def test_read_write() -> None:
     rw = RWMethods()
 
-    def check(prop: GetterSetterProperty, init_value: int, set_value: int) -> None:
+    def check(prop: GetterSetterProperty[int], init_value: int, set_value: int) -> None:
         assert prop.value_type is int
         assert prop.can_read is True
         assert prop.can_write is True
@@ -53,8 +57,9 @@ def test_read_write() -> None:
 
 
 class ROMethods:
-
     def __init__(self, value: int) -> None:
+        super().__init__()
+
         self.__attr = value
 
     def get_attr(self) -> int:
@@ -67,7 +72,7 @@ class ROMethods:
 def test_read_only() -> None:
     ro = ROMethods(72)
 
-    def check(prop: GetterSetterProperty, init_value: int) -> None:
+    def check(prop: GetterSetterProperty[int], init_value: int) -> None:
         assert prop.value_type is int
         assert prop.can_read is True
         assert prop.can_write is False
@@ -91,7 +96,7 @@ def test_read_only() -> None:
 def test_write_only() -> None:
     wo = RWMethods()
 
-    def check(prop: GetterSetterProperty, init_value: int, set_value: int) -> None:
+    def check(prop: GetterSetterProperty[int], init_value: int, set_value: int) -> None:
         assert prop.value_type is int
         assert prop.can_read is False
         assert prop.can_write is True
@@ -127,8 +132,9 @@ def test_no_getter_and_setter() -> None:
 
 
 class NoTypeGetter:
-
     def __init__(self, value: int) -> None:
+        super().__init__()
+
         self.__attr = value
 
     def get_attr(self):  # type: ignore
@@ -144,7 +150,7 @@ def test_no_type_hint() -> None:
     with pytest.raises(ValueError):
         GetterSetterProperty(ro.get_attr)
 
-    def check(prop: GetterSetterProperty, init_value: int) -> None:
+    def check(prop: GetterSetterProperty[int], init_value: int) -> None:
         assert prop.value_type is int
         assert prop.can_read is True
         assert prop.can_write is False
