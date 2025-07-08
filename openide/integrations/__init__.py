@@ -17,39 +17,21 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from collections.abc import Callable
-    from typing import Any, Protocol, TypeVar
+    from typing import ParamSpec, TypeVar
 
-    from openide.utils import RecursiveDict
-    from openide.utils.classes import ClassDecorator
+    from openide.utils.classes import ParametrisedClassDecorator
 
     C = TypeVar('C', bound=type)
-
-    class SetupDecorator(Protocol):
-        # openide_setup: str
-
-        def __call__(self, *args: Any, **kwargs: Any) -> ClassDecorator: ...
-
-    class ConfigDecorator(Protocol):
-        def __call__(
-            self,
-            *args: Any,
-            _config: RecursiveDict | None = None,
-            **kwargs: Any,
-        ) -> ClassDecorator: ...
+    P = ParamSpec('P')
 
 
 def mark_setup(
     mark: str,
-    # *,
-    # is_static: bool = True,
-) -> Callable[[SetupDecorator], SetupDecorator]:
+) -> Callable[[ParametrisedClassDecorator[P, C]], ParametrisedClassDecorator[P, C]]:
     """Function decorator intended to mark the decorated function as one that participate in
     OpenIDE setup system."""
 
-    def _inner(
-        # func: SetupDecorator | staticmethod[..., ClassDecorator],
-        func: SetupDecorator,
-    ) -> SetupDecorator:  # | staticmethod[..., ClassDecorator]:
+    def _inner(func: ParametrisedClassDecorator[P, C]) -> ParametrisedClassDecorator[P, C]:
         func.openide_setup = mark
         # if is_static:
         #     return staticmethod(func)

@@ -18,10 +18,12 @@ from openide.integrations import mark_setup
 from openide.utils import class_decorator
 
 if TYPE_CHECKING:
-    from typing import Any
+    from typing import Any, TypeVar
 
     from openide.utils.classes import ClassDecorator
     from openide.utils.datastructures import RecursiveDict
+
+    AC = TypeVar('AC', bound=type['Actions'])
 
 
 @dataclasses.dataclass
@@ -53,7 +55,7 @@ class Actions:
         references: list[ActionReference],
         target_apps: str | list[str] | None = None,
         _config: RecursiveDict | None = None,
-    ) -> ClassDecorator:
+    ) -> ClassDecorator[AC]:
         if _config is not None:
             if not target_apps:
                 target_apps = None

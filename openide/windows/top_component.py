@@ -33,12 +33,17 @@ from openide.utils import (
 from openide.utils_qt import load_ui
 
 if TYPE_CHECKING:
+    from typing import TypeVar
+
     from PySide6.QtCore import QObject
     from PySide6.QtGui import QHideEvent, QShowEvent
 
     from openide.actions import ActionReference
     from openide.utils.classes import ClassDecorator
     from openide.utils.datastructures import RecursiveDict
+
+    TC = TypeVar('TC', bound=type['TopComponent'])
+
 
 _logger = logging.getLogger(__name__)
 
@@ -76,7 +81,7 @@ class TopComponent(MetaClassResolver(LookupProvider, QWidget)):
         preferred_id: str,
         icon_base: str | None = None,
         _config: RecursiveDict | None = None,
-    ) -> ClassDecorator:
+    ) -> ClassDecorator[TC]:
         if _config is not None:
             _config.merge(
                 dict(
@@ -105,7 +110,7 @@ class TopComponent(MetaClassResolver(LookupProvider, QWidget)):
         # perspectives: list | None = None,
         target_apps: str | list[str] | None = None,
         _config: RecursiveDict | None = None,
-    ) -> ClassDecorator:
+    ) -> ClassDecorator[TC]:
         if _config is not None:
             if not target_apps:
                 target_apps = None
@@ -171,7 +176,7 @@ class TopComponent(MetaClassResolver(LookupProvider, QWidget)):
         target_id: str | None = None,
         target_apps: str | list[str] | None = None,
         _config: RecursiveDict | None = None,
-    ) -> ClassDecorator:
+    ) -> ClassDecorator[TC]:
         if _config is not None:
             component = _config['_fqname']
             _config['_fqname'] = f'{__name__}:TopComponent.OpenTopComponentAction'

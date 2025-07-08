@@ -20,10 +20,12 @@ from openide.integrations import mark_setup
 from openide.utils import class_decorator
 
 if TYPE_CHECKING:
-    from typing import Any, ClassVar
+    from typing import Any, ClassVar, TypeVar
 
     from openide.utils.classes import ClassDecorator
     from openide.utils.datastructures import RecursiveDict
+
+    C = TypeVar('C', bound=type)
 
 _logger = logging.getLogger(__name__)
 
@@ -37,12 +39,12 @@ class ServiceConfig(TypedDict):
 
 @mark_setup('config')
 def ServiceProvider(  # noqa: N802
-    service: type,
+    service: C,
     # position=None,
     # supersedes=None,
     target_apps: str | list[str] | None = None,
     _config: RecursiveDict | None = None,
-) -> ClassDecorator:
+) -> ClassDecorator[C]:
     if _config is not None:
         if not target_apps:
             target_apps = None

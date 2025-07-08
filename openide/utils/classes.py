@@ -13,7 +13,7 @@ import logging
 import time
 from abc import ABCMeta
 from contextlib import contextmanager
-from typing import TYPE_CHECKING, ClassVar, Self, TypeVar
+from typing import TYPE_CHECKING, ClassVar, ParamSpec, Self, TypeVar
 from weakref import ReferenceType
 
 # Third-party imports
@@ -24,11 +24,13 @@ from lookups import Lookup
 _logger = logging.getLogger(__name__)
 
 C = TypeVar('C', bound=type)
+P = ParamSpec('P')
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterable, Iterator
     from typing import Any, TypeAlias
 
-    ClassDecorator: TypeAlias = Callable[[type[C]], type[C]]
+    ClassDecorator: TypeAlias = Callable[[C], C]
+    ParametrisedClassDecorator: TypeAlias = Callable[P, ClassDecorator[C]]
 
 
 class SingletonMeta(type):
@@ -189,23 +191,23 @@ def MetaClassResolver(*subclasses: C, extra_metas: Iterable[type] | None = None)
     return _Resolver
 
 
-def dig_wrapped(cls: type[C]) -> type[C]:
+def dig_wrapped(cls: C) -> C:
     while hasattr(cls, '__wrapped__'):
         cls = cls.__wrapped__  # pyright: ignore[reportAttributeAccessIssue]
     return cls
 
 
-def class_decorator(cls: type[C]) -> type[C]:
+def class_decorator(cls: C) -> C:
     """A utility to act as a class decorator. To be returned by a callable decorator."""
     return cls
 
 
 # TODO: Not sure of the type signatures here...
-def class_decorator_ext(callback: Callable[[type[C]], Any]) -> ClassDecorator:
+def class_decorator_ext(callback: Callable[[C], Any]) -> ClassDecorator[C]:
     """Another helper for callable decorator, this time allowing to specify a callback to which we
     will pass the actual decorated class."""
 
-    def class_decorator(cls: type[C]) -> type[C]:
+    def class_decorator(cls: C) -> C:
         callback(dig_wrapped(cls))
 
         @functools.wraps(cls)
