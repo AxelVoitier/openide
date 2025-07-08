@@ -17,7 +17,7 @@ from typing import TYPE_CHECKING, Generic, TypeVar, overload
 from PySide6.QtCore import QAbstractItemModel, QModelIndex, QPersistentModelIndex, Qt
 
 # Local imports
-from openide.nodes._like_netbeans import Node, NodeListener
+from openide.nodes import Node, NodeListener
 from openide.utils.typing import override
 from openide.utils_qt import QABC
 
@@ -31,7 +31,7 @@ if TYPE_CHECKING:
     from typing_extensions import TypeAlias
 
     from openide.explorer.selection import NodeSelectionModel
-    from openide.nodes._like_netbeans import (
+    from openide.nodes import (
         NodeEvent,
         NodeMemberEvent,
         NodeReorderEvent,

@@ -24,7 +24,7 @@ from PySide6.QtCore import (
 
 # Local imports
 from openide.explorer.model import _N, NodeModel
-from openide.nodes._like_netbeans import Node
+from openide.nodes import Node
 from openide.utils.typing import override
 
 if TYPE_CHECKING:
