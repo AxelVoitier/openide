@@ -3,12 +3,15 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
+#
+# spell-checker:words
+# spell-checker:ignore fqname
 
 from __future__ import annotations
 
 # System imports
 import logging
-from typing import TYPE_CHECKING, Any, Literal, TypeVar
+from typing import TYPE_CHECKING, Any, Literal, TypeVar, override
 
 # Third-party imports
 from lookups import Convertor, Lookup
@@ -31,30 +34,34 @@ _logger = logging.getLogger(__name__)
 
 
 class EggInfoLookup(Lookup):
-    class _FQNameConvertor(Convertor[tuple[str, ServiceConfig], type[Any]]):
-        def convert(self, element: tuple[str, ServiceConfig]) -> Any:  # noqa: ANN401
-            fqname = element[0]
+    class _FQNameConvertor(Convertor[tuple[str, ServiceConfig], Any]):
+        @override
+        def convert(self, obj: tuple[str, ServiceConfig]) -> Any:
+            fqname = obj[0]
             cls = class_loader(fqname)
             return cls()
 
             # kwargs = element[1].get('kwargs', {})
             # return cls(**kwargs)
 
-        def type(self, element: tuple[str, ServiceConfig]) -> type[Any]:
-            fqname = element[1].get('service', element[0])
+        @override
+        def type(self, obj: tuple[str, ServiceConfig]) -> type[Any]:
+            fqname = obj[1].get('service', obj[0])
             module_path, qualname = fqname.split(':')
             name = qualname.split('.')[-1]
             return type(name, (object,), dict(__module__=module_path, __qualname__=qualname))
 
-        def id(self, element: tuple[str, ServiceConfig]) -> str:
-            return element[0]
+        @override
+        def id(self, obj: tuple[str, ServiceConfig]) -> str:
+            return obj[0]
 
-        def display_name(self, element: tuple[str, ServiceConfig]) -> str:
-            return element[0]
+        @override
+        def display_name(self, obj: tuple[str, ServiceConfig]) -> str:
+            return obj[0]
 
     class _FQNameConvertingItem(ConvertingItem[tuple[str, ServiceConfig], type[Any]]):
         def issubclass(self, cls: type) -> bool:
-            """The special resolution based on full qualifed name requires
+            """The special resolution based on full qualified name requires
             overloading issubclass(). Unfortunately, it cannot be done with
             __subclasscheck__ as this dunder gets called only if defined on
             the comparison class(es) (ie. 2nd arg of issubclass).
@@ -83,6 +90,7 @@ class EggInfoLookup(Lookup):
             if app.is_targeted(element[0], element[1].get('target_apps'))
         )
 
+    @override
     def lookup(self, cls: type[T]) -> T | None:
         for item in self._content:
             if item.issubclass(cls):
@@ -90,11 +98,13 @@ class EggInfoLookup(Lookup):
 
         return None
 
-    def lookup_result(self, cls: type[T]) -> EggInfoServiceResult:  # [T]:
+    @override
+    def lookup_result(self, cls: type[T]) -> EggInfoServiceResult[T]:
         return EggInfoServiceResult(self, cls)
 
 
 class EggInfoServiceResult(SimpleResult[T]):
+    @override
     def all_items(self) -> Sequence[Item[T]]:
         if self._items is None:
             self._items = tuple(item for item in self.lookup._content if item.issubclass(self.cls))
