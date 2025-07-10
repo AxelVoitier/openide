@@ -8,7 +8,9 @@ from __future__ import annotations
 
 # System imports
 import ast
+import contextlib
 import importlib
+import sys
 from pathlib import Path
 from pprint import pformat
 from typing import TYPE_CHECKING, override
@@ -214,14 +216,20 @@ class SetupFinder(ast.NodeVisitor):
         del self.config['_fqname']
 
 
-def parse_file(pkg: str, file_path: Path) -> RecursiveDict:
-    # print(f'parsing {file_path} ({pkg=})')
-    try:
-        tree = ast.parse(file_path.read_text(), filename=file_path.name)
-    except Exception:  # noqa: BLE001
-        return RecursiveDict()
+def parse_file(pkg: str, file_path: Path, base_path: str = '') -> RecursiveDict:
+    # print(f'parsing {file_path} ({pkg=}, {base_path=})')
 
-    finder = SetupFinder(f'{pkg}.{file_path.stem}')
-    finder.visit(tree)
+    with contextlib.ExitStack() as exit_stack:
+        if base_path:
+            sys.path.insert(0, base_path)
+            exit_stack.callback(sys.path.pop, 0)
 
-    return finder.config
+        try:
+            tree = ast.parse(file_path.read_text(), filename=file_path.name)
+        except Exception:  # noqa: BLE001
+            return RecursiveDict()
+
+        finder = SetupFinder(f'{pkg}.{file_path.stem}')
+        finder.visit(tree)
+
+        return finder.config

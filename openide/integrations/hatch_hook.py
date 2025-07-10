@@ -48,9 +48,10 @@ class OpenIDEYAMLBuildHook(BuildHookInterface):
         for file in self.build_config.builder.recurse_included_files():
             if not file.path.endswith('.py'):
                 continue
+            base_path = file.path.replace(file.relative_path, '').rstrip('/')
             path = Path(file.path)
             pkg = str(Path(file.distribution_path).parent).replace('/', '.')
-            file_config = parse_file(pkg, path)
+            file_config = parse_file(pkg, path, base_path)
 
             if file_config:
                 self.app.display_info(f'[{file.distribution_path}] Collected the following config:')
