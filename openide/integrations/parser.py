@@ -8,6 +8,7 @@ from __future__ import annotations
 
 # System imports
 import ast
+import builtins
 import contextlib
 import importlib
 import sys
@@ -178,6 +179,17 @@ class SetupFinder(ast.NodeVisitor):
         for elem in {elem.id for elem in LoadNameFinder.find(decorator)}:
             try:
                 to_import, attr_name = self.imports[elem]
+            except KeyError as ex:
+                if hasattr(builtins, elem):
+                    continue
+
+                print(
+                    f'[{self.module_path}] Cannot import {elem} as it is not even '
+                    f'declared in the file',
+                )
+                raise
+
+            try:
                 module = importlib.import_module(to_import)
                 lcls[elem] = getattr(module, attr_name)
 
