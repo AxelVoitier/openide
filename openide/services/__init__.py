@@ -19,10 +19,12 @@ from .registration import (
 )
 
 from .global_context import GlobalContext
+from .package_lifecycle import PackageLifecycle
 from .window_manager import WindowManager
 
 __all__ = [
     'GlobalContext',
+    'PackageLifecycle',
     'ServiceConfig',
     'ServiceProvider',
     'ServiceSingletonABCMeta',

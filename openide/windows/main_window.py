@@ -24,7 +24,7 @@ from openide.utils import MetaClassResolver, class_loader
 from openide.windows import ContextTracker, Location, TopComponent
 
 if TYPE_CHECKING:
-    from PySide6.QtGui import QAction
+    from PySide6.QtGui import QAction, QCloseEvent
     from PySide6.QtWidgets import QMenu, QWidget
 
 _logger = logging.getLogger(__name__)
@@ -186,3 +186,10 @@ class MainWindow(MetaClassResolver(WindowManager, QMainWindow)):
         component.setFocus(Qt.OtherFocusReason)
 
         ContextTracker().top_component_activated(component)
+
+    def closeEvent(self, event: QCloseEvent) -> None:
+        if not IDEApplication().accepts_close():
+            event.ignore()
+            return
+
+        super().closeEvent(event)

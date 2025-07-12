@@ -248,6 +248,17 @@ class RequestProcessor(Executor):
         return cls._DEFAULT
 
     @classmethod
+    def __shutdown_default(cls, *, wait: bool = True, cancel_futures: bool = False) -> None:  # pyright: ignore[reportUnusedFunction]
+        """Special class-method to bypass the no default shutdown check in RequestProcessor.shutdown().
+
+        Only to be called by IDEApplication on exit cleanup.
+        """
+        if cls._DEFAULT is None:
+            return
+
+        cls._DEFAULT._processor.shutdown(wait=wait, cancel_futures=cancel_futures)
+
+    @classmethod
     def for_class(cls, klass: type[Any], throughput: int = 1) -> Self:
         """A convenience constructor for a new RequestProcessor named after the provided class"""
 

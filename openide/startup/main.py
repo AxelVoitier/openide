@@ -15,8 +15,11 @@ import sys
 from pathlib import Path
 
 # Third-party imports
+from lookups import Lookup
+
 # Local imports
 from openide.config import Config, load_config
+from openide.services import PackageLifecycle
 from openide.utils import SingletonMeta
 
 _logger = logging.getLogger(__name__)
@@ -33,11 +36,13 @@ class IDEApplication(metaclass=SingletonMeta):
 
         self.__gui_started = False
 
-        self._setup_logger()
+        self.__setup_logger()
 
         self._config = load_config(
             lambda package_name, _: _logger.info('Loading config for package %s', package_name),
         )
+
+        self.__packages_lifecycle: set[PackageLifecycle] = set()
 
     @property
     def app_name(self) -> str:
@@ -59,7 +64,7 @@ class IDEApplication(metaclass=SingletonMeta):
 
         return self.app_name in target_apps
 
-    def _setup_logger(self) -> None:
+    def __setup_logger(self) -> None:
         logging.basicConfig(level=logging.INFO)
         logger = logging.getLogger()
         logger.setLevel(logging.INFO)
@@ -78,6 +83,46 @@ class IDEApplication(metaclass=SingletonMeta):
     def config(self) -> Config:
         return self._config
 
+    def __do_lifecycle_restore(self) -> None:
+        for package in Lookup.get_default().lookup_all(PackageLifecycle):
+            if package in self.__packages_lifecycle:
+                # This is in case one of the implementation register itself
+                # on the main lookup, it would appear twice here
+                continue
+
+            _logger.info('Restoring %s', package)
+            try:
+                package.restored()
+            except BaseException:
+                _logger.exception('Error while restoring %s', package)
+            else:
+                self.__packages_lifecycle.add(package)
+
+    def __do_lifecycle_closing(self) -> bool:
+        accepts_close = True
+        for package in self.__packages_lifecycle:
+            _logger.info('Closing %s', package)
+            try:
+                package_accepts_close = package.closing()
+                if not package_accepts_close:
+                    _logger.warning('%s package did not accept closing', package)
+
+                accepts_close = accepts_close and package_accepts_close
+            except BaseException:
+                _logger.exception('Error while closing %s', package)
+
+        return accepts_close
+
+    accepts_close = __do_lifecycle_closing
+
+    def __do_lifecycle_close(self) -> None:
+        for package in self.__packages_lifecycle:
+            _logger.info('Close %s', package)
+            try:
+                package.close()
+            except BaseException:
+                _logger.exception('Error while closing %s', package)
+
     def start(self) -> None:
         _logger.info('Starting application %s', self.app_name)
         # For now, only supporting GUI mode. CLI mode will come later
@@ -88,6 +133,7 @@ class IDEApplication(metaclass=SingletonMeta):
         from PySide6.QtWidgets import QApplication  # noqa: PLC0415
 
         from openide.lookup import MainLookup  # noqa: PLC0415
+        from openide.processing import RequestProcessor  # noqa: PLC0415
         from openide.services import WindowManager  # noqa: PLC0415
 
         if self.__gui_started:
@@ -98,24 +144,39 @@ class IDEApplication(metaclass=SingletonMeta):
         # TODO: Set Look and feel
         # TODO: Set window size
 
-        QApplication.setAttribute(Qt.AA_ShareOpenGLContexts, True)  # Avoids pesky warning
+        QApplication.setAttribute(Qt.AA_ShareOpenGLContexts, on=True)  # Avoids pesky warning
         self._qt_app = QApplication(sys.argv)
-        MainLookup().register(self._qt_app)
-        self._main_window = WindowManager()  # pyright: ignore[reportAbstractUsage]
-        if self._main_window is None:
-            msg = (
-                'No WindowManager found. Are the services, config, and/or lookups setup correctly?'
-            )
-            raise RuntimeError(msg)
-        self._main_window.load()
+        try:
+            MainLookup().register(self._qt_app)
 
-        # Temporary solution
-        geometry = self._main_window.screen().availableGeometry()
-        self._main_window.resize(geometry.width() / 3, geometry.height() / 2)
+            # PackageLifecycle.restore()
+            self.__do_lifecycle_restore()
+            # PackageLifecycle.close()
+            self._qt_app.aboutToQuit.connect(self.__do_lifecycle_close)
+            # NB: For PackageLifecycle.closing(), the QMainWindow has to call our accepts_close()
 
-        self._main_window.show()
+            # Load main window
+            self._main_window = WindowManager()  # pyright: ignore[reportAbstractUsage]
+            if self._main_window is None:
+                msg = 'No WindowManager found. Are the services, config, and/or lookups setup correctly?'
+                raise RuntimeError(msg)
+            self._main_window.load()
 
-        self._qt_app.exec()
+            # Temporary solution
+            geometry = self._main_window.screen().availableGeometry()
+            self._main_window.resize(geometry.width() / 3, geometry.height() / 2)
+
+            self._main_window.show()
+
+            # Off to Qt
+            self._qt_app.exec()
+
+        except BaseException:
+            self._qt_app.exit()
+            raise
+
+        finally:
+            RequestProcessor._RequestProcessor__shutdown_default(wait=True, cancel_futures=True)
 
 
 if __name__ == '__main__':
