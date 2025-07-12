@@ -27,6 +27,7 @@ if TYPE_CHECKING:
 
     C = TypeVar('C', bound=type)
 
+
 _logger = logging.getLogger(__name__)
 
 
@@ -110,8 +111,18 @@ class ServiceSingletonMeta(type):
             if root_service_abc is not cls:
                 # Here we are actually trying to instantiate an actual concrete class
                 # for this service.
+
+                # Lets first try to see if we can find one in the default lookup
+                # (eg. a superseding subclass).
+                instance = Lookup.get_default().lookup(cls)
+                if instance is not None:
+                    _logger.info('Loaded %r for service %s (lookup)', instance, cls)
+                    cls._instances[cls] = instance  # Cache the singleton value
+                    return instance
+
+                # Otherwise, try to instantiate it directly
                 instance = super().__call__(*args, **kwargs)
-                _logger.info('Loaded %s for service %s (direct)', instance, root_service_abc)
+                _logger.info('Loaded %r for service %s (direct)', instance, root_service_abc)
 
                 cls._instances[cls] = instance  # Ensure we are a singleton
                 return instance
@@ -121,7 +132,7 @@ class ServiceSingletonMeta(type):
                 # we need to find one concrete implementation to return.
 
                 provider = Lookup.get_default().lookup(root_service_abc)
-                _logger.info('Loaded %s for service %s (lookup)', provider, root_service_abc)
+                _logger.info('Loaded %r for service %s (lookup)', provider, root_service_abc)
 
                 cls._instances[cls] = provider  # Cache the singleton value
                 return provider
