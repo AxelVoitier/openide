@@ -9,7 +9,7 @@ from nbm_selection_01.my_api.event import Event
     preferred_id='MyEditorTopComponent',
 )
 @TopComponent.Registration(
-    location=Location.Central,
+    location='central',
     open_at_startup=True,
     target_apps='nbm-selection-01',
 )

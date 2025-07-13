@@ -28,6 +28,7 @@ if TYPE_CHECKING:
     from typing import Any
 
     from openide.actions import ActionConfig
+    from openide.layout import LayoutConfig
     from openide.services.registration import ServiceConfig
     from openide.windows import ComponentConfig
 
@@ -39,6 +40,7 @@ class Config(TypedDict):
     services: NotRequired[dict[str, ServiceConfig]]
     components: NotRequired[dict[str, ComponentConfig]]
     actions: NotRequired[list[ActionConfig]]
+    layout: NotRequired[LayoutConfig]
 
 
 def load_config(per_package_cb: Callable[[str, str], Any] | None = None) -> Config:

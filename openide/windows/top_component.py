@@ -55,9 +55,11 @@ class Location(StrEnum):
 
 class ComponentConfigDescription(TypedDict):
     preferred_id: str
+    display_name: str
 
 
 class ComponentConfigRegistration(TypedDict):
+    location: str
     open_at_startup: NotRequired[bool]
     target_apps: NotRequired[list[str] | None]
 
@@ -66,11 +68,12 @@ class ComponentConfig(ComponentConfigDescription, ComponentConfigRegistration):
     pass
 
 
-class TopComponent(MetaClassResolver(LookupProvider, QWidget)):
-    PREFERRED_ID: str | None = None
+class TopComponent(MetaClassResolver(LookupProvider, QWidget), LookupProvider, QWidget):
+    PREFERRED_ID: str
+    DISPLAY_NAME: str
     ICON_BASE: str | None = None
 
-    LOCATION: Location = Location.Central
+    LOCATION: str = 'central'
     OPEN_AT_STARTUP: bool = False
     # POSITION: int | None = None
     # PERSPECTIVES: list = None
@@ -79,6 +82,7 @@ class TopComponent(MetaClassResolver(LookupProvider, QWidget)):
     @mark_setup('config')
     def Description(  # noqa: N802
         preferred_id: str,
+        display_name: str,
         icon_base: str | None = None,
         _config: RecursiveDict | None = None,
     ) -> ClassDecorator[TC]:
@@ -88,6 +92,7 @@ class TopComponent(MetaClassResolver(LookupProvider, QWidget)):
                     components={
                         _config['_fqname']: ComponentConfigDescription(
                             preferred_id=preferred_id,
+                            display_name=display_name,
                             # icon_base=icon_base,  # Not actually loaded from the YAML file
                         ),
                     },
@@ -96,6 +101,7 @@ class TopComponent(MetaClassResolver(LookupProvider, QWidget)):
 
         def callback(cls: type[TopComponent]) -> None:
             cls.PREFERRED_ID = preferred_id
+            cls.DISPLAY_NAME = display_name
             if icon_base is not None:
                 cls.ICON_BASE = icon_base
 
@@ -104,7 +110,7 @@ class TopComponent(MetaClassResolver(LookupProvider, QWidget)):
     @staticmethod
     @mark_setup('config')
     def Registration(  # noqa: N802
-        location: Location,
+        location: str,
         open_at_startup: bool,  # noqa: FBT001
         # position: int | None = None,
         # perspectives: list | None = None,
@@ -121,6 +127,7 @@ class TopComponent(MetaClassResolver(LookupProvider, QWidget)):
                 dict(
                     components={
                         _config['_fqname']: ComponentConfigRegistration(
+                            location=location,
                             open_at_startup=open_at_startup,
                             # Not actually loaded from the YAML file:
                             # perspectives=perspectives,
@@ -194,12 +201,19 @@ class TopComponent(MetaClassResolver(LookupProvider, QWidget)):
 
         self._lookup: Lookup | None = None
         self._name: str | None = None
+        self._display_name: str | None = None
         self._tooltip: str | None = None
+        self._assigned_id: str | None = None
 
     def get_lookup(self) -> Lookup:
+        return self.lookup  # TODO: Handle when lookup is None (orig. Java has a way to deal with default lookup for nodes)
+
+    @property
+    def lookup(self) -> Lookup | None:
         return self._lookup
 
-    def set_lookup(self, lookup: Lookup) -> None:
+    @lookup.setter
+    def lookup(self, lookup: Lookup) -> None:
         if self._lookup is not None:
             msg = f'Lookup is already set on component {self}'
             raise RuntimeError(msg)
@@ -254,12 +268,12 @@ class TopComponent(MetaClassResolver(LookupProvider, QWidget)):
 
     @property
     def preferred_id(self) -> str:
-        if self.PREFERRED_ID is not None:
+        if self.PREFERRED_ID:
             return self.PREFERRED_ID
 
         class_name = self.__class__.__name__
         warnings.warn(  # noqa: B028
-            f'{class_name} should provide preferred_id through TopComponent.Descrition, '
+            f'{class_name} should provide preferred_id through TopComponent.Description, '
             'or override preferred_id property',
         )
 
@@ -267,6 +281,17 @@ class TopComponent(MetaClassResolver(LookupProvider, QWidget)):
             return class_name
         else:
             return self.name
+
+    @property
+    def display_name(self) -> str:
+        if (name := self._display_name) is None:
+            return self.DISPLAY_NAME
+
+        return name
+
+    @display_name.setter
+    def display_name(self, value: str) -> None:
+        self._display_name = value
 
     @property
     def icon(self) -> QIcon:
@@ -309,3 +334,11 @@ class TopComponent(MetaClassResolver(LookupProvider, QWidget)):
     @tooltip.setter
     def tooltip(self, new_value: str | None) -> None:
         self._tooltip = new_value
+
+    @property
+    def assigned_id(self) -> str:
+        return self._assigned_id or self.preferred_id
+
+    @assigned_id.setter
+    def assigned_id(self, value: str) -> None:
+        self._assigned_id = value

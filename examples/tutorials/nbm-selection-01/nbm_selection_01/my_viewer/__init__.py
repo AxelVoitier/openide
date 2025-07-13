@@ -9,7 +9,7 @@ from nbm_selection_01.my_api.event import Event
     preferred_id='MyViewerTopComponent',
 )
 @TopComponent.Registration(
-    location=Location.Explorer,
+    location='left-panel',
     open_at_startup=True,
     target_apps='nbm-selection-01',
 )

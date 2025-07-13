@@ -15,10 +15,17 @@ from typing import TYPE_CHECKING
 from openide.services import ServiceSingletonABCMeta
 
 if TYPE_CHECKING:
+    from openide.layout import Location, LocationsModel
     from openide.windows.top_component import TopComponent
 
 
 class WindowManager(metaclass=ServiceSingletonABCMeta):
+    locations: LocationsModel
+
+    @abstractmethod
+    def load(self) -> None:
+        raise NotImplementedError
+
     @abstractmethod
     def find_mode(self, name: str) -> None:
         raise NotImplementedError
@@ -28,9 +35,17 @@ class WindowManager(metaclass=ServiceSingletonABCMeta):
         raise NotImplementedError
 
     @abstractmethod
-    def top_component_open(self, tc: TopComponent, tab_position: int = -1) -> None:
+    def top_component_open(self, component: TopComponent, tab_position: int = -1) -> None:
         raise NotImplementedError
 
     @abstractmethod
-    def top_component_request_active(self, tc: TopComponent) -> None:
+    def top_component_request_active(self, component: TopComponent) -> None:
+        raise NotImplementedError
+
+    @abstractmethod
+    def central_top_component_close_requested(
+        self,
+        location: Location,
+        component: TopComponent,
+    ) -> None:
         raise NotImplementedError
