@@ -3,6 +3,9 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
+#
+# spell-checker:words openide
+# spell-checker:ignore fqname uifile
 
 from __future__ import annotations
 
@@ -30,7 +33,7 @@ from openide.utils import (
     class_decorator_ext,
     class_loader,
 )
-from openide.utils_qt import load_ui
+from openide.utils_qt import load_ui_from_resource
 
 if TYPE_CHECKING:
     from typing import TypeVar
@@ -221,24 +224,25 @@ class TopComponent(MetaClassResolver(LookupProvider, QWidget), LookupProvider, Q
         self._lookup = lookup
 
     def load_ui(self, *ui_file: str) -> None:
-        if len(ui_file) != 2:
-            ui_file_path, *_ = ui_file
-            if not isinstance(ui_file_path, Path):
-                ui_file_path = Path(ui_file_path)
+        load_ui_from_resource(*ui_file, base_instance=self)
+        # if len(ui_file) != 2:
+        #     ui_file_path, *_ = ui_file
+        #     if not isinstance(ui_file_path, Path):
+        #         ui_file_path = Path(ui_file_path)
 
-            if ui_file_path.is_absolute():
-                load_ui(
-                    uifile=ui_file_path,
-                    base_instance=self,
-                    working_directory=ui_file_path.parent,
-                )
-                return
+        #     if ui_file_path.is_absolute():
+        #         load_ui(
+        #             uifile=ui_file_path,
+        #             base_instance=self,
+        #             working_directory=ui_file_path.parent,
+        #         )
+        #         return
 
-            ui_file = (str(ui_file_path.parent).replace('/', '.'), ui_file_path.name)
+        #     ui_file = (str(ui_file_path.parent).replace('/', '.'), ui_file_path.name)
 
-        ref = importlib.resources.files(ui_file[0]) / ui_file[1]
-        with importlib.resources.as_file(ref) as path:
-            load_ui(uifile=path, base_instance=self, working_directory=path.parent)
+        # ref = importlib.resources.files(ui_file[0]) / ui_file[1]
+        # with importlib.resources.as_file(ref) as path:
+        #     load_ui(uifile=path, base_instance=self, working_directory=path.parent)
 
     def open(self) -> None:
         WindowManager().top_component_open(self)  # pyright: ignore[reportAbstractUsage]

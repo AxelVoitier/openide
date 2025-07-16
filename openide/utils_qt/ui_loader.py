@@ -5,6 +5,7 @@ from __future__ import annotations
 
 # System imports
 import importlib
+import importlib.resources
 import logging
 from typing import TYPE_CHECKING, cast, override
 from xml.etree.ElementTree import ElementTree
@@ -191,3 +192,26 @@ def load_ui(
     widget = loader.load(uifile)
     QMetaObject.connectSlotsByName(widget)
     return widget
+
+
+def load_ui_from_resource(
+    *ui_file: str,
+    base_instance: QWidget | None = None,
+) -> QWidget:
+    if len(ui_file) != 2:
+        ui_file_path, *_ = ui_file
+        if not isinstance(ui_file_path, Path):
+            ui_file_path = Path(ui_file_path)
+
+        if ui_file_path.is_absolute():
+            return load_ui(
+                uifile=ui_file_path,
+                base_instance=base_instance,
+                working_directory=ui_file_path.parent,
+            )
+
+        ui_file = (str(ui_file_path.parent).replace('/', '.'), ui_file_path.name)
+
+    ref = importlib.resources.files(ui_file[0]) / ui_file[1]
+    with importlib.resources.as_file(ref) as path:
+        return load_ui(uifile=path, base_instance=base_instance, working_directory=path.parent)
