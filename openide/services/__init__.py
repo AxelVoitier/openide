@@ -20,6 +20,7 @@ from .registration import (
 
 from .global_context import GlobalContext
 from .package_lifecycle import PackageLifecycle
+from .status_displayer import StatusDisplayer
 from .window_manager import WindowManager
 
 __all__ = [
@@ -29,5 +30,6 @@ __all__ = [
     'ServiceProvider',
     'ServiceSingletonABCMeta',
     'ServiceSingletonMeta',
+    'StatusDisplayer',
     'WindowManager',
 ]
