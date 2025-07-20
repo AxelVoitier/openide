@@ -37,11 +37,12 @@ from openide.utils.typing import override
 T = TypeVar('T')
 E = TypeVar('E')
 if TYPE_CHECKING:
-    from collections.abc import Callable, Collection, MutableSequence, Sequence
+    from collections.abc import Callable, Collection, Iterable, Iterator, MutableSequence, Sequence
     from typing import Any, TypeAlias
 
     from lookups import Lookup, Result
-    from PySide6.QtGui import QColor, QIcon, QPixmap
+    from PySide6.QtGui import QAction, QColor, QIcon, QPixmap
+    from PySide6.QtWidgets import QMenu
 
     from openide.nodes._like_netbeans.children import Children  # noqa: TC004  # No it's not
     from openide.nodes._like_netbeans.children_storage import ChildrenStorage
@@ -401,40 +402,83 @@ class Node(Debug(f'{__name__}.Node'), FeatureDescriptor, LookupProvider, ABC):
 
     # TODO: getActions(boolean context)
 
-    # TODO: Define return type
     # TODO: NodeOp
-    # TODO: Actually deprecated
+    # TODO: Actually deprecated, but only in favour of the boolean-arg signature
+    #       which redirect to either no-arg getAction, or getContextAction.
     @property
-    def actions(self):  # type: ignore[no-untyped-def]
-        from . import NodeOp  # noqa: PLC0415
+    def actions(self) -> Iterable[QAction | str | None]:
+        """Get the set of actions associated with this node.
 
-        return NodeOp.default_actions
+        This set is used to construct the context menu for the node.
 
-    # TODO: Define return type
-    # TODO: Actually deprecated
+        Returns a list of actions (you may include None or strings for separators).
+        """
+
+        from .node_operations import get_default_actions  # noqa: PLC0415
+
+        return get_default_actions()
+
     @property
-    def context_actions(self):  # type: ignore[no-untyped-def]
+    def context_actions(self) -> Iterable[QAction | str | None]:
+        """Get a special set of actions for situations when this node is displayed as a context.
+
+        For example, right-clicking on a parent node in a hierarchical view (such as
+        a node explorer) should use the actions property. However, if this node
+        is serving as the parent of (for instance) a window tab full of icons (e.g., an icon view),
+        and the users right-clicks on the empty space in this pane,
+        then this method should be used to get the appropriate actions for a context menu.
+
+        Returns by default the same set of actions than the actions property.
+        """
+
         return self.actions
 
-    # TODO: Define return type
     # TODO: Actually deprecated
     @property
-    def default_action(self):  # type: ignore[no-untyped-def]
+    def default_action(self) -> QAction | None:
+        """Gets the default action for this node.
+
+        Returns an action, or None indicating there should be no default action for this node.
+        """
+
+        msg = 'Is actually deprecated, try to use preferred_action instead'
+        raise NotImplementedError(msg)
+        # return None
+
+    @property
+    def preferred_action(self) -> QAction | None:
+        """Gets the preferred action for this node.
+
+        This action can, but need not be one from the action array returned from
+        the actions property.
+        In case it is, the context menu created from those actions is encouraged
+        to highlight the preferred action.
+
+        Override in subclasses accordingly.
+
+        Returns an action, or None indicating there should be no preferred action for this node.
+        """
+
         return None
 
-    # TODO: Define return type
-    @property
-    def preferred_action(self):  # type: ignore[no-untyped-def]
-        return self.default_action
-
-    # TODO: Define return type
     # TODO: NodeOp
     @property
     @final
-    def context_menu(self):  # type: ignore[no-untyped-def]
-        from . import NodeOp  # noqa: PLC0415
+    def context_menu(self) -> QMenu | None:
+        """Makes a context menu for this node."""
 
-        return NodeOp.find_context_menu((self,))
+        from .node_operations import find_context_menu  # noqa: PLC0415
+
+        menu = find_context_menu((self,))
+        if menu is None:
+            return None
+
+        preferred_action = self.preferred_action
+        if preferred_action is None:
+            return menu
+
+        menu.setDefaultAction(preferred_action)
+        return menu
 
     # OK, Match
     @property

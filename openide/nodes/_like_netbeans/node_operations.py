@@ -7,16 +7,85 @@
 from __future__ import annotations
 
 # System imports
+from collections import defaultdict
 from typing import TYPE_CHECKING
 
 # Third-party imports
+from lookups import ProxyLookup
 
 # Local imports
+from openide.actions.utils import actions_to_context_menu
 
 if TYPE_CHECKING:
-    from collections.abc import Collection
+    from collections.abc import Collection, Iterable, Iterator
+
+    from PySide6.QtGui import QAction
+    from PySide6.QtWidgets import QMenu
 
     from openide.nodes._like_netbeans.node import Node
+
+
+def get_default_actions() -> Iterable[QAction | str | None]:
+    # TODO
+    return ()
+
+
+def find_context_menu(nodes: Iterable[Node]) -> QMenu | None:
+    """Computes a common context menu for the specified nodes.
+
+    Provides only those actions supplied by all nodes in the list.
+
+    nodes: Iterable of the nodes.
+
+    Returns the menu for all nodes
+    """
+
+    actions = tuple(find_common_actions(nodes))
+    if not actions:
+        return None
+
+    proxy_lookup = ProxyLookup(*[node.get_lookup() for node in nodes])
+    return actions_to_context_menu(actions, proxy_lookup)
+
+
+def find_common_actions(nodes: Iterable[Node]) -> Iterator[QAction | str | None]:
+    """Asks the provided nodes for their actions, and returns those that are common to all of them.
+
+    nodes: Iterable of nodes to compose actions for
+
+    Returns an iterator of actions (and separators) for the nodes.
+    """
+    action_counters: dict[QAction, int] = defaultdict(int)
+    actions_by_node: dict[Node, Iterable[QAction | str | None]] = {}
+
+    n_nodes = 0
+    for node in nodes:
+        n_nodes += 1
+        actions_by_node[node] = actions = node.actions
+
+        counted: set[QAction] = set()
+        for action in actions:
+            if (action is None) or isinstance(action, str) or (action in counted):
+                continue
+            action_counters[action] += 1
+            counted.add(action)
+
+    if not action_counters:
+        return
+
+    added: set[QAction] = set()
+    for action in next(iter(actions_by_node.values())):
+        if (action is None) or isinstance(action, str):  # Separators
+            yield action
+
+        else:
+            if action in added:
+                continue
+            added.add(action)
+            if action_counters[action] != n_nodes:
+                continue
+
+            yield action
 
 
 def compute_permutation(nodes1: Collection[Node], nodes2: Collection[Node]) -> list[int] | None:

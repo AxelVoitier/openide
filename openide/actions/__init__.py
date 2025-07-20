@@ -5,9 +5,14 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 from .registration import ActionConfig, ActionReference, Actions
+from .transformers import ContextAwareAction, ContextMenuPresenter, MenuPresenter, ToolbarPresenter
 
 __all__ = (
     'ActionConfig',
     'ActionReference',
     'Actions',
+    'ContextAwareAction',
+    'ContextMenuPresenter',
+    'MenuPresenter',
+    'ToolbarPresenter',
 )

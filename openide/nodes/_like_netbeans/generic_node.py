@@ -28,7 +28,7 @@ if TYPE_CHECKING:
     from collections.abc import Sequence
 
     from lookups import Lookup
-    from PySide6.QtGui import QColor, QIcon, QPixmap
+    from PySide6.QtGui import QAction, QColor, QIcon, QPixmap
 
     from openide.nodes._like_netbeans.properties import PropertySet
 
@@ -267,33 +267,33 @@ class GenericNode(Node):
     def new_types(self):  # type: ignore[no-untyped-def]
         raise NotImplementedError
 
-    # TODO: Implement
-    # TODO: Define return type
-    @property
-    @override  # Node
-    def preferred_action(self):  # type: ignore[no-untyped-def]
-        raise NotImplementedError
+    # # TODO: Implement
+    # # TODO: Define return type
+    # @property
+    # @override  # Node
+    # def preferred_action(self) -> QAction | None:
+    #     raise NotImplementedError
 
-    # TODO: Implement
-    # TODO: Define return type
-    # TODO: Actually deprecated
-    @property
-    @override  # Node
-    def default_action(self):  # type: ignore[no-untyped-def]
-        raise NotImplementedError
+    # # TODO: Implement
+    # # TODO: Define return type
+    # # TODO: Actually deprecated
+    # @property
+    # @override  # Node
+    # def default_action(self):  # type: ignore[no-untyped-def]
+    #     raise NotImplementedError
 
-    # TODO: Actually deprecated
-    @default_action.setter
-    def default_action(self, action) -> None:  # type: ignore[no-untyped-def]
-        self.__preferred_action = action
+    # # TODO: Actually deprecated
+    # @default_action.setter
+    # def default_action(self, action) -> None:  # type: ignore[no-untyped-def]
+    #     self.__preferred_action = action
 
-    # TODO: Implement
-    # TODO: Define return type
-    # TODO: Actually deprecated
-    @property
-    @override  # Node
-    def actions(self):  # type: ignore[no-untyped-def]
-        raise NotImplementedError
+    # # TODO: Implement
+    # # TODO: Define return type
+    # # TODO: Actually deprecated
+    # @property
+    # @override  # Node
+    # def actions(self) -> Iterable[QAction | str | None]:
+    #     raise NotImplementedError
 
     # TODO: createActions (deprecated) (protected)
 

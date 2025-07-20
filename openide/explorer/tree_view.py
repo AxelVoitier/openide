@@ -21,6 +21,8 @@ from openide.explorer.model import _N
 from openide.utils.typing import override
 
 if TYPE_CHECKING:
+    from PySide6.QtGui import QContextMenuEvent
+
     from openide.explorer.model import ModelIndex
 
 
@@ -42,3 +44,19 @@ class NodeTreeView(AbstractNodeView[_N], QTreeView):
 
     # TODO: watcher + connect to expanded only if someone connect to this one
     # expanded_node = Signal(Node, arguments=['node'])
+
+    def contextMenuEvent(self, event: QContextMenuEvent) -> None:
+        node = self.model().node_for_index(self.indexAt(event.pos()))
+        menu = node.context_menu
+        if menu is None:
+            event.accept()
+            return
+
+        menu.exec(self.viewport().mapToGlobal(event.pos()))
+
+        # preferred_action = node.preferred_action
+        # print(f'preferred action is {preferred_action}')
+        # if preferred_action is not None:
+        #     menu.popup(self.viewport().mapToGlobal(event.pos()), preferred_action)
+
+        event.accept()
