@@ -10,7 +10,7 @@ from __future__ import annotations
 from functools import partial
 from itertools import takewhile
 from operator import is_not
-from typing import TYPE_CHECKING, Generic, TypeVar, overload
+from typing import TYPE_CHECKING, TypeVar, overload
 
 # from weakref import ReferenceType
 # Third-party imports
@@ -18,17 +18,15 @@ from PySide6.QtCore import QAbstractItemModel, QModelIndex, QPersistentModelInde
 
 # Local imports
 from openide.nodes import Node, NodeListener
-from openide.utils.typing import override
 from openide.utils_qt import QABC
 
 _N = TypeVar('_N', bound=Node)
 
 if TYPE_CHECKING:
-    from collections.abc import Generator, Iterable
-    from typing import Any, Union
+    from collections.abc import Iterable, Iterator
+    from typing import Any, TypeAlias
 
     from PySide6.QtCore import QObject
-    from typing_extensions import TypeAlias
 
     from openide.explorer.selection import NodeSelectionModel
     from openide.nodes import (
@@ -37,7 +35,7 @@ if TYPE_CHECKING:
         NodeReorderEvent,
     )
 
-    ModelIndex: TypeAlias = Union[QModelIndex, QPersistentModelIndex]
+    ModelIndex: TypeAlias = QModelIndex | QPersistentModelIndex
 
 
 class NodeModel(Generic[_N], NodeListener, QABC, QAbstractItemModel):
@@ -117,7 +115,7 @@ class NodeModel(Generic[_N], NodeListener, QABC, QAbstractItemModel):
         # print(f'node_for_index {index=} {parent_node=}, {to_return=}')
         return to_return
 
-    def nodes_for_indexes(self, indexes: Iterable[ModelIndex]) -> Generator[_N, None, None]:
+    def nodes_for_indexes(self, indexes: Iterable[ModelIndex]) -> Iterator[_N]:
         node_for_index = self.node_for_index
         for index in indexes:
             yield node_for_index(index)
@@ -165,7 +163,8 @@ class NodeModel(Generic[_N], NodeListener, QABC, QAbstractItemModel):
 
     # NodeListener
 
-    def property_change(self, node: _N, name: str, old: Any, new: Any) -> None:  # noqa: ANN401
+    @override  # NodeListener
+    def property_change(self, node: _N, name: str, old: Any, new: Any) -> None:
         if name == 'parentNode':
             return
         print(f'property_change {node=}, {name=}, {old=}, {new=}')
@@ -178,6 +177,7 @@ class NodeModel(Generic[_N], NodeListener, QABC, QAbstractItemModel):
                 [Qt.ItemDataRole.DisplayRole, Qt.ItemDataRole.EditRole],
             )
 
+    @override  # NodeListener
     def children_added(self, event: NodeMemberEvent) -> None:
         # print(f'children_added {event=}, {event.delta_indices=}')
         if not event.is_add_event:
@@ -199,6 +199,7 @@ class NodeModel(Generic[_N], NodeListener, QABC, QAbstractItemModel):
         for node in event.delta:
             node.add_node_listener(self)  # Should be a weak ref
 
+    @override  # NodeListener
     def children_removed(self, event: NodeMemberEvent) -> None:
         # print(f'children_removed {event=}')
         if event.is_add_event:
@@ -220,6 +221,7 @@ class NodeModel(Generic[_N], NodeListener, QABC, QAbstractItemModel):
         for node in event.delta:
             node.remove_node_listener(self)
 
+    @override  # NodeListener
     def children_reordered(self, event: NodeReorderEvent) -> None:
         # print(f'children_reordered {event=}')
         parent_node = event.node
@@ -236,12 +238,14 @@ class NodeModel(Generic[_N], NodeListener, QABC, QAbstractItemModel):
                     )
                     for old, new in enumerate(event.permutation)
                     if old != new
-                ]
-            )
+                ],
+                strict=True,
+            ),
         )
 
         self.layoutChanged.emit()  # For unknown reasons, we cannot pass args
 
+    @override  # NodeListener
     def node_destroyed(self, event: NodeEvent) -> None:
         print(f'>>> node_destroyed {event=}')
         if event.node is self.root_node:
@@ -285,7 +289,7 @@ class NodeModel(Generic[_N], NodeListener, QABC, QAbstractItemModel):
             return self.index_for_node(parent_node, column=index.column())
 
     @override  # QAbstractItemModel
-    def hasChildren(self, index: ModelIndex | None = None) -> bool:  # noqa: N802
+    def hasChildren(self, index: ModelIndex | None = None) -> bool:
         assert index is not None
         # print(f'hasChildren {index=}')
 
@@ -294,7 +298,7 @@ class NodeModel(Generic[_N], NodeListener, QABC, QAbstractItemModel):
         return not node.is_leaf
 
     @override  # QAbstractItemModel
-    def rowCount(self, index: ModelIndex | None = None) -> int:  # noqa: N802
+    def rowCount(self, index: ModelIndex | None = None) -> int:
         assert index is not None
         # print(f'rowCount {index=}')
 
@@ -305,17 +309,17 @@ class NodeModel(Generic[_N], NodeListener, QABC, QAbstractItemModel):
         return count
 
     @override  # QAbstractItemModel
-    def columnCount(self, index: ModelIndex | None = None) -> int:  # noqa: N802
+    def columnCount(self, index: ModelIndex | None = None) -> int:
         assert index is not None
         return 1  # TODO: Support IndexedNode?
 
     @override  # QAbstractItemModel
-    def headerData(  # noqa: N802
+    def headerData(
         self,
         section: int,
         orientation: Qt.Orientation,
         role: int = Qt.ItemDataRole.DisplayRole,
-    ) -> Any:  # noqa: ANN401
+    ) -> Any:
         if role != Qt.ItemDataRole.DisplayRole:
             return None
 
@@ -325,7 +329,7 @@ class NodeModel(Generic[_N], NodeListener, QABC, QAbstractItemModel):
             return None
 
     @override  # QAbstractItemModel
-    def data(self, index: ModelIndex, role: int = Qt.ItemDataRole.DisplayRole) -> Any:  # noqa: ANN401
+    def data(self, index: ModelIndex, role: int = Qt.ItemDataRole.DisplayRole) -> Any:
         # print(f'data {index=}, {role=}')
 
         node = self.node_for_index(index)

@@ -123,7 +123,7 @@ class MutexImplementation(ABC):
         raise NotImplementedError  # pragma: no cover
 
 
-class Mutex(Debug(f'{__name__}.Mutex')):
+class Mutex:  # (Debug(f'{__name__}.Mutex')):
     def __init__(
         self,
         implementation: MutexImplementation | None = None,

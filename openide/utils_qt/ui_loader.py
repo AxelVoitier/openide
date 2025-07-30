@@ -7,13 +7,14 @@ from __future__ import annotations
 import importlib
 import importlib.resources
 import logging
-from typing import TYPE_CHECKING, cast, override
+from typing import TYPE_CHECKING, cast
 from xml.etree.ElementTree import ElementTree
 
 # Third-party imports
 from PySide6.QtCore import QDir, QMetaObject
 from PySide6.QtUiTools import QUiLoader
 from PySide6.QtWidgets import QWidget
+from typing_extensions import override
 
 # Local imports
 
@@ -77,7 +78,7 @@ class UiLoader(QUiLoader):
         else:
             self.custom_widgets = custom_widgets
 
-    @override
+    @override  # QUiLoader
     def createWidget(
         self,
         class_name: str,

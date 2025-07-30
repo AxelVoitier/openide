@@ -11,12 +11,13 @@ from __future__ import annotations
 
 # System imports
 import logging
-from typing import TYPE_CHECKING, Any, Literal, TypeVar, override
+from typing import TYPE_CHECKING, Any, Literal, TypeVar
 
 # Third-party imports
 from lookups import Convertor, Lookup
 from lookups.instance_content import ConvertingItem
 from lookups.simple import SimpleResult
+from typing_extensions import override
 
 # Local imports
 from openide import IDEApplication
@@ -35,7 +36,7 @@ _logger = logging.getLogger(__name__)
 
 class EggInfoLookup(Lookup):
     class _FQNameConvertor(Convertor[tuple[str, ServiceConfig], Any]):
-        @override
+        @override  # Convertor
         def convert(self, obj: tuple[str, ServiceConfig]) -> Any:
             fqname = obj[0]
             cls = class_loader(fqname)
@@ -44,18 +45,18 @@ class EggInfoLookup(Lookup):
             # kwargs = element[1].get('kwargs', {})
             # return cls(**kwargs)
 
-        @override
+        @override  # Convertor
         def type(self, obj: tuple[str, ServiceConfig]) -> type[Any]:
             fqname = obj[1].get('service', obj[0])
             module_path, qualname = fqname.split(':')
             name = qualname.split('.')[-1]
             return type(name, (object,), dict(__module__=module_path, __qualname__=qualname))
 
-        @override
+        @override  # Convertor
         def id(self, obj: tuple[str, ServiceConfig]) -> str:
             return obj[0]
 
-        @override
+        @override  # Convertor
         def display_name(self, obj: tuple[str, ServiceConfig]) -> str:
             return obj[0]
 
@@ -90,7 +91,7 @@ class EggInfoLookup(Lookup):
             if app.is_targeted(element[0], element[1].get('target_apps'))
         )
 
-    @override
+    @override  # Lookup
     def lookup(self, cls: type[T]) -> T | None:
         for item in self._content:
             if item.issubclass(cls):
@@ -98,13 +99,13 @@ class EggInfoLookup(Lookup):
 
         return None
 
-    @override
+    @override  # Lookup
     def lookup_result(self, cls: type[T]) -> EggInfoServiceResult[T]:
         return EggInfoServiceResult(self, cls)
 
 
 class EggInfoServiceResult(SimpleResult[T]):
-    @override
+    @override  # SimpleResult
     def all_items(self) -> Sequence[Item[T]]:
         if self._items is None:
             self._items = tuple(item for item in self.lookup._content if item.issubclass(self.cls))

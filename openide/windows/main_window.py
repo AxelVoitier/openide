@@ -18,6 +18,7 @@ from weakref import WeakKeyDictionary, WeakValueDictionary
 from lookups import Lookup
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QApplication, QMainWindow
+from typing_extensions import override
 
 # Local imports
 from openide import IDEApplication
@@ -39,7 +40,7 @@ DEFAULT_TC_NAME = 'untitled_tc'
 
 
 @ServiceProvider(service=WindowManager)
-class MainWindow(MetaClassResolver(WindowManager, QMainWindow)):
+class MainWindow(MetaClassResolver(WindowManager, QMainWindow), WindowManager, QMainWindow):
     def __init__(self) -> None:
         super().__init__()
 
@@ -155,13 +156,16 @@ class MainWindow(MetaClassResolver(WindowManager, QMainWindow)):
         component.assigned_id = name
         return name
 
+    @override  # WindowManager
     def find_mode(self, name: str) -> None:
         if not name:
             name = 'central'
 
+    @override  # WindowManager
     def find_top_component(self, target_id: str) -> TopComponent | None:
         return self._id_to_component.get(target_id, None)
 
+    @override  # WindowManager
     def top_component_open(self, component: TopComponent, tab_position: int = -1) -> None:
         component_id = component.assigned_id
         if component not in self._component_to_id:
@@ -198,6 +202,7 @@ class MainWindow(MetaClassResolver(WindowManager, QMainWindow)):
             else:
                 self.top_component_request_active(current)
 
+    @override  # WindowManager
     def top_component_request_active(self, component: TopComponent) -> None:
         # self.locations[component.location].setCurrentWidget(component)
         component.activateWindow()
@@ -206,6 +211,7 @@ class MainWindow(MetaClassResolver(WindowManager, QMainWindow)):
 
         ContextTracker().top_component_activated(component)
 
+    @override  # QMainWindow
     def closeEvent(self, event: QCloseEvent) -> None:
         if not IDEApplication().accepts_close():
             event.ignore()

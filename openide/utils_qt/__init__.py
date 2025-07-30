@@ -5,9 +5,10 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 from .classes import QABC
-from .ui_loader import load_ui
+from .ui_loader import load_ui, load_ui_from_resource
 
 __all__ = [
     'QABC',
     'load_ui',
+    'load_ui_from_resource',
 ]

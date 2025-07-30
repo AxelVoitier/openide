@@ -12,13 +12,13 @@ from typing import TYPE_CHECKING
 # Third-party imports
 # from PySide6.QtCore import Signal
 from PySide6.QtWidgets import QTreeView
+from typing_extensions import override
 
 # Local imports
 from openide.explorer.abstract_view import AbstractNodeView
 
 # from openide.nodes import Node
 from openide.explorer.model import _N
-from openide.utils.typing import override
 
 if TYPE_CHECKING:
     from PySide6.QtGui import QContextMenuEvent
@@ -39,12 +39,13 @@ class NodeTreeView(AbstractNodeView[_N], QTreeView):
         return super().expand(self._to_index(index_or_node))
 
     @override  # QTreeView
-    def expandRecursively(self, index_or_node: ModelIndex | _N, depth: int = -1) -> None:  # noqa: N802
+    def expandRecursively(self, index_or_node: ModelIndex | _N, depth: int = -1) -> None:
         return super().expandRecursively(self._to_index(index_or_node), depth)
 
     # TODO: watcher + connect to expanded only if someone connect to this one
     # expanded_node = Signal(Node, arguments=['node'])
 
+    @override  # QWidget
     def contextMenuEvent(self, event: QContextMenuEvent) -> None:
         node = self.model().node_for_index(self.indexAt(event.pos()))
         menu = node.context_menu

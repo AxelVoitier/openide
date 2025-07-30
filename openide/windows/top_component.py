@@ -21,7 +21,7 @@ from typing import TYPE_CHECKING, TypedDict
 from lookups import Lookup, LookupProvider
 from PySide6.QtGui import QAction, QIcon
 from PySide6.QtWidgets import QWidget
-from typing_extensions import NotRequired
+from typing_extensions import NotRequired, override
 
 # Local imports
 from openide.actions import Actions
@@ -208,6 +208,7 @@ class TopComponent(MetaClassResolver(LookupProvider, QWidget), LookupProvider, Q
         self._tooltip: str | None = None
         self._assigned_id: str | None = None
 
+    @override  # LookupProvider
     def get_lookup(self) -> Lookup:
         return self.lookup  # TODO: Handle when lookup is None (orig. Java has a way to deal with default lookup for nodes)
 

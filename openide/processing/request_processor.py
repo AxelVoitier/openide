@@ -28,11 +28,11 @@ from typing import (
     ParamSpec,
     Self,
     TypeVar,
-    override,
 )
 
 # Third-party imports
 from listeners import KeyedObservable, VetoException
+from typing_extensions import override
 
 # Local imports
 
@@ -117,7 +117,7 @@ class Task(Generic[P, R_co]):
     # def schedule(self, delay: float) -> None:
     #     pass
 
-    @override
+    @override  # object
     def __str__(self) -> str:
         return 'RequestProcessor.Task [ ]'
 
@@ -210,7 +210,7 @@ class ThreadPoolProcessor(ThreadPoolExecutor):
 
         return self.submit_item(self.create_item(task, priority=priority))  # , delay=delay))
 
-    @override
+    @override  # ThreadPoolExecutor
     def submit(self, fn: Callable[P, R_co], /, *args: P.args, **kwargs: P.kwargs) -> Future[R_co]:
         """Submits a task to the pool, and returns an associated Future."""
 
@@ -345,13 +345,13 @@ class RequestProcessor(Executor):
 
         return self._processor.submit_task(task, priority=priority)  # , delay=delay)
 
-    @override
+    @override  # Executor
     def submit(self, fn: Callable[P, R_co], *args: P.args, **kwargs: P.kwargs) -> Future[R_co]:
         """Submits a task to the pool, and returns an associated Future."""
 
         return self._processor.submit(fn, *args, **kwargs)
 
-    @override
+    @override  # Executor
     def shutdown(self, wait: bool = True, *, cancel_futures: bool = False) -> None:
         if self is self._DEFAULT:
             msg = 'Cannot stop default RequestProcessor'

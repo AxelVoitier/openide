@@ -21,14 +21,14 @@ from PySide6.QtCore import (
     Signal,
     Slot,
 )
+from typing_extensions import override
 
 # Local imports
 from openide.explorer.model import _N, NodeModel
 from openide.nodes import Node
-from openide.utils.typing import override
 
 if TYPE_CHECKING:
-    from collections.abc import Generator
+    from collections.abc import Iterator
     from typing import Any
 
     from openide.explorer.model import ModelIndex
@@ -109,6 +109,7 @@ class NodeSelection(QItemSelection, Generic[_N]):
     def select(self, top_left: ModelIndex | _N, bottom_right: ModelIndex | _N) -> None:
         super().select(self.__to_index(top_left), self.__to_index(bottom_right))
 
+    @override  # object
     def __str__(self) -> str:
         return f'{type(self).__name__}[{", ".join([str(node) for node in self.nodes])}]'
 
@@ -200,24 +201,24 @@ class NodeSelectionModel(QItemSelectionModel, Generic[_N]):
     # Selection, get
 
     @override  # QItemSelectionModel
-    def isColumnSelected(self, column: int, parent: ModelIndex | _N | None = None) -> bool:  # noqa: N802
+    def isColumnSelected(self, column: int, parent: ModelIndex | _N | None = None) -> bool:
         return super().isColumnSelected(column, self.__to_index(parent))
 
     @override  # QItemSelectionModel
-    def isRowSelected(self, row: int, parent: ModelIndex | _N | None = None) -> bool:  # noqa: N802
+    def isRowSelected(self, row: int, parent: ModelIndex | _N | None = None) -> bool:
         return super().isRowSelected(row, self.__to_index(parent))
 
     @override  # QItemSelectionModel
-    def isSelected(self, index_or_node: ModelIndex | _N) -> bool:  # noqa: N802
+    def isSelected(self, index_or_node: ModelIndex | _N) -> bool:
         return super().isSelected(self.__to_index(index_or_node))
 
-    def selected_columns(self, row: int = 0) -> Generator[_N, None, None]:
+    def selected_columns(self, row: int = 0) -> Iterator[_N]:
         return self.node_model.nodes_for_indexes(super().selectedColumns(row))
 
-    def selected_nodes(self) -> Generator[_N, None, None]:
+    def selected_nodes(self) -> Iterator[_N]:
         return self.node_model.nodes_for_indexes(super().selectedIndexes())
 
-    def selected_rows(self, column: int = 0) -> Generator[_N, None, None]:
+    def selected_rows(self, column: int = 0) -> Iterator[_N]:
         return self.node_model.nodes_for_indexes(super().selectedRows(column))
 
     @override  # QItemSelectionModel
@@ -249,7 +250,9 @@ class NodeSelectionModel(QItemSelectionModel, Generic[_N]):
 
     @Slot(QModelIndex, QModelIndex)
     def __watch_selection_changed(
-        self, selected: QItemSelection, deselected: QItemSelection
+        self,
+        selected: QItemSelection,
+        deselected: QItemSelection,
     ) -> None:
         node_model = self.node_model
         self.selection_node_changed.emit(
@@ -265,6 +268,7 @@ class NodeSelectionModel(QItemSelectionModel, Generic[_N]):
     # tuple[NodeSelection[N], NodeSelection[N]]
     selection_node_changed = Signal(tuple, arguments=['selected_deselected'])
 
+    @override  # object
     def __str__(self) -> str:
         return (
             f'{type(self).__name__}[current={self.current_node!s}, selected={self.selection()!s}]'

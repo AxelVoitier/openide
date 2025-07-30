@@ -11,11 +11,11 @@ from typing import TYPE_CHECKING, Generic, cast
 
 # Third-party imports
 from PySide6.QtCore import QAbstractItemModel, QModelIndex, QPersistentModelIndex
+from typing_extensions import override
 
 # from PySide6.QtWidgets import QAbstractItemView
 # Local imports
 from openide.explorer.model import _N, NodeModel
-from openide.utils.typing import override
 
 if TYPE_CHECKING:
     from openide.explorer.model import ModelIndex
@@ -36,7 +36,8 @@ class AbstractNodeView(Generic[_N]):
         return cast('NodeModel[_N]', super().model())
 
     @override  # QAbstractItemView
-    def setModel(self, model: QAbstractItemModel | NodeModel[_N]) -> None:
-        assert isinstance(model, NodeModel), 'Model must be a subclass of NodeModel'
+    def setModel(self, model: QAbstractItemModel | NodeModel[_N] | None) -> None:
+        if model is not None:
+            assert isinstance(model, NodeModel), 'Model must be a subclass of NodeModel'
 
         super().setModel(model)

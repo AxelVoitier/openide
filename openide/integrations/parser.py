@@ -14,9 +14,11 @@ import importlib
 import sys
 from pathlib import Path
 from pprint import pformat
-from typing import TYPE_CHECKING, override
+from typing import TYPE_CHECKING
 
 # Third-party imports
+from typing_extensions import override
+
 # Local imports
 from openide.utils import RecursiveDict
 
@@ -39,7 +41,7 @@ class LoadNameFinder(ast.NodeVisitor):
     def reset(self) -> None:
         self.found: list[Name] = []
 
-    @override
+    @override  # ast.NodeVisitor
     def visit_Name(self, node: Name) -> None:
         if isinstance(node.ctx, ast.Load):
             self.found.append(node)
@@ -61,7 +63,7 @@ class SetupFinder(ast.NodeVisitor):
             tuple[str, str],  # code name: (module path to import, module attribute to get)
         ] = {}
 
-    @override
+    @override  # ast.NodeVisitor
     def visit_Import(self, node: Import) -> None:
         """Store import references"""
         for name in node.names:
@@ -70,7 +72,7 @@ class SetupFinder(ast.NodeVisitor):
 
         self.generic_visit(node)
 
-    @override
+    @override  # ast.NodeVisitor
     def visit_ImportFrom(self, node: ImportFrom) -> None:
         """Store import references, handle possible relative imports"""
         base_path = []
@@ -86,7 +88,7 @@ class SetupFinder(ast.NodeVisitor):
 
         self.generic_visit(node)
 
-    @override
+    @override  # ast.NodeVisitor
     def visit_ClassDef(self, node: ClassDef) -> None:
         """Check decorators of a class to see if one has been marked by our mark_setup()"""
         # For when a class is referencing another class in the same module:
