@@ -10,13 +10,14 @@ from __future__ import annotations
 
 # System imports
 from threading import RLock
-from typing import TYPE_CHECKING, TypeVar, final
+from typing import TYPE_CHECKING, Any, Generic, Self, TypeAlias, TypeVar, final
 
 # Third-party imports
+from typing_extensions import override
+
 # Local imports
 from openide.nodes._like_netbeans.children import Children
-from openide.nodes._like_netbeans.node import Node
-from openide.utils.typing import override
+from openide.nodes._like_netbeans.node import AnyNode, Node
 
 # from openide.nodes.sheet import Sheet
 # from openide.nodes.cookie_set import CookieSet
@@ -32,8 +33,12 @@ if TYPE_CHECKING:
 
     from openide.nodes._like_netbeans.properties import PropertySet
 
+PN = TypeVar('PN', bound=AnyNode)
+CN = TypeVar('CN', bound=AnyNode)
+AnyGenericNode: TypeAlias = 'GenericNode[AnyNode, AnyNode]'
 
-class GenericNode(Node):
+
+class GenericNode(Node[PN, CN]):
     # TODO: private static final
     # - icons
     # - ICON_BASE
@@ -46,7 +51,7 @@ class GenericNode(Node):
     # - overridesGetDefaultAction
 
     # TODO: AbstractNode(CookieSet set) constructor
-    def __init__(self, children: Children, lookup: Lookup | None = None) -> None:
+    def __init__(self, children: Children[Self, CN], lookup: Lookup | None = None) -> None:
         self._lock = RLock()
 
         self._display_format: str | None = None
@@ -62,7 +67,7 @@ class GenericNode(Node):
         # TODO:
         # self._system_actions: Optional[Sequence[SystemAction]] = None  # deprecated
 
-        self.__sheet_cookie_listener: _SheetAndCookieListener | None = None
+        self.__sheet_cookie_listener: _SheetAndCookieListener[PN, CN] | None = None
 
         super().__init__(children, lookup)
 
@@ -71,7 +76,8 @@ class GenericNode(Node):
     # TODO: Cloning stuff
 
     # Needed as it is abstract in Node
-    def clone(self) -> Node:
+    @override  # Node
+    def clone(self) -> Self:
         raise NotImplementedError  # TODO
 
     @Node.system_name.setter  # type: ignore[attr-defined]  # mypy bug #5936
@@ -310,6 +316,7 @@ class GenericNode(Node):
 
     # TODO: Review
     @property
+    @override  # Node
     def _cookie_set(self) -> CookieSet:
         if self._internal_lookup is not None:
             msg = 'CookieSet cannot be used when lookup is associated with a node'
@@ -326,6 +333,7 @@ class GenericNode(Node):
     # TODO: Review
     # TODO: Actually deprecated (but used by _cookie_set getter)
     @_cookie_set.setter
+    @override  # Node
     def _cookie_set(self, value: CookieSet) -> None:
         with self._lock:
             if self._internal_lookup is not None:
@@ -359,8 +367,8 @@ class GenericNode(Node):
 # TODO: Extends java.beans.PropertyChangeListener
 # TODO: Extends javax.swing.event.ChangeListener
 @final
-class _SheetAndCookieListener:
-    def __init__(self, node: GenericNode) -> None:
+class _SheetAndCookieListener(Generic[PN, CN]):
+    def __init__(self, node: GenericNode[PN, CN]) -> None:
         super().__init__()
 
         self.__node = node
@@ -368,7 +376,7 @@ class _SheetAndCookieListener:
     def property_change(self, event) -> None:  # type: ignore[no-untyped-def]
         self.__node._fire_own_property_change('property_sets', None, None)
 
-    def state_changed(self, event) -> None:  # type: ignore[no-untyped-def]
+    def state_changed(self, kind: CookieSetChangeProtocol.ChangeKind, cookie: object) -> None:
         self.__node._fire_cookie_change()
 
 

@@ -10,7 +10,7 @@ from __future__ import annotations
 
 # System imports
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Generic, TypeVar
 
 # Third-party imports
 
@@ -18,21 +18,25 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, MutableSequence, Sequence
+    from typing import Any
 
     from openide.nodes._like_netbeans.children import Children
     from openide.nodes._like_netbeans.node import Node
 
+PN = TypeVar('PN', bound='Node[Any, Any]')
+N = TypeVar('N', bound='Node[Any, Any]')
 
-class EntrySupport(ABC):
+
+class EntrySupport(Generic[PN, N], ABC):
     # OK, Match
-    def __init__(self, children: Children) -> None:
+    def __init__(self, children: Children[PN, N]) -> None:
         super().__init__()
 
         self.__children = children
 
     # Note: This is to keep children as a RO public attribute
     @property
-    def children(self) -> Children:
+    def children(self) -> Children[PN, N]:
         return self.__children
 
     # OK, Match
@@ -42,18 +46,18 @@ class EntrySupport(ABC):
 
     # OK, Match
     @abstractmethod
-    def get_nodes(self, *, optimal_result: bool) -> Sequence[Node]:
+    def get_nodes(self, *, optimal_result: bool) -> Sequence[N]:
         raise NotImplementedError  # pragma: no cover
 
     # OK, Match
     # TODO: __getitem__?
     @abstractmethod
-    def get_node_at(self, index: int) -> Node | None:
+    def get_node_at(self, index: int) -> N | None:
         raise NotImplementedError  # pragma: no cover
 
     # OK, Match
     @abstractmethod
-    def test_nodes(self) -> Sequence[Node] | None:
+    def test_nodes(self) -> Sequence[N] | None:
         raise NotImplementedError  # pragma: no cover
 
     # OK, Match
@@ -80,7 +84,7 @@ class EntrySupport(ABC):
 
     # OK, Match
     @abstractmethod
-    def _snapshot(self) -> Sequence[Node]:
+    def _snapshot(self) -> Sequence[N]:
         raise NotImplementedError  # pragma: no cover
 
     # OK, Match

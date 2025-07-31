@@ -10,7 +10,7 @@ from __future__ import annotations
 
 # System imports
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, Generic, TypeVar, final
+from typing import TYPE_CHECKING, Any, Generic, TypeVar, final
 from weakref import ReferenceType
 
 # Third-party imports
@@ -20,26 +20,29 @@ from openide.nodes._like_netbeans.filter_node import FilterNode
 from openide.nodes._like_netbeans.generic_node import GenericNode
 from openide.utils.classes import Debug
 
-T = TypeVar('T')
 if TYPE_CHECKING:
-    from collections.abc import MutableSequence, Sequence
-    from typing import Any
+    from collections.abc import Iterable, MutableSequence, Sequence
+
+    from PySide6.QtGui import QAction
 
     from openide.nodes._like_netbeans.node import Node
 
+K = TypeVar('K')
+N = TypeVar('N', bound='Node[Any, Any]')
 
-class ChildFactory(ABC, Generic[T], Debug(f'{__name__}.ChildFactory')):
+
+class ChildFactory(ABC, Generic[K, N]):  # , Debug(f'{__name__}.ChildFactory')):
     class Observer(ABC):
         @abstractmethod
         def refresh(self, *, immediate: bool) -> None:
             raise NotImplementedError  # pragma: no cover
 
-    class __WaitFilterNode(FilterNode):
+    class __WaitFilterNode(FilterNode[Any, Any]):
         """This class exists to mark any node returned by create_wait_node()
         such that AsyncChildren can identify it and not forward it to create_nodes_for_key()
         """
 
-    class __DefaultWaitNode(GenericNode):
+    class __DefaultWaitNode(GenericNode[Any, Any]):
         def __init__(self) -> None:
             super().__init__(Children.LEAF)
 
@@ -47,27 +50,27 @@ class ChildFactory(ABC, Generic[T], Debug(f'{__name__}.ChildFactory')):
             self.display_name = 'Please Wait...'
 
         @property
-        def actions(self):  # type: ignore[no-untyped-def]
-            return tuple()
+        def actions(self) -> Iterable[QAction | str | None]:  # type: ignore[no-untyped-def]
+            return ()
 
     def __init__(self) -> None:
         super().__init__()
 
         self.__observer_ref: ReferenceType[ChildFactory.Observer] | None = None
 
-    def _create_node_for_key(self, key: T) -> Node | None:
+    def _create_node_for_key(self, key: K) -> N | None:
         msg = (
             'Neither create_node_for_key() nor create_nodes_for_key() '
             f'have been overridden in {type(self).__name__}'
         )
         raise NotImplementedError(msg)
 
-    def _create_nodes_for_key(self, key: T) -> Sequence[Node] | None:
+    def _create_nodes_for_key(self, key: K) -> Sequence[N] | None:
         node = self._create_node_for_key(key)
         return (node,) if node is not None else None
 
     @abstractmethod
-    def _create_keys(self, to_populate: MutableSequence[T]) -> bool:
+    def _create_keys(self, to_populate: MutableSequence[K]) -> bool:
         raise NotImplementedError  # pragma: no cover
 
     @final
@@ -76,13 +79,13 @@ class ChildFactory(ABC, Generic[T], Debug(f'{__name__}.ChildFactory')):
             observer.refresh(immediate=immediate)
 
     @property
-    def _wait_node(self) -> Node | None:
+    def _wait_node(self) -> N | None:
         if (node := self._create_wait_node()) is not None:
             return ChildFactory.__WaitFilterNode(node)
         else:
             return None
 
-    def _create_wait_node(self) -> Node:
+    def _create_wait_node(self) -> N:
         node = ChildFactory.__DefaultWaitNode()
         node.display_name = 'Please Wait...'
         node.icon_base_with_extension = 'openide/nodes/wait.gif'
@@ -115,7 +118,7 @@ class ChildFactory(ABC, Generic[T], Debug(f'{__name__}.ChildFactory')):
     def _add_notify(self) -> None:
         pass
 
-    def _destroy_nodes(self, nodes: Sequence[Node]) -> None:
+    def _destroy_nodes(self, nodes: Iterable[N]) -> None:
         pass
 
     @staticmethod

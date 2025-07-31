@@ -11,16 +11,19 @@
 
 from __future__ import annotations
 
-# System imports
 import logging
 import warnings
 from abc import ABC, abstractmethod
+
+# System imports
 from copy import deepcopy
 from threading import RLock
-from typing import TYPE_CHECKING, TypeVar, final
+from typing import TYPE_CHECKING, Generic, Self, TypeVar, final
+from weakref import ReferenceType, ref
 
 # Third-party imports
 from lookups import LookupProvider
+from typing_extensions import override
 
 # from observable import Observable
 # Local imports
@@ -32,10 +35,7 @@ from openide.nodes._like_netbeans.properties import (
     PropertySet,
 )
 from openide.utils.classes import Debug
-from openide.utils.typing import override
 
-T = TypeVar('T')
-E = TypeVar('E')
 if TYPE_CHECKING:
     from collections.abc import Callable, Collection, Iterable, Iterator, MutableSequence, Sequence
     from typing import Any, TypeAlias
@@ -47,6 +47,13 @@ if TYPE_CHECKING:
     from openide.nodes._like_netbeans.children import Children  # noqa: TC004  # No it's not
     from openide.nodes._like_netbeans.children_storage import ChildrenStorage
     from openide.nodes._like_netbeans.node_listener import NodeListener
+
+T = TypeVar('T')
+E = TypeVar('E')
+AnyNode: TypeAlias = 'Node[Any, Any]'
+PN = TypeVar('PN', bound=AnyNode)
+N = TypeVar('N', bound=AnyNode)
+CN = TypeVar('CN', bound=AnyNode)
 
 _logger = logging.getLogger(__name__)
 
@@ -62,14 +69,15 @@ class _Handle(ABC):
 
     @abstractmethod
     def get_node(self) -> Node:
-        raise NotImplementedError()  # pragma: no cover
+        raise NotImplementedError  # pragma: no cover
 
 
 # TODO: LookupEventList class (private final)
 
 
 # TODO: Subclasses HelpCtx.Provider
-class Node(Debug(f'{__name__}.Node'), FeatureDescriptor, LookupProvider, ABC):
+# class Node(Debug(f'{__name__}.Node'), FeatureDescriptor, LookupProvider, ABC):
+class Node(FeatureDescriptor, LookupProvider, Generic[PN, CN], ABC):
     # TODO: Review lookups and cookies
     # TODO: Review listeners (node and properties)
     # TODO: Review property changed firing events
@@ -94,14 +102,14 @@ class Node(Debug(f'{__name__}.Node'), FeatureDescriptor, LookupProvider, ABC):
     _LOCK = RLock()
 
     # TODO: Review
-    def __init__(self, children: Children, lookup: Lookup | None = None) -> None:
+    def __init__(self, children: Children[Self, CN], lookup: Lookup | None = None) -> None:
         super().__init__()
 
-        self._parent: Children | ChildrenStorage | None = None
+        self._parent: Children[PN, Self] | ChildrenStorage[PN, Self] | None = None
         self._hiearchy = children
 
         # TODO: transient  # TODO: Actually,
-        self._node_listeners: list[NodeListener] = []
+        self._node_listeners: list[NodeListener[Self, CN]] = []
         # it is not a simple list, but seems to be like a list of tuples (listener-class, listener).
         # (It's actually like a list of stride 2...). Could it be even more efficient/usable as a
         # Mapping of listener-class to listeners? Could it be then easily replaced with observable?
@@ -126,7 +134,7 @@ class Node(Debug(f'{__name__}.Node'), FeatureDescriptor, LookupProvider, ABC):
         self._fire_cookie_change()
 
     # TODO: Review
-    def __deepcopy__(self, memo: dict[int, Any]) -> Node:
+    def __deepcopy__(self, memo: dict[int, Any]) -> Self:
         """
         Subclasses should first call super().__deepcopy__() to get
         an instance. And then call their own SubClass.__init__(instance, ...)
@@ -143,12 +151,12 @@ class Node(Debug(f'{__name__}.Node'), FeatureDescriptor, LookupProvider, ABC):
 
     # TODO: Review (pythonic?)
     @abstractmethod
-    def clone(self) -> Node:
-        raise NotImplementedError()  # pragma: no cover
+    def clone(self) -> Self:
+        raise NotImplementedError  # pragma: no cover
 
     # OK, Match
     @property
-    def _parent_children(self) -> Children | None:
+    def _parent_children(self) -> Children[PN, Self] | None:
         from openide.nodes._like_netbeans.children_storage import ChildrenStorage  # noqa: PLC0415
 
         if isinstance(self._parent, ChildrenStorage):
@@ -158,7 +166,7 @@ class Node(Debug(f'{__name__}.Node'), FeatureDescriptor, LookupProvider, ABC):
 
     # OK, Match
     @final
-    def _assign_to(self, parent: Children, index: int) -> None:
+    def _assign_to(self, parent: Children[PN, Self], index: int) -> None:
         with Node._LOCK:
             p_children = self._parent_children
             if (p_children is not None) and (p_children != parent):
@@ -176,7 +184,11 @@ class Node(Debug(f'{__name__}.Node'), FeatureDescriptor, LookupProvider, ABC):
 
     # OK, Match
     @final
-    def _reassign_to(self, current_parent: Children, children_array: ChildrenStorage) -> None:
+    def _reassign_to(
+        self,
+        current_parent: Children[PN, Self],
+        children_array: ChildrenStorage[PN, Self],
+    ) -> None:
         with Node._LOCK:
             if self._parent not in (current_parent, children_array):
                 msg = (
@@ -189,7 +201,7 @@ class Node(Debug(f'{__name__}.Node'), FeatureDescriptor, LookupProvider, ABC):
 
     # OK, Match
     @final
-    def _deassign_from(self, parent: Children) -> None:
+    def _deassign_from(self, parent: Children[PN, Self]) -> None:
         with Node._LOCK:
             p_children = self._parent_children
             if parent != p_children:
@@ -229,7 +241,7 @@ class Node(Debug(f'{__name__}.Node'), FeatureDescriptor, LookupProvider, ABC):
     # OK, Match
     @FeatureDescriptor.is_hidden.setter  # type: ignore[attr-defined]  # mypy bug #5936
     @override  # FeatureDescriptor
-    def is_hidden(self, value: bool) -> None:  # noqa: FBT001
+    def is_hidden(self, value: bool) -> None:
         warnings.warn(
             RuntimeWarning(
                 'Setting Node.is_hidden does not do what you think it does. '
@@ -269,34 +281,34 @@ class Node(Debug(f'{__name__}.Node'), FeatureDescriptor, LookupProvider, ABC):
 
     # OK, Match
     @property  # Also final (set on setter)
-    def _children(self) -> Children:
+    def _children(self) -> Children[Self, CN]:
         self._update_children()
         return self._hiearchy
 
     # OK, Match
     @_children.setter
     @final
-    def _children(self, value: Children) -> None:
+    def _children(self, value: Children[Self, CN]) -> None:
         from openide.nodes._like_netbeans.children import Children  # noqa: PLC0415
 
         def implementation() -> None:
-            snapshot: Sequence[Node] | None = None
+            snapshot: Sequence[CN] | None = None
             was_initialised = self._hiearchy._is_initialised
-            was_leaf = self._hiearchy is Children.LEAF
+            was_leaf = self._hiearchy is Children[Self, CN].LEAF
             if was_initialised and not was_leaf:
                 snapshot = self._hiearchy.snapshot()
 
             self._hiearchy._detach_from()
 
             if snapshot:
-                self._hiearchy = Children.LEAF
+                self._hiearchy = Children[Self, CN].LEAF
                 indexes = list(range(len(snapshot)))
                 self._fire_sub_nodes_change_idx(False, indexes, None, [], snapshot)  # noqa: FBT003
 
             self._hiearchy = value
             self._hiearchy._attach_to(self)
 
-            is_leaf = self._hiearchy is Children.LEAF
+            is_leaf = self._hiearchy is Children[Self, CN].LEAF
             if was_initialised and (not was_leaf) and (not is_leaf):
                 self._hiearchy.get_nodes_count()
                 if snapshot := self._hiearchy.snapshot():
@@ -315,12 +327,12 @@ class Node(Debug(f'{__name__}.Node'), FeatureDescriptor, LookupProvider, ABC):
         from openide.nodes._like_netbeans.children import Children  # noqa: PLC0415
 
         self._update_children()
-        return self._hiearchy is Children.LEAF
+        return self._hiearchy is Children[Self, CN].LEAF
 
     # OK, Match
     @final
     @property
-    def parent_node(self) -> Node | None:
+    def parent_node(self) -> PN | None:
         p_children = self._parent_children
         return p_children.node if p_children is not None else None
 
@@ -544,7 +556,7 @@ class Node(Debug(f'{__name__}.Node'), FeatureDescriptor, LookupProvider, ABC):
     # OK, Match, but
     # TODO: Review the listeners thingies
     @final
-    def add_node_listener(self, listener: NodeListener) -> None:
+    def add_node_listener(self, listener: NodeListener[Self, CN]) -> None:
         self._node_listeners.append(listener)
         self._node_listener_added()
 
@@ -564,7 +576,7 @@ class Node(Debug(f'{__name__}.Node'), FeatureDescriptor, LookupProvider, ABC):
     # OK, Match, but
     # TODO: Review the listeners thingies
     @final
-    def remove_node_listener(self, listener: NodeListener) -> None:
+    def remove_node_listener(self, listener: NodeListener[Self, CN]) -> None:
         try:  # noqa: SIM105
             self._node_listeners.remove(listener)
         except ValueError:  # TODO: Case should be handled by listener list implementation
@@ -574,7 +586,7 @@ class Node(Debug(f'{__name__}.Node'), FeatureDescriptor, LookupProvider, ABC):
     # TODO: Review the listeners thingies
     # TODO: More proper definition of a PropertyChangeListener?
     @final
-    def add_property_change_listener(self, listener: Callable[[Node, str, Any, Any], None]) -> None:
+    def add_property_change_listener(self, listener: Callable[[Self, str, Any, Any], None]) -> None:
         self._property_listeners.append(listener)
         self._property_change_listener_added(listener)
 
@@ -582,7 +594,7 @@ class Node(Debug(f'{__name__}.Node'), FeatureDescriptor, LookupProvider, ABC):
     # TODO: More proper definition of a PropertyChangeListener?
     def _property_change_listener_added(
         self,
-        listener: Callable[[Node, str, Any, Any], None],
+        listener: Callable[[Self, str, Any, Any], None],
     ) -> None:
         pass
 
@@ -605,7 +617,7 @@ class Node(Debug(f'{__name__}.Node'), FeatureDescriptor, LookupProvider, ABC):
     @final
     def remove_property_change_listener(
         self,
-        listener: Callable[[Node, str, Any, Any], None],
+        listener: Callable[[Self, str, Any, Any], None],
     ) -> None:
         self._property_listeners.remove(listener)
         self._notify_property_change_listener_removed(listener)
@@ -614,7 +626,7 @@ class Node(Debug(f'{__name__}.Node'), FeatureDescriptor, LookupProvider, ABC):
     # TODO: More proper definition of a PropertyChangeListener?
     def _notify_property_change_listener_removed(
         self,
-        listener: Callable[[Node, str, Any, Any], None],
+        listener: Callable[[Self, str, Any, Any], None],
     ) -> None:
         pass
 
@@ -665,8 +677,8 @@ class Node(Debug(f'{__name__}.Node'), FeatureDescriptor, LookupProvider, ABC):
     def _fire_sub_nodes_change(
         self,
         add_action: bool,  # noqa: FBT001
-        nodes_delta: Collection[Node],
-        nodes_from: Sequence[Node] | None,
+        nodes_delta: Collection[CN],
+        nodes_from: Sequence[CN] | None,
     ) -> None:
         if not self._node_listeners:
             return
@@ -690,8 +702,8 @@ class Node(Debug(f'{__name__}.Node'), FeatureDescriptor, LookupProvider, ABC):
         added: bool,  # noqa: FBT001
         indexes: Sequence[int],
         source_entry: Children.Entry | None,
-        current: Sequence[Node],
-        previous: Sequence[Node],
+        current: Sequence[CN],
+        previous: Sequence[CN],
     ) -> None:
         if not self._node_listeners:
             return
@@ -719,7 +731,7 @@ class Node(Debug(f'{__name__}.Node'), FeatureDescriptor, LookupProvider, ABC):
         if not self._node_listeners:
             return
 
-        event = NodeReorderEvent(self, indices)
+        event = NodeReorderEvent[Self, CN](self, indices)
         for listener in reversed(self._node_listeners):
             listener.children_reordered(event)
 

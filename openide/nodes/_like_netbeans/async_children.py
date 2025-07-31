@@ -12,7 +12,9 @@ from __future__ import annotations
 # from collections.abc import MutableSequence, MutableMapping, Hashable
 from typing import (
     # Optional, Callable, Sequence, Collection,
-    # Any, Type, cast, Union, TYPE_CHECKING,
+    # Type, cast, Union,
+    TYPE_CHECKING,
+    Any,
     Generic,
     TypeVar,
 )
@@ -22,13 +24,16 @@ from typing import (
 from openide.nodes._like_netbeans.child_factory import ChildFactory
 from openide.nodes._like_netbeans.children import Keys
 
+if TYPE_CHECKING:
+    from openide.nodes._like_netbeans.node import Node
+
 T = TypeVar('T')
-# if TYPE_CHECKING:
-#     from openide.nodes.node import Node
+PN = TypeVar('PN', bound='Node[Any, Any]')
+N = TypeVar('N', bound='Node[Any, Any]')
 
 
-class AsyncChildren(Keys[T], ChildFactory.Observer, Generic[T]):
-    def __init__(self, factory: ChildFactory[T]) -> None:
+class AsyncChildren(Keys[T, PN, N], ChildFactory.Observer, Generic[T]):
+    def __init__(self, factory: ChildFactory[T, N]) -> None:
         super().__init__()
 
         self.__factory = factory

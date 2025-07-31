@@ -9,24 +9,28 @@
 from __future__ import annotations
 
 # System imports
-from typing import TYPE_CHECKING, TypeVar
+from typing import TYPE_CHECKING, Any, TypeVar
 
 # Third-party imports
+from typing_extensions import override
+
 # Local imports
 from openide.nodes._like_netbeans.child_factory import ChildFactory
 from openide.nodes._like_netbeans.children import Keys
-from openide.utils.typing import override
 
-T = TypeVar('T')
 if TYPE_CHECKING:
-    from collections.abc import MutableSequence, Sequence
+    from collections.abc import Iterable, MutableSequence, Sequence
 
     from openide.nodes._like_netbeans.node import Node
 
+K = TypeVar('K')
+PN = TypeVar('PN', bound='Node[Any, Any]')
+N = TypeVar('N', bound='Node[Any, Any]')
 
-class SyncChildren(Keys[T], ChildFactory.Observer):
+
+class SyncChildren(Keys[K, PN, N], ChildFactory.Observer):
     # OK, Match
-    def __init__(self, factory: ChildFactory[T]) -> None:
+    def __init__(self, factory: ChildFactory[K, N]) -> None:
         super().__init__()
 
         self.__factory = factory
@@ -48,12 +52,12 @@ class SyncChildren(Keys[T], ChildFactory.Observer):
 
     # OK, Match
     @override  # Keys
-    def _create_nodes(self, key: T) -> Sequence[Node] | None:
+    def _create_nodes(self, key: K) -> Sequence[N] | None:
         return self.__factory._create_nodes_for_key(key)
 
     # OK, Match
     @override  # Children and Keys
-    def _destroy_nodes(self, nodes: Sequence[Node]) -> None:
+    def _destroy_nodes(self, nodes: Iterable[N]) -> None:
         super()._destroy_nodes(nodes)
         self.__factory._destroy_nodes(nodes)
 
@@ -62,7 +66,7 @@ class SyncChildren(Keys[T], ChildFactory.Observer):
     def refresh(self, *, immediate: bool) -> None:
         print(f'SyncChildren.refresh: {self._active=}')
         if self._active:
-            to_populate: MutableSequence[T] = []
+            to_populate: MutableSequence[K] = []
             while not self.__factory._create_keys(to_populate):
                 pass
 

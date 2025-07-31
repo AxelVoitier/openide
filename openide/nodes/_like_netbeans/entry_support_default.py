@@ -13,10 +13,12 @@ import logging
 import threading
 import time
 from threading import Condition, RLock, Thread
-from typing import TYPE_CHECKING, Self, final
+from typing import TYPE_CHECKING, Any, Generic, Self, TypeVar, final
 from weakref import ReferenceType
 
 # Third-party imports
+from typing_extensions import override
+
 # Local imports
 from openide.nodes._like_netbeans import node_operations
 from openide.nodes._like_netbeans.children import Children
@@ -24,7 +26,6 @@ from openide.nodes._like_netbeans.children_storage import ChildrenStorage
 from openide.nodes._like_netbeans.entry_support import EntrySupport
 from openide.nodes._like_netbeans.node import Node
 from openide.utils.classes import Debug
-from openide.utils.typing import override
 
 if TYPE_CHECKING:
     from collections.abc import (
@@ -35,33 +36,35 @@ if TYPE_CHECKING:
         Sequence,
         Sized,
     )
-    from typing import Any
+
+PN = TypeVar('PN', bound=Node[Any, Any])
+N = TypeVar('N', bound=Node[Any, Any])
 
 
 _logger = logging.getLogger(__name__)
 
 
 # OK, Match
-class _DefaultSnapshot(tuple[Node]):  # noqa: SLOT001
+class _DefaultSnapshot(tuple[N], Generic[PN, N]):  # noqa: SLOT001
     # Sadly, we cannot define a descendent of tuple with a non-empty __slots__.
     # But we need the extra attribute _holder
     # Therefore, we have to stick with a dict instance on that one.
 
-    def __new__(cls, nodes: Iterable[Node], storage: ChildrenStorage | None) -> Self:
+    def __new__(cls, nodes: Iterable[N], storage: ChildrenStorage[PN, N] | None) -> Self:
         return super().__new__(cls, nodes)  # type: ignore[arg-type]
 
-    def __init__(self, nodes: Iterable[Node], storage: ChildrenStorage | None) -> None:
+    def __init__(self, nodes: Iterable[N], storage: ChildrenStorage[PN, N] | None) -> None:
         super().__init__()  # In that case it seems to go directly to object.__init__()
 
         self._holder = storage
 
 
 # OK, Match
-class _StorageRef(ReferenceType[ChildrenStorage]):
+class _StorageRef(ReferenceType[ChildrenStorage[PN, N]]):
     def __new__(
         cls,
-        entry_support: EntrySupportDefault | None,
-        reference: ChildrenStorage,
+        entry_support: EntrySupportDefault[PN, N] | None,
+        reference: ChildrenStorage[PN, N],
         *,
         weak: bool,
     ) -> Self:
@@ -74,8 +77,8 @@ class _StorageRef(ReferenceType[ChildrenStorage]):
     # OK, Match
     def __init__(
         self,
-        entry_support: EntrySupportDefault | None,
-        reference: ChildrenStorage,
+        entry_support: EntrySupportDefault[PN, N] | None,
+        reference: ChildrenStorage[PN, N],
         *,
         weak: bool,
     ) -> None:
@@ -92,7 +95,8 @@ class _StorageRef(ReferenceType[ChildrenStorage]):
     #         super_del()
 
     # OK, Match
-    def __call__(self) -> ChildrenStorage | None:
+    @override  # ReferenceType
+    def __call__(self) -> ChildrenStorage[PN, N] | None:
         return super().__call__() if self._is_weak else self._hard_ref
 
     # OK, Match
@@ -109,12 +113,16 @@ class _StorageRef(ReferenceType[ChildrenStorage]):
             self._entry_support._finalised_children_storage(self)
 
 
-class EntrySupportDefault(EntrySupport, Debug(f'{__name__}.EntrySupportDefault')):
+class EntrySupportDefault(EntrySupport[PN, N]):  # , Debug(f'{__name__}.EntrySupportDefault')):
     # OK, Match
     @final
     class _Info:
         # OK, Match
-        def __init__(self, entry_support: EntrySupportDefault, entry: Children.Entry) -> None:
+        def __init__(
+            self,
+            entry_support: EntrySupportDefault[PN, N],
+            entry: Children.Entry,
+        ) -> None:
             self._entry_support = entry_support
             self.__entry = entry
             self._length = 0  # Set by ChildrenStorage
@@ -125,16 +133,16 @@ class EntrySupportDefault(EntrySupport, Debug(f'{__name__}.EntrySupportDefault')
             return self.__entry
 
         # OK, Match
-        def nodes(self, *, has_to_exist: bool) -> MutableSequence[Node]:
+        def nodes(self, *, has_to_exist: bool) -> MutableSequence[N]:
             assert (not has_to_exist) or (
                 self._entry_support._EntrySupportDefault__storage() is not None
             ), 'ChildrenStorage is not initialised'
 
             storage = self._entry_support._EntrySupportDefault__get_storage()
-            return storage.nodes_for(self, has_to_exist)
+            return storage.nodes_for(self, has_to_exist=has_to_exist)
 
         # OK, Match
-        def use_nodes(self, nodes: MutableSequence[Node]) -> None:
+        def use_nodes(self, nodes: MutableSequence[N]) -> None:
             storage = self._entry_support._EntrySupportDefault__get_storage()
             storage.use_nodes(self, nodes)
 
@@ -146,19 +154,19 @@ class EntrySupportDefault(EntrySupport, Debug(f'{__name__}.EntrySupportDefault')
 
     # This storage gets deleted immediately, effectively making it a dead ref
     # TODO: Review
-    __EMPTY = _StorageRef(None, ChildrenStorage(_fake=True), weak=True)
+    __EMPTY = _StorageRef(None, ChildrenStorage[PN, N](_fake=True), weak=True)
 
     __LOCK = Condition()
 
     # OK, Match
     # Note: map is already initialised to avoid having it Optional
     # (original does not actually check it everytime it tries to use it!).
-    def __init__(self, children: Children) -> None:
+    def __init__(self, children: Children[PN, N]) -> None:
         # print('starting to instantiate an entry support default', time.monotonic(), self, children)
         super().__init__(children)
 
         self.__entries: MutableSequence[Children.Entry] = []
-        self.__storage: _StorageRef = EntrySupportDefault.__EMPTY
+        self.__storage: _StorageRef[PN, N] = EntrySupportDefault[PN, N].__EMPTY
         self.__map = dict[Children.Entry, EntrySupportDefault._Info]()
         self.__map_lock = RLock()
         self.__init_thread: Thread | None = None
@@ -184,21 +192,21 @@ class EntrySupportDefault(EntrySupport, Debug(f'{__name__}.EntrySupportDefault')
 
     # OK, Match
     @override  # EntrySupport
-    def _snapshot(self) -> _DefaultSnapshot:
+    def _snapshot(self) -> _DefaultSnapshot[PN, N]:
         self.get_nodes()  # As in original. Maybe to create them outside of the mutex?
         with Children.MUTEX.read_access():
             return self._create_snapshot()
 
     # OK, Match
     # Note: Do not inline, it can be subclassed and/or used independently of _snapshot
-    def _create_snapshot(self) -> _DefaultSnapshot:
+    def _create_snapshot(self) -> _DefaultSnapshot[PN, N]:
         return _DefaultSnapshot(self.get_nodes(), self.__storage())
 
     # OK, Match
     # TODO: Two properties, nodes and nodes_optimal?
     @final
     @override  # EntrySupport
-    def get_nodes(self, *, optimal_result: bool = False) -> list[Node]:
+    def get_nodes(self, *, optimal_result: bool = False) -> list[N]:
         # print(f'get_nodes, {optimal_result=}')
         if optimal_result:
             hold = self.__get_storage()  # noqa: F841
@@ -236,15 +244,15 @@ class EntrySupportDefault(EntrySupport, Debug(f'{__name__}.EntrySupportDefault')
 
     # OK, Match
     @override  # EntrySupport
-    def get_node_at(self, index: int) -> Node | None:
+    def get_node_at(self, index: int) -> N | None:
         nodes = self.get_nodes()
         return nodes[index] if index < len(nodes) else None
 
     # OK, Match
     @final
-    def _just_compute_nodes(self) -> list[Node]:
+    def _just_compute_nodes(self) -> list[N]:
         # print('EntrySupportDefault._just_compute_nodes', time.monotonic(), self, self.__entries)
-        nodes = list[Node]()
+        nodes = list[N]()
         for entry in self.__entries:
             info = self.__find_info(entry)
             nodes += info.nodes(has_to_exist=False)
@@ -350,12 +358,12 @@ class EntrySupportDefault(EntrySupport, Debug(f'{__name__}.EntrySupportDefault')
     # OK, Match
     def __update_remove(
         self,
-        current: Sequence[Node],
+        current: Sequence[N],
         to_remove: Iterable[Children.Entry],
     ) -> None:
         assert Children.MUTEX.is_write_access
 
-        nodes = list[Node]()
+        nodes = list[N]()
         storage = self.__storage()
         assert storage is not None
 
@@ -442,7 +450,7 @@ class EntrySupportDefault(EntrySupport, Debug(f'{__name__}.EntrySupportDefault')
     ) -> None:
         assert Children.MUTEX.is_write_access
 
-        nodes = list[Node]()
+        nodes = list[N]()
         with self.__map_lock:
             for info in infos:
                 nodes += info.nodes(has_to_exist=False)
@@ -494,13 +502,13 @@ class EntrySupportDefault(EntrySupport, Debug(f'{__name__}.EntrySupportDefault')
     def __refresh_order(
         self,
         entry: Children.Entry,
-        old_nodes: Collection[Node],
-        new_nodes: MutableSequence[Node],
-    ) -> list[Node]:
-        to_add = list[Node]()
+        old_nodes: Collection[N],
+        new_nodes: MutableSequence[N],
+    ) -> list[N]:
+        to_add = list[N]()
         old_nodes_set = set(old_nodes)
         to_process = set(old_nodes_set)
-        perm_array: MutableSequence[Node] = []
+        perm_array: MutableSequence[N] = []
 
         for node in new_nodes:
             if node in old_nodes_set:
@@ -522,7 +530,7 @@ class EntrySupportDefault(EntrySupport, Debug(f'{__name__}.EntrySupportDefault')
         return to_add
 
     # OK, Match
-    def _notify_remove(self, nodes: Collection[Node], current: Sequence[Node]) -> Collection[Node]:
+    def _notify_remove(self, nodes: Collection[N], current: Sequence[N]) -> Collection[N]:
         children = self.children
 
         if children._parent is not None:
@@ -537,7 +545,7 @@ class EntrySupportDefault(EntrySupport, Debug(f'{__name__}.EntrySupportDefault')
         return nodes
 
     # OK, Match
-    def _notify_add(self, nodes: Sequence[Node]) -> None:
+    def _notify_add(self, nodes: Sequence[N]) -> None:
         for node in nodes:
             node._assign_to(self.children, -1)
             # print(f'EntrySupportDefault._notify_add: fire parentNode on {node=}')
@@ -553,7 +561,7 @@ class EntrySupportDefault(EntrySupport, Debug(f'{__name__}.EntrySupportDefault')
 
     # OK, Match
     @override  # EntrySupport
-    def test_nodes(self) -> list[Node] | None:
+    def test_nodes(self) -> list[N] | None:
         storage = self.__storage()
         if storage is None:
             return None
@@ -565,12 +573,12 @@ class EntrySupportDefault(EntrySupport, Debug(f'{__name__}.EntrySupportDefault')
     def __get_storage(
         self,
         cannot_work_better: MutableSequence[bool] | None = None,
-    ) -> ChildrenStorage:
+    ) -> ChildrenStorage[PN, N]:
         do_initialise = False
 
         with EntrySupportDefault.__LOCK:
             if (storage := self.__storage()) is None:
-                storage = ChildrenStorage()
+                storage = ChildrenStorage[PN, N]()
                 self._register_children_storage(storage, weak=False)
                 do_initialise = True
                 self.__init_thread = threading.current_thread()
@@ -618,7 +626,7 @@ class EntrySupportDefault(EntrySupport, Debug(f'{__name__}.EntrySupportDefault')
 
     # OK, Match
     @final
-    def _register_children_storage(self, storage: ChildrenStorage, *, weak: bool) -> None:
+    def _register_children_storage(self, storage: ChildrenStorage[PN, N], *, weak: bool) -> None:
         with EntrySupportDefault.__LOCK:
             if (
                 (self.__storage is not None)
@@ -631,17 +639,17 @@ class EntrySupportDefault(EntrySupport, Debug(f'{__name__}.EntrySupportDefault')
 
     # OK, Match
     @final
-    def _finalised_children_storage(self, caller: ReferenceType[ChildrenStorage]) -> None:
+    def _finalised_children_storage(self, caller: ReferenceType[ChildrenStorage[PN, N]]) -> None:
         assert caller() is None
 
         def run() -> None:
             with EntrySupportDefault.__LOCK:
                 if (self.__storage is caller) and (self.children._entry_support_raw is self):
                     self.__must_notify_set_entries = False
-                    self.__storage = EntrySupportDefault.__EMPTY
+                    self.__storage = EntrySupportDefault[PN, N].__EMPTY
                     self.__inited = False
                     self.children._call_remove_notify()
-                    assert self.__storage is EntrySupportDefault.__EMPTY
+                    assert self.__storage is EntrySupportDefault[PN, N].__EMPTY
 
         try:
             Children.MUTEX.post_write_request(run)

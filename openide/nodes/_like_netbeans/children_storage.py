@@ -11,14 +11,15 @@ from __future__ import annotations
 # System imports
 import logging
 from threading import RLock
-from typing import TYPE_CHECKING, final
+from typing import TYPE_CHECKING, TypeVar, final
 from weakref import WeakKeyDictionary
 
 # Third-party imports
+from typing_extensions import override
+
 # Local imports
 from openide.nodes._like_netbeans.node_listener import NodeListener
 from openide.utils.classes import Debug
-from openide.utils.typing import override
 
 if TYPE_CHECKING:
     from collections.abc import MutableMapping, MutableSequence
@@ -33,12 +34,15 @@ if TYPE_CHECKING:
         NodeReorderEvent,
     )
 
+PN = TypeVar('PN', bound='Node[Any, Any]')
+N = TypeVar('N', bound='Node[Any, Any]')
+
 
 _logger = logging.getLogger(__name__)
 
 
 @final
-class ChildrenStorage(NodeListener, Debug(f'{__name__}.ChildrenStorage')):
+class ChildrenStorage(NodeListener[PN, N]):  # , Debug(f'{__name__}.ChildrenStorage')):
     # OK, Match (_fake is an addition)
     def __init__(self, *, _fake: bool = False) -> None:
         if _fake:  # For light instantiation of a quickly deleted storage
@@ -47,9 +51,9 @@ class ChildrenStorage(NodeListener, Debug(f'{__name__}.ChildrenStorage')):
         super().__init__()
 
         self._lock = RLock()
-        self.entry_support: EntrySupportDefault | None = None
-        self.__nodes: list[Node] | None = None
-        self.__map: MutableMapping[EntrySupportDefault._Info, MutableSequence[Node]] | None = None
+        self.entry_support: EntrySupportDefault[PN, N] | None = None
+        self.__nodes: list[N] | None = None
+        self.__map: MutableMapping[EntrySupportDefault._Info, MutableSequence[N]] | None = None
 
         # print('instantiated a children storage', time.monotonic(), self)
 
@@ -61,7 +65,7 @@ class ChildrenStorage(NodeListener, Debug(f'{__name__}.ChildrenStorage')):
     # OK, Match
 
     @property
-    def children(self) -> Children | None:
+    def children(self) -> Children[PN, N] | None:
         if (entry_support := self.entry_support) is not None:
             return entry_support.children
         else:
@@ -69,7 +73,7 @@ class ChildrenStorage(NodeListener, Debug(f'{__name__}.ChildrenStorage')):
 
     # OK, Match
     @property
-    def nodes(self) -> list[Node] | None:
+    def nodes(self) -> list[N] | None:
         if (entry_support := self.entry_support) is None:
             return None
 
@@ -109,8 +113,9 @@ class ChildrenStorage(NodeListener, Debug(f'{__name__}.ChildrenStorage')):
     def nodes_for(
         self,
         info: EntrySupportDefault._Info,
+        *,
         has_to_exist: bool,
-    ) -> MutableSequence[Node]:
+    ) -> MutableSequence[N]:
         with self._lock:
             if (map := self.__map) is None:
                 assert not has_to_exist, 'Should already be initialised'
@@ -136,7 +141,7 @@ class ChildrenStorage(NodeListener, Debug(f'{__name__}.ChildrenStorage')):
             return nodes
 
     # OK, Match
-    def use_nodes(self, info: EntrySupportDefault._Info, nodes: MutableSequence[Node]) -> None:
+    def use_nodes(self, info: EntrySupportDefault._Info, nodes: MutableSequence[N]) -> None:
         with self._lock:
             if (map := self.__map) is None:
                 map = self.__map = WeakKeyDictionary()
@@ -148,25 +153,25 @@ class ChildrenStorage(NodeListener, Debug(f'{__name__}.ChildrenStorage')):
 
     # OK, Match
     @override  # NodeListener
-    def property_change(self, node: Node, name: str, old: Any, new: Any) -> None:  # noqa: ANN401
+    def property_change(self, node: PN, name: str, old: Any, new: Any) -> None:
         pass
 
     # OK, Match
     @override  # NodeListener
-    def children_added(self, event: NodeMemberEvent) -> None:
+    def children_added(self, event: NodeMemberEvent[PN, N]) -> None:
         pass
 
     # OK, Match
     @override  # NodeListener
-    def children_removed(self, event: NodeMemberEvent) -> None:
+    def children_removed(self, event: NodeMemberEvent[PN, N]) -> None:
         pass
 
     # OK, Match
     @override  # NodeListener
-    def children_reordered(self, event: NodeReorderEvent) -> None:
+    def children_reordered(self, event: NodeReorderEvent[PN, N]) -> None:
         pass
 
     # OK, Match
     @override  # NodeListener
-    def node_destroyed(self, event: NodeEvent) -> None:
+    def node_destroyed(self, event: NodeEvent[PN]) -> None:
         pass

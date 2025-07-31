@@ -10,17 +10,16 @@ from __future__ import annotations
 from functools import partial
 from itertools import takewhile
 from operator import is_not
-from typing import TYPE_CHECKING, TypeVar, overload
+from typing import TYPE_CHECKING, Any, TypeVar, overload
 
 # from weakref import ReferenceType
 # Third-party imports
 from PySide6.QtCore import QAbstractItemModel, QModelIndex, QPersistentModelIndex, Qt
+from typing_extensions import override
 
 # Local imports
 from openide.nodes import Node, NodeListener
 from openide.utils_qt import QABC
-
-_N = TypeVar('_N', bound=Node)
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Iterator
@@ -37,34 +36,37 @@ if TYPE_CHECKING:
 
     ModelIndex: TypeAlias = QModelIndex | QPersistentModelIndex
 
+N = TypeVar('N', bound=Node[Any, Any])
+CN = TypeVar('CN', bound=Node[Any, Any])
 
-class NodeModel(Generic[_N], NodeListener, QABC, QAbstractItemModel):
+
+class NodeModel(NodeListener[N, CN], QABC, QAbstractItemModel):
     def __init__(self, **kwargs: Any) -> None:
-        self.__root: _N = Node.EMPTY  # TODO: Node.EMPTY is not necessarily a N
+        self.__root: N = Node.EMPTY  # TODO: Node.EMPTY is not necessarily a N
         # self.__explored_context: N = self.__root
-        self.__shared_selection_model: NodeSelectionModel | None = None
+        self.__shared_selection_model: NodeSelectionModel[N, CN] | None = None
         super().__init__(**kwargs)
 
     # Node interface
 
     @property
-    def root_node(self) -> _N:
+    def root_node(self) -> N:
         return self.__root
 
     @root_node.setter
-    def root_node(self, node: _N | None) -> None:
+    def root_node(self, node: N | None) -> None:
         if node is None:
             node = Node.EMPTY  # TODO: Node.EMPTY is not necessarily a N
 
         if node is self.__root:
             return
 
-        def _remove_listener(current_node: _N) -> None:
+        def _remove_listener(current_node: N) -> None:
             current_node.remove_node_listener(self)
             for child in current_node._children.get_nodes():
                 _remove_listener(child)
 
-        def _add_listener(current_node: _N) -> None:
+        def _add_listener(current_node: N) -> None:
             current_node.add_node_listener(self)  # Should be a weak ref
             for child in current_node._children.get_nodes():
                 _add_listener(child)
@@ -106,7 +108,7 @@ class NodeModel(Generic[_N], NodeListener, QABC, QAbstractItemModel):
 
     #     return False
 
-    def node_for_index(self, index: ModelIndex) -> _N:
+    def node_for_index(self, index: ModelIndex) -> N:
         if not index.isValid():
             return self.__root
 
@@ -115,12 +117,12 @@ class NodeModel(Generic[_N], NodeListener, QABC, QAbstractItemModel):
         # print(f'node_for_index {index=} {parent_node=}, {to_return=}')
         return to_return
 
-    def nodes_for_indexes(self, indexes: Iterable[ModelIndex]) -> Iterator[_N]:
+    def nodes_for_indexes(self, indexes: Iterable[ModelIndex]) -> Iterator[N]:
         node_for_index = self.node_for_index
         for index in indexes:
             yield node_for_index(index)
 
-    def index_for_node(self, node: _N, column: int = 0) -> QModelIndex:
+    def index_for_node(self, node: N, column: int = 0) -> QModelIndex:
         if node is self.__root:
             return QModelIndex()
 
@@ -150,21 +152,21 @@ class NodeModel(Generic[_N], NodeListener, QABC, QAbstractItemModel):
         return self.createIndex(row, 0, parent_node)
 
     @property
-    def shared_selection_model(self) -> NodeSelectionModel[_N]:
+    def shared_selection_model(self) -> NodeSelectionModel[N, CN]:
         if (selection_model := self.__shared_selection_model) is None:
             selection_model = self.__shared_selection_model = self.make_selection_model()
 
         return selection_model
 
-    def make_selection_model(self) -> NodeSelectionModel[_N]:
+    def make_selection_model(self) -> NodeSelectionModel[N, CN]:
         from openide.explorer.selection import NodeSelectionModel  # noqa: PLC0415
 
-        return NodeSelectionModel[_N](model=self)
+        return NodeSelectionModel[N, CN](model=self)
 
     # NodeListener
 
     @override  # NodeListener
-    def property_change(self, node: _N, name: str, old: Any, new: Any) -> None:
+    def property_change(self, node: N, name: str, old: Any, new: Any) -> None:
         if name == 'parentNode':
             return
         print(f'property_change {node=}, {name=}, {old=}, {new=}')
@@ -178,7 +180,7 @@ class NodeModel(Generic[_N], NodeListener, QABC, QAbstractItemModel):
             )
 
     @override  # NodeListener
-    def children_added(self, event: NodeMemberEvent) -> None:
+    def children_added(self, event: NodeMemberEvent[N, CN]) -> None:
         # print(f'children_added {event=}, {event.delta_indices=}')
         if not event.is_add_event:
             return
@@ -200,7 +202,7 @@ class NodeModel(Generic[_N], NodeListener, QABC, QAbstractItemModel):
             node.add_node_listener(self)  # Should be a weak ref
 
     @override  # NodeListener
-    def children_removed(self, event: NodeMemberEvent) -> None:
+    def children_removed(self, event: NodeMemberEvent[N, CN]) -> None:
         # print(f'children_removed {event=}')
         if event.is_add_event:
             return
@@ -222,7 +224,7 @@ class NodeModel(Generic[_N], NodeListener, QABC, QAbstractItemModel):
             node.remove_node_listener(self)
 
     @override  # NodeListener
-    def children_reordered(self, event: NodeReorderEvent) -> None:
+    def children_reordered(self, event: NodeReorderEvent[N, CN]) -> None:
         # print(f'children_reordered {event=}')
         parent_node = event.node
 
@@ -246,7 +248,7 @@ class NodeModel(Generic[_N], NodeListener, QABC, QAbstractItemModel):
         self.layoutChanged.emit()  # For unknown reasons, we cannot pass args
 
     @override  # NodeListener
-    def node_destroyed(self, event: NodeEvent) -> None:
+    def node_destroyed(self, event: NodeEvent[N]) -> None:
         print(f'>>> node_destroyed {event=}')
         if event.node is self.root_node:
             self.root_node = Node.EMPTY
@@ -270,7 +272,7 @@ class NodeModel(Generic[_N], NodeListener, QABC, QAbstractItemModel):
         # print(f'index {parent_node=}, {to_return=}')
         return to_return
 
-    def __get_index_parent_node(self, index: ModelIndex) -> Node:
+    def __get_index_parent_node(self, index: ModelIndex) -> N:
         return index.internalPointer()
 
     @overload

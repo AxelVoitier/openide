@@ -14,20 +14,23 @@ from abc import ABC, abstractmethod
 from collections.abc import Hashable
 from copy import copy
 from threading import RLock
-from typing import TYPE_CHECKING, ClassVar, Generic, TypeVar, cast, final
+from typing import TYPE_CHECKING, Any, ClassVar, Generic, Self, TypeVar, final
 
 # Third-party imports
+from typing_extensions import override
+
 # Local imports
 from openide.utils import Mutex
 from openide.utils.classes import Debug
-from openide.utils.typing import override
 
 T = TypeVar('T')
 T_Hashable = TypeVar('T_Hashable', bound=Hashable)
 K = TypeVar('K')
+N = TypeVar('N', bound='Node[Any, Any]')
+PN = TypeVar('PN', bound='Node[Any, Any]')
+
 if TYPE_CHECKING:
-    from collections.abc import Iterable, MutableMapping, MutableSequence, Sequence
-    from typing import Any, Callable
+    from collections.abc import Callable, Iterable, MutableMapping, MutableSequence, Sequence
 
     from openide.nodes._like_netbeans.child_factory import ChildFactory
     from openide.nodes._like_netbeans.entry_support import EntrySupport
@@ -42,17 +45,17 @@ _logger = logging.getLogger(__name__)
 # TODO: Not all subclasses seems to implement/be cloneable?!
 
 
-class Children(ABC, Debug(f'{__name__}.Children')):
+class Children(Generic[PN, N], ABC):  # , Debug(f'{__name__}.Children')):
     MUTEX = Mutex()
     _LOCK = RLock()  # Class lock
 
     class Entry(ABC):
         @abstractmethod
-        def nodes(self, source: Any) -> MutableSequence[Node]:  # noqa: ANN401
+        def nodes(self, source: Any) -> MutableSequence[N]:  # noqa: ANN401
             raise NotImplementedError  # pragma: no cover
 
     # Set later, for Java API compat
-    LEAF: Children = None  # type: ignore[assignment]
+    LEAF: Children[PN, N] = None  # type: ignore[assignment]
     Array: type[Array] = None  # type: ignore[assignment]
     SortedArray: type[SortedArray] = None  # type: ignore[assignment]
     Map: type[Map] = None  # type: ignore[assignment]
@@ -62,14 +65,14 @@ class Children(ABC, Debug(f'{__name__}.Children')):
     def __init__(self, *, _lazy: bool = False) -> None:
         super().__init__()
 
-        self.__entry_support: EntrySupport | None = None
+        self.__entry_support: EntrySupport[PN, N] | None = None
         self._lazy_support = _lazy
-        self._parent: Node | None = None
+        self._parent: PN | None = None
         self._lock = RLock()  # Instance lock
 
     # OK, Match
     @property
-    def _entry_support(self) -> EntrySupport:
+    def _entry_support(self) -> EntrySupport[PN, N]:
         with Children._LOCK:
             if (entry_support := self._entry_support_raw) is None:
                 if self._lazy_support:
@@ -89,7 +92,7 @@ class Children(ABC, Debug(f'{__name__}.Children')):
             return entry_support
 
     # OK, Match
-    def _post_init_entry_support(self, entry_support: EntrySupport) -> None:
+    def _post_init_entry_support(self, entry_support: EntrySupport[PN, N]) -> None:
         pass
 
     # OK, Match
@@ -103,8 +106,8 @@ class Children(ABC, Debug(f'{__name__}.Children')):
 
     # OK, Match
     @final
-    def _attach_to(self, parent: Node) -> None:
-        if self is Children.LEAF:
+    def _attach_to(self, parent: PN) -> None:
+        if self is Children[PN, N].LEAF:
             return
 
         with self._lock:
@@ -130,7 +133,7 @@ class Children(ABC, Debug(f'{__name__}.Children')):
     # OK, Match
     @final
     def _detach_from(self) -> None:
-        if self is Children.LEAF:
+        if self is Children[PN, N].LEAF:
             return
 
         with self._lock:
@@ -151,8 +154,8 @@ class Children(ABC, Debug(f'{__name__}.Children')):
 
     # OK, Match
     @staticmethod
-    def create(factory: ChildFactory, *, asynchronous: bool) -> Children:
-        children: Children
+    def create(factory: ChildFactory[T, N], *, asynchronous: bool) -> Children[PN, N]:
+        children: Children[PN, N]
         if not asynchronous:
             from openide.nodes._like_netbeans.sync_children import SyncChildren  # noqa: PLC0415
 
@@ -169,16 +172,16 @@ class Children(ABC, Debug(f'{__name__}.Children')):
 
     # OK, Match
     @staticmethod
-    def create_lazy(factory_cb: Callable[[], Children]) -> Children:
+    def create_lazy(factory_cb: Callable[[], Children[PN, N]]) -> Children[PN, N]:
         return _LazyChildren(factory_cb)
 
     # OK, Match
     @property
-    def node(self) -> Node | None:
+    def node(self) -> PN | None:
         return self._parent
 
     # TODO: Review
-    def __deepcopy__(self, memo: dict[int, Any]) -> Children:
+    def __deepcopy__(self, memo: dict[int, Any]) -> Self:
         """
         Subclasses should first call super().__deepcopy__() to get
         an instance. And then call their own SubClass.__init__(instance, ...)
@@ -189,22 +192,22 @@ class Children(ABC, Debug(f'{__name__}.Children')):
         """
 
         new = Children.__new__(type(self))
-        Children.__init__(new, _lazy=self._lazy_support)
+        Children[PN, N].__init__(new, _lazy=self._lazy_support)
 
         return new
 
     # OK, Match
     @abstractmethod
-    def add(self, nodes: Sequence[Node]) -> bool:
+    def add(self, nodes: Sequence[N]) -> bool:
         raise NotImplementedError  # pragma: no cover
 
     # OK, Match
     @abstractmethod
-    def remove(self, nodes: Sequence[Node]) -> bool:
+    def remove(self, nodes: Sequence[N]) -> bool:
         raise NotImplementedError  # pragma: no cover
 
     # OK, Match
-    def find_child(self, system_name: str | None) -> Node | None:
+    def find_child(self, system_name: str | None) -> N | None:
         nodes = self.get_nodes()
 
         if not nodes:
@@ -228,7 +231,7 @@ class Children(ABC, Debug(f'{__name__}.Children')):
     # OK, Match
     # TODO: __getitem__?
     @final
-    def get_node_at(self, index: int) -> Node | None:
+    def get_node_at(self, index: int) -> N | None:
         self._check_support()
         return self._entry_support.get_node_at(index)
 
@@ -236,7 +239,7 @@ class Children(ABC, Debug(f'{__name__}.Children')):
     # TODO: Transform into 2 properties, "nodes" (final), and "nodes_optimal" (or something
     # like that). Potentially propagate to EntrySupport (and all its implementations).
     # Note: getNodes() is final, but getNodes(optimalResult) is not.
-    def get_nodes(self, *, optimal_result: bool = False) -> Sequence[Node]:
+    def get_nodes(self, *, optimal_result: bool = False) -> Sequence[N]:
         self._check_support()
         return self._entry_support.get_nodes(optimal_result=optimal_result)
 
@@ -250,12 +253,12 @@ class Children(ABC, Debug(f'{__name__}.Children')):
 
     # OK, Match
     @final
-    def snapshot(self) -> Sequence[Node]:
+    def snapshot(self) -> Sequence[N]:
         return self._entry_support._snapshot()
 
     # OK, Match
     @final
-    def _get_snapshot_indexes(self, snapshot: Sequence[Node]) -> Sequence[int]:
+    def _get_snapshot_indexes(self, snapshot: Sequence[N]) -> Sequence[int]:
         return list(range(len(snapshot)))  # Seriously? Java needs a 4 lines function for that??
 
     # OK, Match
@@ -275,11 +278,11 @@ class Children(ABC, Debug(f'{__name__}.Children')):
         self._remove_notify()
 
     # OK, Match
-    def _destroy_nodes(self, array: Iterable[Node]) -> None:
+    def _destroy_nodes(self, nodes: Iterable[N]) -> None:
         pass
 
     # OK, Match
-    def __test_nodes(self) -> Sequence[Node] | None:
+    def __test_nodes(self) -> Sequence[N] | None:
         if (entry_support := self.__entry_support) is not None:
             # Note: Compared to original, we are skipping the getter, sparing us a lock acquisition
             return entry_support.test_nodes()
@@ -288,42 +291,42 @@ class Children(ABC, Debug(f'{__name__}.Children')):
 
     # OK, Match
     @property
-    def _entry_support_raw(self) -> EntrySupport | None:
+    def _entry_support_raw(self) -> EntrySupport[PN, N] | None:
         return self.__entry_support
 
     # OK, Match
     @_entry_support_raw.setter
     @final
-    def _entry_support_raw(self, value: EntrySupport | None) -> None:
+    def _entry_support_raw(self, value: EntrySupport[PN, N] | None) -> None:
         assert Children._LOCK._is_owned()  # type: ignore[attr-defined]
         self.__entry_support = value
 
 
-class __Empty(Children):
+class __Empty(Children[PN, N]):
     @override  # Children
-    def add(self, nodes: Sequence[Node]) -> bool:
+    def add(self, nodes: Sequence[N]) -> bool:
         return False
 
     @override  # Children
-    def remove(self, nodes: Sequence[Node]) -> bool:
+    def remove(self, nodes: Sequence[N]) -> bool:
         return False
 
 
-Children.LEAF = __Empty()
+Children[Any, Any].LEAF = __Empty()
 
 
-class Array(Children):
+class Array(Children[PN, N]):
     __COLLECTION_LOCK = RLock()
 
     # OK, Match
     class __ArrayEntry(Children.Entry):
-        def __init__(self, array: Array) -> None:
+        def __init__(self, array: Array[PN, N]) -> None:
             super().__init__()
             self._array = array
 
         # OK, Match
         @override  # Children.Entry
-        def nodes(self, source: Any) -> MutableSequence[Node]:  # noqa: ANN401
+        def nodes(self, source: Any) -> MutableSequence[N]:
             if not (collection := self._array._collection):
                 return []
             else:
@@ -331,7 +334,7 @@ class Array(Children):
                     return list(collection)
 
     # OK, Match
-    def __init__(self, _nodes: MutableSequence[Node] | None = None, *, _lazy: bool = False) -> None:
+    def __init__(self, _nodes: MutableSequence[N] | None = None, *, _lazy: bool = False) -> None:
         if _nodes is not None:
             # Match original behaviour of protected constructors
             _lazy = False
@@ -346,7 +349,7 @@ class Array(Children):
 
     # OK, Match
     @override  # Children
-    def _post_init_entry_support(self, entry_support: EntrySupport) -> None:
+    def _post_init_entry_support(self, entry_support: EntrySupport[PN, N]) -> None:
         if not self._lazy_support:
             if self._nodes_entry is None:
                 self._nodes_entry = self._create_nodes_entry()
@@ -357,8 +360,9 @@ class Array(Children):
             self._nodes_entry = None
 
     # TODO: Review
-    def __deepcopy__(self, memo: dict[int, Any]) -> Array:
-        new = cast('Array', super().__deepcopy__(memo))
+    @override  # Children
+    def __deepcopy__(self, memo: dict[int, Any]) -> Self:
+        new = super().__deepcopy__(memo)
 
         new._nodes_entry = None
         if not new._lazy_support:
@@ -374,7 +378,7 @@ class Array(Children):
         return new
 
     # OK, Match
-    def _init_collection(self) -> MutableSequence[Node]:
+    def _init_collection(self) -> MutableSequence[N]:
         return []
 
     # OK, Match
@@ -405,7 +409,7 @@ class Array(Children):
     # OK, Match
     @property
     @final
-    def _collection(self) -> MutableSequence[Node]:
+    def _collection(self) -> MutableSequence[N]:
         with Array.__COLLECTION_LOCK:
             if (nodes := self._nodes) is None:
                 nodes = self._nodes = self._init_collection()
@@ -414,7 +418,7 @@ class Array(Children):
 
     # OK, Match
     @override  # Children
-    def add(self, nodes: Sequence[Node]) -> bool:
+    def add(self, nodes: Sequence[N]) -> bool:
         with Array.__COLLECTION_LOCK:
             collection = self._collection
             len_before = len(collection)
@@ -430,7 +434,7 @@ class Array(Children):
 
     # OK, Match
     @override  # Children
-    def remove(self, nodes: Sequence[Node]) -> bool:
+    def remove(self, nodes: Sequence[N]) -> bool:
         with Array.__COLLECTION_LOCK:
             collection = self._collection
             len_before = len(collection)
@@ -453,34 +457,34 @@ class Array(Children):
 Children.Array = Array
 
 
-class SortedArray(Array):
+class SortedArray(Array[PN, N]):
     # OK, Match
     class __SortedArrayEntry(Children.Entry):
-        def __init__(self, array: SortedArray) -> None:
+        def __init__(self, array: SortedArray[PN, N]) -> None:
             super().__init__()
             self._array = array
 
         # OK, reversed is an additional behaviour
         @override  # Children.Entry
-        def nodes(self, source: Any) -> MutableSequence[Node]:  # noqa: ANN401
+        def nodes(self, source: Any) -> MutableSequence[N]:
             collection = self._array._collection
             return sorted(collection, key=self._array.key, reverse=self._array.is_reversed)
 
     # OK, reversed is an additional behaviour
-    def __init__(self, _nodes: MutableSequence[Node] | None = None) -> None:
+    def __init__(self, _nodes: MutableSequence[N] | None = None) -> None:
         super().__init__(_nodes=_nodes)
 
-        self.__key: Callable[[Node], Any] | None = None
+        self.__key: Callable[[N], Any] | None = None
         self._reversed = False
 
     # OK, Match
     @property
-    def key(self) -> Callable[[Node], Any] | None:
+    def key(self) -> Callable[[N], Any] | None:
         return self.__key
 
     # OK, Match
     @key.setter
-    def key(self, key: Callable[[Node], Any] | None) -> None:
+    def key(self, key: Callable[[N], Any] | None) -> None:
         with Children.MUTEX.write_access():
             self.__key = key
             self._refresh()
@@ -504,11 +508,11 @@ class SortedArray(Array):
 Children.SortedArray = SortedArray
 
 
-class Map(Children, Generic[T_Hashable]):
+class Map(Children[PN, N], Generic[T_Hashable, PN, N]):
     # OK, Match
     # TODO: For some reasons, original does not have this one private?!
     class _MapEntry(Children.Entry):
-        def __init__(self, key: T_Hashable, node: Node) -> None:
+        def __init__(self, key: T_Hashable, node: N) -> None:
             super().__init__()
 
             self.key = key
@@ -516,14 +520,16 @@ class Map(Children, Generic[T_Hashable]):
 
         # OK, Match
         @override  # Children.Entry
-        def nodes(self, source: Any) -> MutableSequence[Node]:  # noqa: ANN401
+        def nodes(self, source: Any) -> MutableSequence[N]:
             return [self.node]
 
         # OK, Match
+        @override  # object
         def __hash__(self) -> int:
             return hash(self.key)
 
         # OK, Match
+        @override  # object
         def __eq__(self, other: object) -> bool:
             if isinstance(other, Map._MapEntry):
                 return self.key == (other.key)
@@ -531,7 +537,7 @@ class Map(Children, Generic[T_Hashable]):
                 return False
 
     # OK, Match
-    def __init__(self, _map: MutableMapping[T_Hashable, Node] | None = None) -> None:
+    def __init__(self, _map: MutableMapping[T_Hashable, N] | None = None) -> None:
         super().__init__()
 
         self._nodes = _map
@@ -539,7 +545,7 @@ class Map(Children, Generic[T_Hashable]):
     # OK, Match
     @property
     @final
-    def _map(self) -> MutableMapping[T_Hashable, Node]:
+    def _map(self) -> MutableMapping[T_Hashable, N]:
         if (nodes := self._nodes) is None:
             nodes = self._nodes = self._init_map()
 
@@ -553,7 +559,7 @@ class Map(Children, Generic[T_Hashable]):
         super()._call_add_notify()
 
     # OK, Match
-    def _create_entries(self, map: MutableMapping[T_Hashable, Node]) -> Sequence[Children.Entry]:
+    def _create_entries(self, map: MutableMapping[T_Hashable, N]) -> Sequence[Children.Entry]:
         return [Map._MapEntry(k, v) for k, v in map.items()]
 
     # OK, Match
@@ -572,7 +578,7 @@ class Map(Children, Generic[T_Hashable]):
 
     # OK, Match
     @final
-    def _put_all(self, map: MutableMapping[T_Hashable, Node]) -> None:
+    def _put_all(self, map: MutableMapping[T_Hashable, N]) -> None:
         with Children.MUTEX.write_access():
             self._map.update(map)
             self._refresh()
@@ -580,7 +586,7 @@ class Map(Children, Generic[T_Hashable]):
     # OK, Match
     # Note: Calling the mutex-wrapped refresh methods as we inlined the implementation ones
     @final
-    def _put(self, key: T_Hashable, node: Node) -> None:
+    def _put(self, key: T_Hashable, node: N) -> None:
         with Children.MUTEX.write_access():
             changed = key in self._map
             self._map[key] = node
@@ -594,7 +600,7 @@ class Map(Children, Generic[T_Hashable]):
     # Also, we take the opportunity to be able to detect when there is a change
     # to refresh conditionaly.
     @final
-    def _remove_all(self, map: MutableMapping[T_Hashable, Node]) -> None:
+    def _remove_all(self, map: MutableMapping[T_Hashable, N]) -> None:
         with Children.MUTEX.write_access():
             our_map = self._map
             changed = False
@@ -614,17 +620,17 @@ class Map(Children, Generic[T_Hashable]):
                 self._refresh()
 
     # OK, Match
-    def _init_map(self) -> MutableMapping[T_Hashable, Node]:
+    def _init_map(self) -> MutableMapping[T_Hashable, N]:
         return {}
 
     # OK, Match
     @override  # Children
-    def add(self, nodes: Sequence[Node]) -> bool:
+    def add(self, nodes: Sequence[N]) -> bool:
         return False
 
     # OK, Match
     @override  # Children
-    def remove(self, nodes: Sequence[Node]) -> bool:
+    def remove(self, nodes: Sequence[N]) -> bool:
         return False
 
 
@@ -634,16 +640,16 @@ Children.Map = Map
 # TODO: SortedMap (any use?)
 
 
-class Keys(Array, ABC, Generic[T]):
+class Keys(Generic[T, PN, N], Array[PN, N], ABC):
     _LOCK = RLock()
-    __LAST_RUNS: ClassVar[MutableMapping[Keys, Callable[[], None]]] = {}
+    __LAST_RUNS: ClassVar[MutableMapping[Keys[T, PN, N], Callable[[], None]]] = {}
 
     # OK, Match
     # Note: Original separates it in two classes Dupl+KE, with Dupl being
     # protected (ie. package-private). But apparently, that's just for testing reason.
     class _KeyEntry(Children.Entry, Generic[K]):
         # OK, Match
-        def __init__(self, keys: Keys, key: K | None = None) -> None:
+        def __init__(self, keys: Keys[T, PN, N], key: K | None = None) -> None:
             super().__init__()
 
             self._keys = keys
@@ -651,7 +657,7 @@ class Keys(Array, ABC, Generic[T]):
 
         # OK, Match
         @override  # Children.Entry
-        def nodes(self, source: Any) -> MutableSequence[Node]:  # noqa: ANN401
+        def nodes(self, source: Any) -> MutableSequence[N]:
             nodes = self._keys._create_nodes(self.key)
             return list(nodes) if nodes is not None else []
 
@@ -686,7 +692,7 @@ class Keys(Array, ABC, Generic[T]):
         @property
         def count(self) -> int:
             counter = 0
-            d: K | Keys._KeyEntry | None = self
+            d: K | Keys._KeyEntry[K] | None = self
 
             while isinstance(d, Keys._KeyEntry):
                 d = d._key
@@ -710,10 +716,12 @@ class Keys(Array, ABC, Generic[T]):
             return first
 
         # OK, Match
+        @override  # object
         def __hash__(self) -> int:
             return hash(self.key)
 
         # OK, Match
+        @override  # object
         def __eq__(self, other: object) -> bool:
             if isinstance(other, Keys._KeyEntry):
                 return (self.key == other.key) and (self.count == other.count)
@@ -727,8 +735,9 @@ class Keys(Array, ABC, Generic[T]):
         self.__before = False
 
     # TODO: Review
-    def __deepcopy__(self, memo: dict[int, Any]) -> Keys:
-        new = cast('Keys', super().__deepcopy__(memo))
+    @override  # Array
+    def __deepcopy__(self, memo: dict[int, Any]) -> Self:
+        new = super().__deepcopy__(memo)
         new.__before = self.__before
 
         return new
@@ -843,24 +852,24 @@ class Keys(Array, ABC, Generic[T]):
 
     # OK, Match
     @abstractmethod
-    def _create_nodes(self, key: T) -> Sequence[Node] | None:
+    def _create_nodes(self, key: T) -> Sequence[N] | None:
         raise NotImplementedError  # pragma: no cover
 
     # OK, Match
     @override  # Children
-    def _destroy_nodes(self, nodes: Iterable[Node]) -> None:
+    def _destroy_nodes(self, nodes: Iterable[N]) -> None:
         for node in nodes:
             node._fire_node_destroyed()
 
     # OK, Match
     @classmethod
-    def __keys_enter(cls, children: Keys, call: Callable[[], None]) -> None:
+    def __keys_enter(cls, children: Keys[T, PN, N], call: Callable[[], None]) -> None:
         with cls._LOCK:
             cls.__LAST_RUNS[children] = call
 
     # OK, Match
     @classmethod
-    def __keys_exit(cls, children: Keys, call: Callable[[], None]) -> None:
+    def __keys_exit(cls, children: Keys[T, PN, N], call: Callable[[], None]) -> None:
         with cls._LOCK:
             was = cls.__LAST_RUNS.pop(children, None)
 
@@ -869,7 +878,7 @@ class Keys(Array, ABC, Generic[T]):
 
     # OK, Match
     @classmethod
-    def __keys_check(cls, children: Keys, call: Callable[[], None]) -> bool:
+    def __keys_check(cls, children: Keys[T, PN, N], call: Callable[[], None]) -> bool:
         with cls._LOCK:
             return call == cls.__LAST_RUNS.get(children)
 
@@ -877,18 +886,18 @@ class Keys(Array, ABC, Generic[T]):
 Children.Keys = Keys  # type: ignore[misc]
 
 
-class _LazyChildren(Children):
+class _LazyChildren(Children[PN, N]):
     # OK, Match
-    def __init__(self, factory: Callable[[], Children]) -> None:
+    def __init__(self, factory: Callable[[], Children[PN, N]]) -> None:
         super().__init__()
 
         self.__factory = factory
-        self.__original: Children | None = None
+        self.__original: Children[PN, N] | None = None
         self.__original_lock = RLock()
 
     # OK, Match
     @property
-    def _original(self) -> Children:
+    def _original(self) -> Children[PN, N]:
         with self.__original_lock:
             if self.__original is None:
                 self.__original = self.__factory()
@@ -897,12 +906,12 @@ class _LazyChildren(Children):
 
     # OK, Match
     @override  # Children
-    def add(self, nodes: Sequence[Node]) -> bool:
+    def add(self, nodes: Sequence[N]) -> bool:
         return self._original.add(nodes)
 
     # OK, Match
     @override  # Children
-    def remove(self, nodes: Sequence[Node]) -> bool:
+    def remove(self, nodes: Sequence[N]) -> bool:
         return self._original.remove(nodes)
 
     # OK, Match
@@ -918,10 +927,10 @@ class _LazyChildren(Children):
     # OK, Match
     @property
     @override  # Children
-    def _entry_support(self) -> EntrySupport:
+    def _entry_support(self) -> EntrySupport[PN, N]:
         return self._original._entry_support
 
     # OK, Match
     @override  # Children
-    def find_child(self, name: str | None) -> Node | None:
-        return self._original.find_child(name)
+    def find_child(self, system_name: str | None) -> N | None:
+        return self._original.find_child(system_name)

@@ -7,10 +7,20 @@
 from __future__ import annotations
 
 # System imports
+from typing import TYPE_CHECKING, TypeVar
+
 # Third-party imports
 # Local imports
 from openide.nodes._like_netbeans.entry_support import EntrySupport
 
+if TYPE_CHECKING:
+    from typing import Any
 
-class EntrySupportLazy(EntrySupport):  # Stub
+    from openide.nodes._like_netbeans.node import Node
+
+PN = TypeVar('PN', bound='Node[Any, Any]')
+N = TypeVar('N', bound='Node[Any, Any]')
+
+
+class EntrySupportLazy(EntrySupport[PN, N]):  # Stub
     ...

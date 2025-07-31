@@ -18,11 +18,14 @@ from openide.actions.utils import actions_to_context_menu
 
 if TYPE_CHECKING:
     from collections.abc import Collection, Iterable, Iterator
+    from typing import Any, TypeVar
 
     from PySide6.QtGui import QAction
     from PySide6.QtWidgets import QMenu
 
     from openide.nodes._like_netbeans.node import Node
+
+    N = TypeVar('N', bound=Node[Any, Any])
 
 
 def get_default_actions() -> Iterable[QAction | str | None]:
@@ -30,7 +33,7 @@ def get_default_actions() -> Iterable[QAction | str | None]:
     return ()
 
 
-def find_context_menu(nodes: Iterable[Node]) -> QMenu | None:
+def find_context_menu(nodes: Iterable[N]) -> QMenu | None:
     """Computes a common context menu for the specified nodes.
 
     Provides only those actions supplied by all nodes in the list.
@@ -48,7 +51,7 @@ def find_context_menu(nodes: Iterable[Node]) -> QMenu | None:
     return actions_to_context_menu(actions, proxy_lookup)
 
 
-def find_common_actions(nodes: Iterable[Node]) -> Iterator[QAction | str | None]:
+def find_common_actions(nodes: Iterable[N]) -> Iterator[QAction | str | None]:
     """Asks the provided nodes for their actions, and returns those that are common to all of them.
 
     nodes: Iterable of nodes to compose actions for
@@ -56,7 +59,7 @@ def find_common_actions(nodes: Iterable[Node]) -> Iterator[QAction | str | None]
     Returns an iterator of actions (and separators) for the nodes.
     """
     action_counters: dict[QAction, int] = defaultdict(int)
-    actions_by_node: dict[Node, Iterable[QAction | str | None]] = {}
+    actions_by_node: dict[N, Iterable[QAction | str | None]] = {}
 
     n_nodes = 0
     for node in nodes:
@@ -88,7 +91,7 @@ def find_common_actions(nodes: Iterable[Node]) -> Iterator[QAction | str | None]
             yield action
 
 
-def compute_permutation(nodes1: Collection[Node], nodes2: Collection[Node]) -> list[int] | None:
+def compute_permutation(nodes1: Collection[N], nodes2: Collection[N]) -> list[int] | None:
     if len(nodes1) != len(nodes2):
         msg = (
             'Cannot compute permutations between two collections of Node '

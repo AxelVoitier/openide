@@ -15,20 +15,36 @@ from abc import abstractmethod
 from collections.abc import Callable, Sequence
 from functools import partial
 from itertools import islice
-from typing import TYPE_CHECKING, Generic, Protocol, TypeVar, cast, overload, runtime_checkable
+from typing import (
+    TYPE_CHECKING,
+    Generic,
+    Protocol,
+    Self,
+    TypeVar,
+    cast,
+    overload,
+    override,
+    runtime_checkable,
+)
 
 # Third-party imports
 from typing_extensions import Never
 
 # Local imports
-from openide.nodes._like_netbeans.properties import IT, KT, VT, IndexedProperty, Property
+from openide.nodes._like_netbeans.properties import (
+    IT,
+    KT,
+    VT,
+    IndexedProperty,
+    Property,
+)
 
 if TYPE_CHECKING:
-    from collections.abc import Generator, Iterator, Mapping
+    from collections.abc import Iterator, Mapping
     from typing import Any, TypeAlias
 
 
-class PropertySupport(Property, Generic[VT]):
+class PropertySupport(Property[VT], Generic[VT]):
     def __init__(
         self,
         system_name: str,
@@ -51,25 +67,28 @@ class PropertySupport(Property, Generic[VT]):
         self.__can_read = can_read
         self.__can_write = can_write
 
-    def __copy__(self) -> PropertySupport:
+    @override  # Feature descriptor
+    def __copy__(self) -> Self:
         new = type(self)(
             cast('str', self.system_name),
             self.value_type,
-            self.can_read,
-            self.can_write,
             self.display_name,
             self.short_description,
+            can_read=self.can_read,
+            can_write=self.can_write,
         )
         self.__copy_super__(new)
         return new
 
     @property
+    @override  # Property
     def can_read(self) -> bool:
         return self.__can_read
 
     can_read.__doc__ = Property.can_read.__doc__
 
     @property
+    @override  # Property
     def can_write(self) -> bool:
         return self.__can_write
 
@@ -115,8 +134,10 @@ class ReadOnlyProperty(PropertySupport[VT]):
             can_write=False,
         )
 
+    # Cannot reimplement a property setter without reimplementing its getter
     @property
     @abstractmethod
+    @override  # Property
     def value(self) -> VT:
         """The value of this property."""
         raise NotImplementedError  # pragma: no cover
@@ -147,11 +168,13 @@ class WriteOnlyProperty(PropertySupport[VT]):
         )
 
     @property
+    @override  # Property
     def value(self) -> Never:
         """The value of this property."""
         msg = 'Property is not readable'
         raise AttributeError(msg)
 
+    # If a property getter is reimplemented, its setter needs to be re-done as well
     @value.setter
     @abstractmethod
     def value(self, value: VT) -> None:
@@ -165,7 +188,7 @@ SetterProtocol: TypeAlias = Callable[[VT], None]
 DVT = TypeVar('DVT')
 
 
-def _get_return_type(func: Callable | None) -> type | None:
+def _get_return_type(func: Callable[..., Any] | None) -> type | None:
     if func is None:
         return None
     type_hints = typing.get_type_hints(func)
@@ -174,7 +197,7 @@ def _get_return_type(func: Callable | None) -> type | None:
     return type_hints['return']
 
 
-def _get_last_arg_type(func: Callable | None, n: int = 0) -> type | None:
+def _get_last_arg_type(func: Callable[..., Any] | None, n: int = 0) -> type | None:
     if func is None:
         return None
     type_hints = typing.get_type_hints(func)
@@ -189,9 +212,9 @@ class GetterSetterProperty(Property[VT]):
     class _ValueDescriptor(Generic[DVT]):
         def __get__(
             self,
-            obj: GetterSetterProperty | None,
-            objtype: type[GetterSetterProperty] | None = None,
-        ) -> DVT:
+            obj: GetterSetterProperty[DVT] | None,
+            objtype: type[GetterSetterProperty[DVT]] | None = None,
+        ) -> DVT | Self:
             if obj is None:
                 msg = 'Can only get on an instance'
                 raise AttributeError(msg)
@@ -202,7 +225,7 @@ class GetterSetterProperty(Property[VT]):
 
             return get()
 
-        def __set__(self, obj: GetterSetterProperty, value: DVT) -> None:
+        def __set__(self, obj: GetterSetterProperty[DVT], new_value: DVT) -> None:
             if (set := obj._set) is None:
                 msg = 'Property is not writable'
                 raise AttributeError(msg)
@@ -210,7 +233,10 @@ class GetterSetterProperty(Property[VT]):
             set(value)
 
     @staticmethod
-    def _guess_getset_type(getter: Callable | None, setter: Callable | None) -> type | None:
+    def _guess_getset_type(
+        getter: Callable[..., Any] | None,
+        setter: Callable[..., None] | None,
+    ) -> type | None:
         value_type = _get_return_type(getter)
         if value_type is None:
             value_type = _get_last_arg_type(setter)
@@ -247,6 +273,7 @@ class GetterSetterProperty(Property[VT]):
 
         super().__init__(value_type=value_type, **kwargs)
 
+    @override  # Property
     def __copy_init_kwargs__(self) -> dict[str, Any]:
         kwargs = super().__copy_init_kwargs__()
         kwargs.update(
@@ -260,12 +287,14 @@ class GetterSetterProperty(Property[VT]):
     value: VT = _ValueDescriptor[VT]()  # pyright: ignore[reportAssignmentType,reportIncompatibleMethodOverride]
 
     @property
+    @override  # Property
     def can_read(self) -> bool:
         return self._get is not None
 
     can_read.__doc__ = Property.can_read.__doc__
 
     @property
+    @override  # Property
     def can_write(self) -> bool:
         return self._set is not None
 
@@ -291,11 +320,20 @@ class SettableDescriptorProtocol(Protocol[T_contra, SV_contra]):
     def __set__(self, obj: T_contra, value: SV_contra) -> None: ...  # pragma: no cover
 
 
-Descriptor: TypeAlias = GettableDescriptorProtocol | SettableDescriptorProtocol
+class DescriptorProtocol(
+    GettableDescriptorProtocol[T_contra, GV_co],
+    SettableDescriptorProtocol[T_contra, SV_contra],
+    Protocol[T_contra, GV_co, SV_contra],
+):
+    pass
 
 
 class _ClassWithSlot:
     __slots__ = ('a_slot',)
+
+    def __init__(self, a_slot: Any) -> None:  # noqa: ANN401
+        super().__init__()
+        self.a_slot = a_slot
 
 
 _function = type(Property.__init__)
@@ -316,8 +354,8 @@ class _DescriptorPropertyMixins(GetterSetterProperty[VT]):
     def __init__(
         self,
         *,
-        instance: Any,  # noqa: ANN401
-        descriptor: Descriptor | str,
+        instance: T_contra,
+        descriptor: DescriptorProtocol[T_contra, VT, VT] | str,
         value_type: type[VT] | None = None,
         **kwargs: Any,
     ) -> None:
@@ -369,6 +407,7 @@ class _DescriptorPropertyMixins(GetterSetterProperty[VT]):
         self._instance = instance
         self._descriptor = descriptor
 
+    @override  # GetterSetterProperty
     def __copy_init_kwargs__(self) -> dict[str, Any]:
         kwargs = super().__copy_init_kwargs__()
         kwargs.pop('value_getter', None)
@@ -385,8 +424,8 @@ class _DescriptorPropertyMixins(GetterSetterProperty[VT]):
 class DescriptorProperty(_DescriptorPropertyMixins[VT]):
     def __init__(
         self,
-        instance: Any,  # noqa: ANN401
-        descriptor: Descriptor | str,
+        instance: T_contra,
+        descriptor: DescriptorProtocol[T_contra, VT, VT] | str,
         value_type: type[VT] | None = None,
     ) -> None:
         super().__init__(
@@ -398,9 +437,9 @@ class DescriptorProperty(_DescriptorPropertyMixins[VT]):
     @classmethod
     def all_properties(
         cls,
-        instance: Any,  # noqa: ANN401
+        instance: object,
         types: Mapping[str, type] | None = None,
-    ) -> Generator[tuple[str, DescriptorProperty], None, None]:
+    ) -> Iterator[tuple[str, Iterator[tuple[str, DescriptorProperty[VT]]]]]:
         if types is None:
             types = {}
 
@@ -422,7 +461,10 @@ IndexedSetterProtocol: TypeAlias = Callable[[KT, IT], None]
 
 class _IndexedGetterSetterPropertyMixins(IndexedProperty[VT, KT, IT]):
     @staticmethod
-    def _guess_index_type(getter: Callable | None, setter: Callable | None) -> type | None:
+    def _guess_index_type(
+        getter: Callable[..., Any] | None,
+        setter: Callable[..., None] | None,
+    ) -> type | None:
         index_type = _get_last_arg_type(getter)
         if index_type is None:
             index_type = _get_last_arg_type(setter, n=1)
@@ -472,6 +514,7 @@ class _IndexedGetterSetterPropertyMixins(IndexedProperty[VT, KT, IT]):
             **kwargs,
         )
 
+    @override  # IndexedProperty
     def __copy_init_kwargs__(self) -> dict[str, Any]:
         kwargs = super().__copy_init_kwargs__()
         kwargs.update(
@@ -482,6 +525,7 @@ class _IndexedGetterSetterPropertyMixins(IndexedProperty[VT, KT, IT]):
         )
         return kwargs
 
+    @override  # IndexedProperty
     def __getitem__(self, index: KT) -> IT:
         if self._indexed_getter is None:
             msg = 'Property is not readable by index'
@@ -489,8 +533,9 @@ class _IndexedGetterSetterPropertyMixins(IndexedProperty[VT, KT, IT]):
 
         return self._indexed_getter(index)
 
-    __getitem__.__doc__ = IndexedProperty.__getitem__.__doc__
+    __getitem__.__doc__ = IndexedProperty.__getitem__.__doc__  # pyright: ignore[reportUnknownMemberType]
 
+    @override  # IndexedProperty
     def __setitem__(self, index: KT, value: IT) -> None:
         if self._indexed_setter is None:
             msg = 'Property is not writable by index'
@@ -498,15 +543,17 @@ class _IndexedGetterSetterPropertyMixins(IndexedProperty[VT, KT, IT]):
 
         return self._indexed_setter(index, value)
 
-    __setitem__.__doc__ = IndexedProperty.__setitem__.__doc__
+    __setitem__.__doc__ = IndexedProperty.__setitem__.__doc__  # pyright: ignore[reportUnknownMemberType]
 
     @property
+    @override  # IndexedProperty
     def can_indexed_read(self) -> bool:
         return self._indexed_getter is not None
 
     can_indexed_read.__doc__ = IndexedProperty.can_indexed_read.__doc__
 
     @property
+    @override  # IndexedProperty
     def can_indexed_write(self) -> bool:
         return self._indexed_setter is not None
 
@@ -549,8 +596,8 @@ class IndexedGetterSetterDescriptorProperty(
         indexed_setter: IndexedSetterProtocol[KT, IT] | None = None,
         index_type: type[KT] | None = None,
         item_type: type[IT] | None = None,
-        instance: Any,  # noqa: ANN401
-        descriptor: Descriptor | str,
+        instance: T_contra,
+        descriptor: DescriptorProtocol[T_contra, VT, VT] | str,
         value_type: type[VT] | None = None,
     ) -> None:
         super().__init__(
@@ -585,6 +632,7 @@ class _SequencePropertyMixins(_IndexedGetterSetterPropertyMixins[VT, int, IT], S
             **kwargs,
         )
 
+    @override  # _IndexedGetterSetterPropertyMixins
     def __copy_init_kwargs__(self) -> dict[str, Any]:
         kwargs = super().__copy_init_kwargs__()
         kwargs.update(
@@ -601,6 +649,7 @@ class _SequencePropertyMixins(_IndexedGetterSetterPropertyMixins[VT, int, IT], S
     @overload
     def __getitem__(self, index: slice) -> Sequence[IT]: ...
 
+    @override  # _IndexedGetterSetterPropertyMixins
     def __getitem__(self, index: int | slice) -> IT | Sequence[IT]:
         if self._indexed_getter is None:
             msg = 'Property is not readable by index'
@@ -610,22 +659,28 @@ class _SequencePropertyMixins(_IndexedGetterSetterPropertyMixins[VT, int, IT], S
 
     # __getitem__.__doc__ = IndexedProperty.__getitem__.__doc__
 
+    @override  # Collection
     def __len__(self) -> int:
         return self._sequence.__len__()
 
-    def __contains__(self, item: Any) -> bool:  # noqa: ANN401
+    @override  # Sequence
+    def __contains__(self, item: Any) -> bool:
         return self._sequence.__contains__(item)
 
+    @override  # Sequence
     def __iter__(self) -> Iterator[IT]:
         return self._sequence.__iter__()
 
+    @override  # Sequence
     def __reversed__(self) -> Iterator[IT]:
         return self._sequence.__reversed__()
 
-    def index(self, item: Any, *args: int) -> int:  # noqa: ANN401
-        return self._sequence.index(item, *args)
+    @override  # Sequence
+    def index(self, value: Any, *args: Any, **kwargs: Any) -> int:
+        return self._sequence.index(value, *args, **kwargs)
 
-    def count(self, value: Any) -> int:  # noqa: ANN401
+    @override  # Sequence
+    def count(self, value: Any) -> int:
         return self._sequence.count(value)
 
 
@@ -658,8 +713,8 @@ class SequenceDescriptorProperty(_SequencePropertyMixins[VT, IT], _DescriptorPro
         *,
         sequence: Sequence[IT],
         item_type: type[IT] | None = None,
-        instance: Any,  # noqa: ANN401
-        descriptor: Descriptor | str,
+        instance: T_contra,
+        descriptor: DescriptorProtocol[T_contra, VT, VT] | str,
         value_type: type[VT] | None = None,
     ) -> None:
         super().__init__(

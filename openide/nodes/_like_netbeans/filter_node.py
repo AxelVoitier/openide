@@ -7,10 +7,15 @@
 from __future__ import annotations
 
 # System imports
+from typing import Any, TypeVar
+
 # Third-party imports
 # Local imports
 from openide.nodes._like_netbeans.node import Node
 
+PN = TypeVar('PN', bound=Node[Any, Any])
+CN = TypeVar('CN', bound=Node[Any, Any])
 
-class FilterNode(Node):  # Stub
-    def __init__(self, node: Node) -> None: ...
+
+class FilterNode(Node[PN, CN]):  # Stub
+    def __init__(self, node: Node[PN, CN]) -> None: ...

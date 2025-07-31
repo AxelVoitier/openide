@@ -6,7 +6,7 @@
 
 # ruff: noqa: I001  # Order matters to avoid circular imports
 
-from .node import Node
+from .node import AnyNode, Node
 from .node_listener import NodeEvent, NodeListener, NodeMemberEvent, NodeReorderEvent
 from .child_factory import ChildFactory
 from .children import Children
@@ -15,15 +15,23 @@ from .entry_support import EntrySupport
 from .entry_support_default import EntrySupportDefault
 
 # TODO: EntrySupportLazy
-from .generic_node import GenericNode
+from .generic_node import AnyGenericNode, GenericNode
 
 # TODO: FilterNode
-from .properties import FeatureDescriptor, IndexedProperty, Property, PropertySet
+from .properties import (
+    FeatureDescriptor,
+    IndexedProperty,
+    Property,
+    PropertySet,
+)
 from .properties_support import (
     DescriptorProperty,
-    # IndexedGetterProtocol, IndexedSetterProtocol, IndexedGetterSetterProperty,
-    # IndexedGetterSetterDescriptorProperty, SequenceGetterSetterProperty,
-    # SequenceDescriptorProperty,
+    IndexedGetterProtocol,
+    IndexedSetterProtocol,
+    IndexedGetterSetterProperty,
+    IndexedGetterSetterDescriptorProperty,
+    SequenceGetterSetterProperty,
+    SequenceDescriptorProperty,
     GetterSetterProperty,
     PropertySupport,
     ReadOnlyProperty,
@@ -40,6 +48,8 @@ from .sync_children import SyncChildren
 
 
 __all__ = [
+    'AnyGenericNode',
+    'AnyNode',
     'ChildFactory',
     'Children',
     'ChildrenStorage',
@@ -49,7 +59,11 @@ __all__ = [
     'FeatureDescriptor',
     'GenericNode',
     'GetterSetterProperty',
+    'IndexedGetterProtocol',
+    'IndexedGetterSetterDescriptorProperty',
+    'IndexedGetterSetterProperty',
     'IndexedProperty',
+    'IndexedSetterProtocol',
     'Node',
     'NodeEvent',
     'NodeListener',
@@ -60,6 +74,8 @@ __all__ = [
     'PropertySupport',
     'ReadOnlyProperty',
     'ReadWriteProperty',
+    'SequenceDescriptorProperty',
+    'SequenceGetterSetterProperty',
     'SyncChildren',
     'WriteOnlyProperty',
 ]

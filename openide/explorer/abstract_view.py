@@ -15,7 +15,7 @@ from typing_extensions import override
 
 # from PySide6.QtWidgets import QAbstractItemView
 # Local imports
-from openide.explorer.model import _N, NodeModel
+from openide.explorer.model import N, NodeModel
 
 if TYPE_CHECKING:
     from openide.explorer.model import ModelIndex
@@ -24,19 +24,19 @@ if TYPE_CHECKING:
 # For some reasons, if we subclass QAbstractItemView,
 # it will segfault when we add a concrete class instance
 # like a NodeTreeView in a QVBoxLayout with addWidget()?!...
-class AbstractNodeView(Generic[_N]):
-    def _to_index(self, index_or_node: ModelIndex | _N) -> ModelIndex:
+class AbstractNodeView(Generic[N]):
+    def _to_index(self, index_or_node: ModelIndex | N) -> ModelIndex:
         if isinstance(index_or_node, (QModelIndex, QPersistentModelIndex)):
             return index_or_node
         else:
             return self.model().index_for_node(index_or_node)
 
     @override  # QAbstractItemView
-    def model(self) -> NodeModel[_N]:
+    def model(self) -> NodeModel[N]:
         return cast('NodeModel[_N]', super().model())
 
     @override  # QAbstractItemView
-    def setModel(self, model: QAbstractItemModel | NodeModel[_N] | None) -> None:
+    def setModel(self, model: QAbstractItemModel | NodeModel[N] | None) -> None:
         if model is not None:
             assert isinstance(model, NodeModel), 'Model must be a subclass of NodeModel'
 

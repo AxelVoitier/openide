@@ -12,67 +12,73 @@ from threading import RLock
 from typing import TYPE_CHECKING, Generic, TypeVar, cast, final
 
 # Third-party imports
+from typing_extensions import override
 
 # Local imports
 
-
-T = TypeVar('T')
 if TYPE_CHECKING:
-    from collections.abc import Collection, Generator, Iterable, Sequence
+    from collections.abc import Collection, Iterable, Iterator, Sequence
     from typing import Any
 
     from openide.nodes._like_netbeans.children import Children
     from openide.nodes._like_netbeans.node import Node
 
+N = TypeVar('N', bound='Node[Any, Any]')
+CN = TypeVar('CN', bound='Node[Any, Any]')
 
-class Event(Generic[T]):
-    def __init__(self, source: T) -> None:
+
+class Event(Generic[N]):
+    def __init__(self, source: N) -> None:
+        super().__init__()
+
         self._source = source  # transient
 
     @property
-    def source(self) -> T:
+    def source(self) -> N:
         return self._source
 
+    @override  # object
     def __str__(self) -> str:
         return f'{type(self).__name__}({", ".join(self.__str_add__())})'
 
     __repr__ = __str__
 
-    def __str_add__(self) -> Generator[str, None, None]:
+    def __str_add__(self) -> Iterator[str]:
         yield f'source={self._source}'
 
 
-class NodeEvent(Event):
-    def __init__(self, node: Node) -> None:
+class NodeEvent(Event[N]):
+    def __init__(self, node: N) -> None:
         super().__init__(node)
 
     @property
     @final
-    def node(self) -> Node:
+    def node(self) -> N:
         return self.source
 
-    def __str_add__(self) -> Generator[str, None, None]:
+    @override  # Event
+    def __str_add__(self) -> Iterator[str]:
         yield f'node={self.node}'
 
 
-class NodeMemberEvent(NodeEvent):
+class NodeMemberEvent(NodeEvent[N], Generic[N, CN]):
     def __init__(
         self,
-        node: Node,
+        node: N,
         *,
         add: bool,
-        delta: Collection[Node] | None = None,
-        from_: Sequence[Node] | None = None,
+        delta: Collection[CN] | None = None,
+        from_: Sequence[CN] | None = None,
         indices: Iterable[int] | None = None,
-        current: Sequence[Node] | None = None,
-        previous: Sequence[Node] | None = None,
+        current: Sequence[CN] | None = None,
+        previous: Sequence[CN] | None = None,
     ) -> None:
         super().__init__(node)
 
-        self.__delta: Collection[Node] | None
+        self.__delta: Collection[CN] | None
         self.__indices: list[int] | None
-        self.__prev_snapshot: Sequence[Node] | None
-        self.__curr_snapshot: Sequence[Node]
+        self.__prev_snapshot: Sequence[CN] | None
+        self.__curr_snapshot: Sequence[CN]
 
         self.__lock = RLock()
         self.__add = add
@@ -80,7 +86,7 @@ class NodeMemberEvent(NodeEvent):
         if delta is not None:
             self.__delta = delta
             self.__prev_snapshot = from_
-            self.__curr_snapshot = node._children.snapshot()
+            self.__curr_snapshot = cast('Node[Any, CN]', node)._children.snapshot()
             self.__indices = None
         else:
             assert indices is not None
@@ -92,7 +98,7 @@ class NodeMemberEvent(NodeEvent):
 
     @property
     @final
-    def snapshot(self) -> Collection[Node]:
+    def snapshot(self) -> Collection[CN]:
         return self.__curr_snapshot
 
     @property
@@ -101,12 +107,12 @@ class NodeMemberEvent(NodeEvent):
         return self.__add
 
     @property
-    def prev_snapshot(self) -> Sequence[Node]:
+    def prev_snapshot(self) -> Sequence[CN]:
         return self.__prev_snapshot if self.__prev_snapshot is not None else self.__curr_snapshot
 
     @property
     @final
-    def delta(self) -> Collection[Node]:
+    def delta(self) -> Collection[CN]:
         if (delta := self.__delta) is None:
             indices = cast('list[int]', self.__indices)
             prev = self.prev_snapshot
@@ -133,7 +139,8 @@ class NodeMemberEvent(NodeEvent):
 
         return indices
 
-    def __str_add__(self) -> Generator[str, None, None]:
+    @override  # NodeEvent
+    def __str_add__(self) -> Iterator[str]:
         yield from super().__str_add__()
         yield f'add={self.__add}'
         if self.__delta is not None:
@@ -146,18 +153,18 @@ class NodeMemberEvent(NodeEvent):
             yield f'curr={self.__curr_snapshot}'
 
 
-class NodeReorderEvent(NodeEvent):
+class NodeReorderEvent(NodeEvent[N], Generic[N, CN]):
     # TODO: Be a Sequence, proxying self.__new_indices
 
-    def __init__(self, node: Node, new_indices: Sequence[int]) -> None:
+    def __init__(self, node: N, new_indices: Sequence[int]) -> None:
         super().__init__(node)
 
         self.__new_indices = new_indices
-        self.__curr_snapshot = node._children.snapshot()
+        self.__curr_snapshot = cast('Node[Any, CN]', node)._children.snapshot()
 
     @property
     @final
-    def snapshot(self) -> Collection[Node]:
+    def snapshot(self) -> Collection[CN]:
         return self.__curr_snapshot
 
     # TODO: __getitem__?
@@ -173,29 +180,30 @@ class NodeReorderEvent(NodeEvent):
     def permutation_size(self) -> int:
         return len(self.__new_indices)
 
-    def __str_add__(self) -> Generator[str, None, None]:
+    @override  # NodeEvent
+    def __str_add__(self) -> Iterator[str]:
         yield from super().__str_add__()
         yield f'new_indices={self.__new_indices}'
         yield f'curr_snapshot={self.__curr_snapshot}'
 
 
-class NodeListener(ABC):
+class NodeListener(Generic[N, CN], ABC):
     @abstractmethod
-    def property_change(self, node: Node, name: str, old: Any, new: Any) -> None:  # noqa: ANN401
+    def property_change(self, node: N, name: str, old: Any, new: Any) -> None:  # noqa: ANN401
         raise NotImplementedError  # pragma: no cover
 
     @abstractmethod
-    def children_added(self, event: NodeMemberEvent) -> None:
+    def children_added(self, event: NodeMemberEvent[N, CN]) -> None:
         raise NotImplementedError  # pragma: no cover
 
     @abstractmethod
-    def children_removed(self, event: NodeMemberEvent) -> None:
+    def children_removed(self, event: NodeMemberEvent[N, CN]) -> None:
         raise NotImplementedError  # pragma: no cover
 
     @abstractmethod
-    def children_reordered(self, event: NodeReorderEvent) -> None:
+    def children_reordered(self, event: NodeReorderEvent[N, CN]) -> None:
         raise NotImplementedError  # pragma: no cover
 
     @abstractmethod
-    def node_destroyed(self, event: NodeEvent) -> None:
+    def node_destroyed(self, event: NodeEvent[N]) -> None:
         raise NotImplementedError  # pragma: no cover

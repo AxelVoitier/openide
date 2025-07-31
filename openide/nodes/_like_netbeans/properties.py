@@ -10,16 +10,16 @@ from __future__ import annotations
 # System imports
 from abc import ABC, abstractmethod
 from copy import copy
-from typing import TYPE_CHECKING, Generic, TypeVar
+from typing import TYPE_CHECKING, Generic, Self, TypeAlias, TypeVar, cast, override
 from weakref import ReferenceType
 
 # Third-party imports
 
 # Local imports
 
-VT = TypeVar('VT')
-KT = TypeVar('KT')
-IT = TypeVar('IT')
+VT = TypeVar('VT')  # Value Type
+KT = TypeVar('KT')  # Key Type
+IT = TypeVar('IT')  # Item Type
 if TYPE_CHECKING:
     from collections.abc import Iterator
     from typing import Any
@@ -292,6 +292,7 @@ class FeatureDescriptor:
         else:
             return frozenset()
 
+    @override  # object
     def __str__(self) -> str:
         """
         Returns a basic string representation of this feature,
@@ -326,7 +327,7 @@ class FeatureDescriptor:
                 yield attr_str
 
         if self.__values:
-            values_str = []
+            values_str: list[str] = []
             for name, value in self.__values.items():
                 value_str = self.__str_value__(name, value, force_value=True)
                 if value_str is not None:
@@ -354,7 +355,7 @@ class FeatureDescriptor:
         Returns a string representation, or None if the member should not be represented.
         """
         if isinstance(value, ReferenceType):
-            value = value()
+            value = cast('Any', value())
         if (not force_value) and isinstance(value, bool):
             if value:
                 return name
@@ -365,16 +366,21 @@ class FeatureDescriptor:
         else:
             return None
 
+    @override  # object
     def __eq__(self, other: object) -> bool:
         """Equal protocol, based on system_name equality."""
         try:
-            if (self.system_name is None) and (other.system_name is None):
+            # We suppose other is of the same type than us to do these comparisons.
+            # But if not, then except AttributeError is meant to catch that,
+            # instead of explicitly check type (heavy), or even type casting it (useless here)
+            if (self.system_name is None) and (other.system_name is None):  # type: ignore  # noqa: PGH003
                 return self is other
             else:
-                return self.system_name == other.system_name
+                return self.system_name == other.system_name  # type: ignore  # noqa: PGH003
         except AttributeError:
             return False
 
+    @override  # object
     def __hash__(self) -> int:
         """Hashing protocol, based solely on system_name hash."""
         return hash(self.system_name) if self.system_name else id(self)
@@ -395,6 +401,7 @@ class Property(FeatureDescriptor, Generic[VT], ABC):
 
         self.system_name = ''
 
+    @override  # FeatureDescriptor
     def __copy_init_kwargs__(self) -> dict[str, Any]:
         kwargs = super().__copy_init_kwargs__()
         kwargs.update(
@@ -456,7 +463,7 @@ class Property(FeatureDescriptor, Generic[VT], ABC):
     def property_editor(self) -> None:
         if self.__type is None:
             return None
-        raise NotImplementedError
+        raise NotImplementedError  # TODO
 
     # TODO: We have the same in PropertySet and Node.
     # Maybe that should move to FeatureDescriptor?
@@ -472,6 +479,7 @@ class Property(FeatureDescriptor, Generic[VT], ABC):
         """
         return None
 
+    @override  # FeatureDescriptor
     def __str_add__(self) -> Iterator[str]:
         yield from super().__str_add__()
 
@@ -492,23 +500,28 @@ class Property(FeatureDescriptor, Generic[VT], ABC):
             if value is not None:
                 yield value
 
+    @override  # object
     def __eq__(self, other: object) -> bool:
         """Equal protocol, based on system_name, and value_type equality."""
         if not super().__eq__(other):
             return False
 
         try:
-            return self.value_type == other.value_type
+            # We suppose other is of the same type than us to do this comparison.
+            # But if not, then except AttributeError is meant to catch that,
+            # instead of explicitly check type (heavy), or even type casting it (useless here)
+            return self.value_type == other.value_type  # type: ignore  # noqa: PGH003
         except AttributeError:
             return False
 
+    @override  # object
     def __hash__(self) -> int:
         """Hashing protocol, based on system_name, and value_type hashes."""
         type_hash = hash(self.value_type) if self.value_type is not None else 1
         return super().__hash__() * type_hash
 
 
-class IndexedProperty(Property, Generic[VT, KT, IT]):
+class IndexedProperty(Property[VT], Generic[VT, KT, IT]):
     """Provides an indexed property for an indexed node."""
 
     def __init__(self, index_type: type[KT], item_type: type[IT], **kwargs: Any) -> None:
@@ -524,6 +537,7 @@ class IndexedProperty(Property, Generic[VT, KT, IT]):
         self.__index_type = index_type
         self.__item_type = item_type
 
+    @override  # Property
     def __copy_init_kwargs__(self) -> dict[str, Any]:
         kwargs = super().__copy_init_kwargs__()
         kwargs.update(
@@ -580,6 +594,7 @@ class IndexedProperty(Property, Generic[VT, KT, IT]):
     def indexed_property_editor(self) -> None:
         raise NotImplementedError
 
+    @override  # Property
     def __str_add__(self) -> Iterator[str]:
         yield from super().__str_add__()
 
@@ -591,16 +606,21 @@ class IndexedProperty(Property, Generic[VT, KT, IT]):
         if value is not None:
             yield value
 
+    @override  # object
     def __eq__(self, other: object) -> bool:
         """Equal protocol, based on system_name, value_type, index_type, and item_type equality."""
         if not super().__eq__(other):
             return False
 
         try:
-            return (self.index_type == other.index_type) and (self.item_type == other.item_type)
+            # We suppose other is of the same type than us to do these comparisons.
+            # But if not, then except AttributeError is meant to catch that,
+            # instead of explicitly check type (heavy), or even type casting it (useless here)
+            return (self.index_type == other.index_type) and (self.item_type == other.item_type)  # type: ignore  # noqa: PGH003
         except AttributeError:
             return False
 
+    @override  # object
     def __hash__(self) -> int:
         """Hashing protocol, based on system_name, value_type, index_type, and item_type hashes."""
         index_type_hash = hash(self.index_type) if self.index_type is not None else 1
@@ -628,10 +648,11 @@ class PropertySet(FeatureDescriptor, ABC):
 
     @property
     @abstractmethod
-    def properties(self) -> set[Property]:
+    def properties(self) -> set[Property[Any]]:
         """The properties in this set."""
         raise NotImplementedError  # pragma: no cover
 
+    @override  # object
     def __eq__(self, other: object) -> bool:
         # FeatureDescriptor.__eq__ only check system_name, without regard for class equality.
         # We usually don't care about class equality (because duck-typing). But here it would
@@ -641,6 +662,7 @@ class PropertySet(FeatureDescriptor, ABC):
             return False
         return super().__eq__(other)
 
+    @override  # object
     def __hash__(self) -> int:
         # FeatureDescriptor.__hash__ returns a non-zero hash even when system_name is None
         system_name = self.system_name
