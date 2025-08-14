@@ -41,7 +41,7 @@ from .properties_support import (
 from .sync_children import SyncChildren
 # from .async_children import AsyncChildren
 
-# TODO: CookieSet
+from .node_lookup import NodeLookup
 # TODO: CookieSetLkp
 # TODO: Sheet
 # TODO: DefaultHandle
@@ -67,6 +67,7 @@ __all__ = [
     'Node',
     'NodeEvent',
     'NodeListener',
+    'NodeLookup',
     'NodeMemberEvent',
     'NodeReorderEvent',
     'Property',

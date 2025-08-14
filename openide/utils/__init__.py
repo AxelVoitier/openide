@@ -10,6 +10,7 @@
 from .classes import (
     Debug,
     MetaClassResolver,
+    SingletonABCMeta,
     SingletonMeta,
     class_decorator,
     class_decorator_ext,
@@ -25,6 +26,7 @@ __all__ = [
     'Mutex',
     'MutexImplementation',
     'RecursiveDict',
+    'SingletonABCMeta',
     'SingletonMeta',
     'class_decorator',
     'class_decorator_ext',

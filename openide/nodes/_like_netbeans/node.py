@@ -12,10 +12,12 @@
 from __future__ import annotations
 
 import logging
+import threading
 import warnings
 from abc import ABC, abstractmethod
 
 # System imports
+from contextlib import contextmanager
 from copy import deepcopy
 from threading import RLock
 from typing import TYPE_CHECKING, Generic, Self, TypeVar, final
@@ -27,6 +29,7 @@ from typing_extensions import override
 
 # from observable import Observable
 # Local imports
+from openide.lookup.cookie_set import Cookie
 from openide.nodes._like_netbeans.node_listener import NodeEvent, NodeMemberEvent, NodeReorderEvent
 from openide.nodes._like_netbeans.properties import (
     FeatureDescriptor,
@@ -44,9 +47,13 @@ if TYPE_CHECKING:
     from PySide6.QtGui import QAction, QColor, QIcon, QPixmap
     from PySide6.QtWidgets import QMenu
 
+    from openide.lookup.cookie_set import CookieSet
     from openide.nodes._like_netbeans.children import Children  # noqa: TC004  # No it's not
     from openide.nodes._like_netbeans.children_storage import ChildrenStorage
     from openide.nodes._like_netbeans.node_listener import NodeListener
+    from openide.nodes._like_netbeans.node_lookup import NodeLookup
+
+    Ck = TypeVar('Ck', bound=Cookie)
 
 T = TypeVar('T')
 E = TypeVar('E')
@@ -58,11 +65,6 @@ CN = TypeVar('CN', bound=AnyNode)
 _logger = logging.getLogger(__name__)
 
 
-class _Cookie(ABC):
-    # TODO: Check how compatible/redundant this is with (future) openide.cookies
-    pass
-
-
 class _Handle(ABC):
     # Note: That's fore serialisation
     # TODO: Check if we could do differently. Smells like Java-specific construct
@@ -70,6 +72,10 @@ class _Handle(ABC):
     @abstractmethod
     def get_node(self) -> Node:
         raise NotImplementedError  # pragma: no cover
+
+
+class __BlockEvents(threading.local, Generic[N]):
+    value: set[N] | None = None
 
 
 # TODO: LookupEventList class (private final)
@@ -88,7 +94,6 @@ class Node(FeatureDescriptor, LookupProvider, Generic[PN, CN], ABC):
     # Set in generic_node.py
     EMPTY: Node = None  # type: ignore[assignment]
 
-    Cookie: TypeAlias = _Cookie
     Handle: TypeAlias = _Handle
     PropertySet: TypeAlias = PropertySet
     Property: TypeAlias = Property
@@ -116,21 +121,33 @@ class Node(FeatureDescriptor, LookupProvider, Generic[PN, CN], ABC):
         # Note: We seems to be adding only 2 kinds of listener classes: NodeListener,
         # and PropertyChangeListener. Though, it seems as it is right now we just splitted
         # the "listeners" into one for NodeListener, and one for PropertyChangeListener:
-        self._property_listeners: MutableSequence[Callable[[Node, str, Any, Any], None]] = []
-        self._internal_lookup = lookup
-        self._node_lookup = None
-        if self._internal_lookup:
-            self._result = self._internal_lookup.lookup_result(Node.Cookie)
-            self._result.listeners += self._lookup_changed
-            self._result.all_items()
+        self._property_listeners: MutableSequence[Callable[[Self, str, Any, Any], None]] = []
+        self.__delegating_lookup: NodeLookup[Self] | None = None
+        self._internal_lookup = self._replace_provided_lookup(
+            lookup,
+        )  # TODO: Rename _provided_lookup
+        if self._internal_lookup is not None:
+            self.__result = self._internal_lookup.lookup_result(Cookie)
+            self.__result.listeners += self.__lookup_changed
+            self.__result.all_items()
+
+        # self.__block_events = __BlockEvents[AnyNode]()
 
         self._hiearchy._attach_to(self)
 
-    # TODO: replaceProvidedLookup
+    def _replace_provided_lookup(self, lookup: Lookup | None) -> Lookup | None:
+        """Subclasses that want to swap the provided lookup based on certain conditions
+        (eg. FilterNode) can override this method.
+
+        Will be called only during __init__().
+        """
+
+        return lookup
+
     # TODO: internalLookup (final)
 
     # TODO: Review
-    def _lookup_changed(self, result: Result) -> None:
+    def __lookup_changed(self, result: Result[Cookie]) -> None:
         self._fire_cookie_change()
 
     # TODO: Review
@@ -505,29 +522,45 @@ class Node(FeatureDescriptor, LookupProvider, Generic[PN, CN], ABC):
         raise NotImplementedError  # pragma: no cover
 
     # TODO: Review
-    def get_cookie(self, cls: type[T]) -> T | None:
-        lookup = self._internal_lookup
-
-        if lookup is None:
+    def get_cookie(self, cls: type[Ck]) -> Ck | None:
+        if (lookup := self._internal_lookup) is None:
             return None
 
-        return lookup(cls)
-        # TODO: CookieSet stuff
+        obj = lookup(cls)
+        # NB: Remove check if it causes performance overhead, and instead rely only on typing.
+        # However, it might be implicitly used by NodeLookup.__add_cookie()
+        if isinstance(obj, Cookie):
+            return obj
+        else:
+            return None
+
+    @property
+    def _supports_cookie_set(self) -> bool:
+        return False
+
+    @property
+    def _cookie_set(self) -> CookieSet:
+        msg = 'CookieSet are not supported on this node'
+        raise NotImplementedError(msg)
+
+    @_cookie_set.setter
+    def _cookie_set(self, value: CookieSet) -> None:
+        msg = 'CookieSet are not supported on this node'
+        raise NotImplementedError(msg)
 
     # TODO: Review
     @final
     @override  # LookupProvider
     def get_lookup(self) -> Lookup:
-        lookup = self._internal_lookup
-        if lookup is not None:
+        if (lookup := self._internal_lookup) is not None:
             return lookup
 
-        if self._node_lookup is None:
+        if (lookup := self.__delegating_lookup) is None:
             from . import NodeLookup  # noqa: PLC0415
 
-            self._node_lookup = NodeLookup(self)
+            lookup = self.__delegating_lookup = NodeLookup(self)
 
-        return self._node_lookup
+        return lookup
 
     # OK, Match
     # TODO: We have the same in Property and PropertySet.
@@ -544,8 +577,8 @@ class Node(FeatureDescriptor, LookupProvider, Generic[PN, CN], ABC):
         """
         return None
 
-    # TODO: registerDelegatingLookup (final)
-    # TODO: findDelegatingLookup (final)
+    # Not doing: registerDelegatingLookup (final)
+    # Not doing: findDelegatingLookup (final)
 
     # OK, Match
     @property
@@ -745,6 +778,50 @@ class Node(FeatureDescriptor, LookupProvider, Generic[PN, CN], ABC):
         event = NodeEvent(self)
         for listener in reversed(self._node_listeners):
             listener.node_destroyed(event)
+
+    @final
+    def _fire_cookie_change(self) -> None:
+        from . import NodeLookup  # noqa: PLC0415
+
+        lookup = self.__delegating_lookup
+
+        if isinstance(lookup, NodeLookup):  # and self.__update_now(self):
+            # with self._block_events():
+            lookup.update_lookup_as_cookies_are_changed(None)
+
+        self._fire_own_property_change('cookie', None, None)
+
+    # @contextmanager
+    # def _block_events(self) -> Iterator[None]:
+    #     from . import NodeLookup  # noqa: PLC0415
+
+    #     prev = self.__block_events.value
+    #     if prev is None:
+    #         self.__block_events.value = set()
+
+    #     try:
+    #         yield
+
+    #     finally:
+    #         a_set = self.__block_events.value
+    #         if prev is None:
+    #             while a_set:
+    #                 copy = set(a_set)
+    #                 for node in copy:
+    #                     lookup = node.__delegating_lookup
+    #                     if isinstance(lookup, NodeLookup):
+    #                         lookup.update_lookup_as_cookies_are_changed(None)
+
+    #                 a_set -= copy
+
+    #         self.__block_events.value = prev
+
+    # def __update_now(self, node: AnyNode) -> bool:
+    #     if (a_set := self.__block_events.value) is None:
+    #         return True
+    #     else:
+    #         a_set.add(node)
+    #         return False
 
     # Note: Ignoring all fire*Change as they don't bring much
     # - fireParentNodeChange (protected final)

@@ -4,10 +4,14 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
+from .cookie_set import CookieFactory, CookieSet, CookieSetChangeProtocol
 from .egg_info import EggInfoLookup
 from .main_lookup import MainLookup
 
 __all__ = [
+    'CookieFactory',
+    'CookieSet',
+    'CookieSetChangeProtocol',
     'EggInfoLookup',
     'MainLookup',
 ]

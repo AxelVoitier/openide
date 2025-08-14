@@ -16,6 +16,7 @@ from typing import TYPE_CHECKING, Any, Generic, Self, TypeAlias, TypeVar, final
 from typing_extensions import override
 
 # Local imports
+from openide.lookup.cookie_set import Cookie, CookieSet
 from openide.nodes._like_netbeans.children import Children
 from openide.nodes._like_netbeans.node import AnyNode, Node
 
@@ -31,7 +32,10 @@ if TYPE_CHECKING:
     from lookups import Lookup
     from PySide6.QtGui import QAction, QColor, QIcon, QPixmap
 
+    from openide.lookup.cookie_set import CookieSetChangeProtocol
     from openide.nodes._like_netbeans.properties import PropertySet
+
+    Ck = TypeVar('Ck', bound=Cookie)
 
 PN = TypeVar('PN', bound=AnyNode)
 CN = TypeVar('CN', bound=AnyNode)
@@ -50,6 +54,13 @@ class GenericNode(Node[PN, CN]):
     # - DEFAULT_ICON
     # - overridesGetDefaultAction
 
+    @classmethod
+    def with_cookie_set(cls, cookie_set: CookieSet) -> Self:
+        node = cls(Children.LEAF)
+        node.__cookie_set = cookie_set
+
+        return node
+
     # TODO: AbstractNode(CookieSet set) constructor
     def __init__(self, children: Children[Self, CN], lookup: Lookup | None = None) -> None:
         self._lock = RLock()
@@ -61,7 +72,7 @@ class GenericNode(Node[PN, CN]):
         # self.__icon_base = GenericNode.__DEFAULT_ICON_BASE
         self.__icon_extension = '.png'
 
-        self.__lookup = None
+        self.__cookie_set: CookieSet | None = None
         self.__sheet: Sheet | None = None
 
         # TODO:
@@ -314,6 +325,18 @@ class GenericNode(Node[PN, CN]):
     def customiser(self):  # type: ignore[no-untyped-def]
         return None
 
+    @override  # Node
+    def get_cookie(self, cls: type[Ck]) -> Ck | None:
+        if (cookie_set := self.__cookie_set) is not None:
+            return cookie_set.get_cookie(cls)
+        else:
+            return super().get_cookie(cls)
+
+    @property
+    @override  # Node
+    def _supports_cookie_set(self) -> bool:
+        return self.__cookie_set is not None
+
     # TODO: Review
     @property
     @override  # Node
@@ -322,13 +345,17 @@ class GenericNode(Node[PN, CN]):
             msg = 'CookieSet cannot be used when lookup is associated with a node'
             raise RuntimeError(msg)
 
+        # Optimistic check to avoid lock
+        if (cookie_set := self.__cookie_set) is not None:
+            return cookie_set
+
         with self._lock:
-            if (cookie_set := self.__lookup) is not None:
-                return cookie_set
+            # Re-check after lock
+            if (cookie_set := self.__cookie_set) is None:
+                # Use the setter has it does more things
+                cookie_set = self._cookie_set = CookieSet()
 
-            self._cookie_set = CookieSet()
-
-            return self.__lookup
+            return cookie_set
 
     # TODO: Review
     # TODO: Actually deprecated (but used by _cookie_set getter)
@@ -343,20 +370,13 @@ class GenericNode(Node[PN, CN]):
             if (listener := self.__sheet_cookie_listener) is None:
                 listener = self.__sheet_cookie_listener = _SheetAndCookieListener(self)
 
-            if (cookie_set := self.__lookup) is not None:
-                cookie_set.remove_change_listener(listener)
+            if (cookie_set := self.__cookie_set) is not None:
+                cookie_set.listeners -= listener.state_changed
 
-            value.add_change_listener(listener)
-            self.__lookup = value
+            value.listeners += listener.state_changed
+            self.__cookie_set = value
 
             self._fire_cookie_change()
-
-    @override  # Node
-    def get_cookie(self, cls: type[T]) -> T | None:
-        if isinstance(self.__lookup, CookieSet):
-            return self.__lookup.get_cookie(cls)
-        else:
-            return super().get_cookie(cls)
 
     @property
     @override  # Node

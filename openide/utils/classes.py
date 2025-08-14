@@ -49,6 +49,10 @@ class SingletonMeta(type):
         return cls._instances[cls]
 
 
+class SingletonABCMeta(SingletonMeta, ABCMeta):
+    pass
+
+
 def MetaClassResolver(*subclasses: C, extra_metas: Iterable[type] | None = None) -> type[C]:  # noqa: N802
     """Function to be called as a subclass definition, passing it all the subclasses you actually
     want, plus some extra metaclasses if you need.
@@ -230,6 +234,17 @@ def class_loader(fqname: str) -> type:
     return attr
 
 
+# To be tested
+# Do we need to set as well? If so, it is more complicated...
+# TODO: Review type signatures
+class classproperty:  # noqa: N801
+    def __init__(self, func: Callable[[Any], Any]) -> None:
+        self.func = func
+
+    def __get__(self, obj: Any, owner: Any) -> Any:  # noqa: ANN401
+        return self.func(owner)
+
+
 class _DebugReturn:
     _GUARD = object()
 
@@ -348,6 +363,7 @@ class _Debug_Real:  # noqa: N801
 
 
 _DEBUG_MAP = {
+    'openide.explorer.node_model.NodeModel': _Debug_Real,
 }
 
 
