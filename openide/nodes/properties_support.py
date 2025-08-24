@@ -18,6 +18,7 @@ from functools import partial
 from itertools import islice
 from typing import (
     TYPE_CHECKING,
+    Any,
     Generic,
     Protocol,
     Self,
@@ -33,20 +34,31 @@ from listeners import ObservablePropertySupport, observable_property
 from typing_extensions import Never
 
 # Local imports
-from openide.nodes._like_netbeans.properties import (
-    IT,
-    KT,
-    VT,
-    IndexedProperty,
-    Property,
-    PropertyChangeProtocol,
-)
+from .properties import IT, KT, VT, IndexedProperty, Property, PropertyListener, _NodeProperty
 
 if TYPE_CHECKING:
     from collections.abc import Iterator, Mapping
-    from typing import Any, TypeAlias
+    from typing import Final, TypeAlias
 
     from listeners import Observable
+
+__all__: Final = (
+    'DescriptorProperty',
+    'DescriptorProtocol',
+    'GettableDescriptorProtocol',
+    'GetterProtocol',
+    'GetterSetterProperty',
+    'IndexedGetterSetterDescriptorProperty',
+    'IndexedGetterSetterProperty',
+    'PropertySupport',
+    'ReadOnlyProperty',
+    'ReadWriteProperty',
+    'SequenceDescriptorProperty',
+    'SequenceGetterSetterProperty',
+    'SettableDescriptorProtocol',
+    'SetterProtocol',
+    'WriteOnlyProperty',
+)
 
 
 class PropertySupport(Property[VT], Generic[VT]):
@@ -311,11 +323,13 @@ class GetterSetterProperty(Property[VT]):
     value: VT = _ValueDescriptor[VT]()  # pyright: ignore[reportAssignmentType,reportIncompatibleMethodOverride]
 
     @property
-    def listeners(self) -> Observable[PropertyChangeProtocol[Self, VT]]:
+    @override
+    def listeners(self) -> Observable[PropertyListener[Self, VT]]:
         return type(self).value._get_observable(self)
 
     @listeners.setter
-    def listeners(self, _: Observable[PropertyChangeProtocol[Self, VT]]) -> None:
+    @override
+    def listeners(self, _: Observable[PropertyListener[Self, VT]]) -> None:  # pyright: ignore[reportIncompatibleVariableOverride]
         pass
 
     @property
@@ -389,7 +403,7 @@ _filter_types = (
 
 
 class _DescriptorPropertyMixins(GetterSetterProperty[VT]):
-    def __init__(
+    def __init__(  # noqa: C901, PLR0912
         self,
         *,
         instance: T_contra,
@@ -512,8 +526,8 @@ class DescriptorProperty(_DescriptorPropertyMixins[VT]):
         types: Mapping[str, type] | None = None,
         *,
         skip_errors: bool = True,
-        # ) -> Iterator[tuple[str, DescriptorProperty[VT]]]:
-    ) -> Iterator[tuple[str, Iterator[tuple[str, DescriptorProperty[VT]]]]]:
+        filter: Callable[[type[Any], str | None], bool] | None = None,
+    ) -> Iterator[tuple[type[Any], Iterator[tuple[str, DescriptorProperty[VT]]]]]:
         if types is None:
             types = {}
 
@@ -522,6 +536,8 @@ class DescriptorProperty(_DescriptorPropertyMixins[VT]):
                 if isinstance(attr, _filter_types):
                     continue
                 if not isinstance(attr, (GettableDescriptorProtocol, SettableDescriptorProtocol)):
+                    continue
+                if filter and not filter(base, name):
                     continue
                 # We can now assume it's a descriptor
                 attr = cast('DescriptorProtocol[Any, VT, VT]', attr)
@@ -533,7 +549,13 @@ class DescriptorProperty(_DescriptorPropertyMixins[VT]):
                     if skip_errors:
                         continue
                     raise
+
                 prop.system_name = name
+                if doc := getattr(attr, '__doc__', ''):
+                    prop.short_description = doc.strip().splitlines()[0]
+                if isinstance(attr, _NodeProperty):
+                    attr._set_attributes(prop)
+
                 yield name, prop
 
         for base in type(instance).__mro__:
@@ -541,7 +563,10 @@ class DescriptorProperty(_DescriptorPropertyMixins[VT]):
                 # Avoid trying to get descriptors like __repr__ (which fails at guessing type)
                 continue
 
-            yield base.__name__, iterator_for_class(base)
+            if filter and not filter(base, None):
+                continue
+
+            yield base, iterator_for_class(base)
 
 
 IndexedGetterProtocol: TypeAlias = Callable[[KT], IT]

@@ -19,9 +19,9 @@ from typing_extensions import override
 from openide.lookup.cookie_set import Cookie, CookieSet
 from openide.nodes._like_netbeans.children import Children
 from openide.nodes._like_netbeans.node import AnyNode, Node
+from openide.nodes.properties import Sheet
 
 # from openide.nodes.sheet import Sheet
-# from openide.nodes.cookie_set import CookieSet
 # from openide.nodes.default_handle import DefaultHandle
 
 
@@ -186,18 +186,21 @@ class GenericNode(Node[PN, CN]):
         return False
 
     def _create_sheet(self) -> Sheet:
-        return Sheet()
+        from openide.nodes import SheetSupport  # noqa: PLC0415
+
+        return SheetSupport()
 
     @final
     def __set_sheet_implementation(self, sheet: Sheet) -> None:
         with self._lock:
-            if (listener := self.__sheet_cookie_listener) is None:
-                listener = self.__sheet_cookie_listener = _SheetAndCookieListener(self)
+            # TODO: Figure out listeners of sheet
+            # if (listener := self.__sheet_cookie_listener) is None:
+            #     listener = self.__sheet_cookie_listener = _SheetAndCookieListener(self)
 
-            if sheet is not None:
-                sheet.remove_property_change_listener(listener)
+            # if sheet is not None:
+            #     sheet.remove_property_change_listener(listener)
 
-            sheet.add_property_change_listener(listener)
+            # sheet.add_property_change_listener(listener)
             self.__sheet = sheet
 
     @property
@@ -226,6 +229,13 @@ class GenericNode(Node[PN, CN]):
     @override  # Node
     def property_sets(self) -> Sequence[PropertySet]:
         return self._sheet.to_list()
+
+    # Temp. addition not in Netbeans to directly access the Sheet, because this "public should
+    # only access a list of PropertySet and not the Sheet itself" just seems like
+    # some whatever Java-trust-issue madness...
+    @property
+    def sheet(self) -> Sheet:
+        return self._sheet
 
     @property
     @override  # Node

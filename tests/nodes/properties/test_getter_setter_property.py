@@ -11,12 +11,13 @@ from __future__ import annotations
 
 # System imports
 from copy import copy
+from typing import Any
 
 # Third-party imports
 import pytest
 
 # Local imports
-from openide.nodes._like_netbeans.properties_support import GetterSetterProperty
+from openide.nodes import GetterSetterProperty
 
 
 class RWMethods:
@@ -35,6 +36,18 @@ class RWMethods:
 
 
 def test_read_write() -> None:
+    called: dict[str, Any] = {}
+
+    def listener(
+        source: GetterSetterProperty[int],
+        name: str,
+        old_value: int | None,
+        new_value: int,
+    ) -> None:
+        nonlocal called
+        print(f'listener called: {source=}, {name=}, {old_value=}, {new_value=}')
+        called |= dict(source=source, name=name, old_value=old_value, new_value=new_value)
+
     rw = RWMethods()
 
     def check(prop: GetterSetterProperty[int], init_value: int, set_value: int) -> None:
@@ -44,15 +57,23 @@ def test_read_write() -> None:
 
         assert prop.value == init_value
         assert rw.get_attr() == init_value
+        assert not called
+
         prop.value = set_value
         assert prop.value == set_value
         assert rw.get_attr() == set_value
+        assert called
+        assert called == dict(source=prop, name='value', old_value=init_value, new_value=set_value)
 
     prop = GetterSetterProperty(rw.get_attr, rw.set_attr)
+    prop.listeners += listener
     check(prop, 0, 12)
+    called.clear()
 
     cloned_prop = copy(prop)
+    cloned_prop.listeners += listener
     check(cloned_prop, 12, 24)
+    called.clear()
     check(prop, 24, 36)
 
 
@@ -94,6 +115,18 @@ def test_read_only() -> None:
 
 
 def test_write_only() -> None:
+    called: dict[str, Any] = {}
+
+    def listener(
+        source: GetterSetterProperty[int],
+        name: str,
+        old_value: int | None,
+        new_value: int,
+    ) -> None:
+        nonlocal called
+        print(f'listener called: {source=}, {name=}, {old_value=}, {new_value=}')
+        called |= dict(source=source, name=name, old_value=old_value, new_value=new_value)
+
     wo = RWMethods()
 
     def check(prop: GetterSetterProperty[int], init_value: int, set_value: int) -> None:
@@ -102,17 +135,25 @@ def test_write_only() -> None:
         assert prop.can_write is True
 
         assert wo.get_attr() == init_value
+        assert not called
+
         prop.value = set_value
         assert wo.get_attr() == set_value
+        assert called
+        assert called == dict(source=prop, name='value', old_value=None, new_value=set_value)
 
         with pytest.raises(AttributeError):
             _ = prop.value
 
-    prop = GetterSetterProperty(None, wo.set_attr)
+    prop = GetterSetterProperty[int](None, wo.set_attr)
+    prop.listeners += listener
     check(prop, 0, 27)
+    called.clear()
 
     cloned_prop = copy(prop)
+    cloned_prop.listeners += listener
     check(cloned_prop, 27, 54)
+    called.clear()
     check(prop, 54, 81)
 
 
@@ -120,14 +161,14 @@ def test_not_method() -> None:
     rw = RWMethods()
 
     with pytest.raises(TypeError):
-        GetterSetterProperty(rw.not_a_method)  # type: ignore
+        GetterSetterProperty(rw.not_a_method)  # pyright: ignore[reportArgumentType]
 
     with pytest.raises(TypeError):
-        GetterSetterProperty(None, rw.not_a_method)  # type: ignore
+        GetterSetterProperty(None, rw.not_a_method)  # pyright: ignore[reportArgumentType]
 
 
 def test_no_getter_and_setter() -> None:
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError):  # noqa: PT011
         GetterSetterProperty()
 
 
@@ -137,7 +178,7 @@ class NoTypeGetter:
 
         self.__attr = value
 
-    def get_attr(self):  # type: ignore
+    def get_attr(self):  # noqa: ANN201
         return self.__attr
 
     def set_attr(self, value: int) -> None:
@@ -147,7 +188,7 @@ class NoTypeGetter:
 def test_no_type_hint() -> None:
     ro = NoTypeGetter(83)
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError):  # noqa: PT011
         GetterSetterProperty(ro.get_attr)
 
     def check(prop: GetterSetterProperty[int], init_value: int) -> None:

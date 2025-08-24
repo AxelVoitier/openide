@@ -31,11 +31,12 @@ from typing_extensions import override
 # Local imports
 from openide.lookup.cookie_set import Cookie
 from openide.nodes._like_netbeans.node_listener import NodeEvent, NodeMemberEvent, NodeReorderEvent
-from openide.nodes._like_netbeans.properties import (
+from openide.nodes.properties import (
     FeatureDescriptor,
     IndexedProperty,
     Property,
     PropertySet,
+    Sheet,
 )
 from openide.utils.classes import Debug
 
@@ -381,6 +382,14 @@ class Node(FeatureDescriptor, LookupProvider, Generic[PN, CN], ABC):
     @property
     @abstractmethod
     def property_sets(self) -> Sequence[PropertySet]:
+        raise NotImplementedError  # pragma: no cover
+
+    # Temp. addition not in Netbeans to directly access the Sheet, because this "public should
+    # only access a list of PropertySet and not the Sheet itself" just seems like
+    # some whatever Java-trust-issue madness...
+    @property
+    @abstractmethod
+    def sheet(self) -> Sheet:
         raise NotImplementedError  # pragma: no cover
 
     # TODO: Define return type

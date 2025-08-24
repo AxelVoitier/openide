@@ -23,6 +23,7 @@ from .properties import (
     IndexedProperty,
     Property,
     PropertySet,
+    PropertyChangeProtocol,
 )
 from .properties_support import (
     DescriptorProperty,
@@ -42,6 +43,8 @@ from .sync_children import SyncChildren
 # from .async_children import AsyncChildren
 
 from .node_lookup import NodeLookup
+from .sheet import Sheet, SheetSet
+
 # TODO: CookieSetLkp
 # TODO: Sheet
 # TODO: DefaultHandle
@@ -71,12 +74,15 @@ __all__ = [
     'NodeMemberEvent',
     'NodeReorderEvent',
     'Property',
+    'PropertyChangeProtocol',
     'PropertySet',
     'PropertySupport',
     'ReadOnlyProperty',
     'ReadWriteProperty',
     'SequenceDescriptorProperty',
     'SequenceGetterSetterProperty',
+    'Sheet',
+    'SheetSet',
     'SyncChildren',
     'WriteOnlyProperty',
 ]

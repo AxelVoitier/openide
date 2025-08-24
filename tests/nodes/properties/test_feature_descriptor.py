@@ -12,14 +12,15 @@ from __future__ import annotations
 # System imports
 from collections.abc import Generator, MutableMapping, Sequence
 from copy import copy, deepcopy
-from typing import Any, TypeAlias, TypeVar, cast, override
+from typing import Any, TypeAlias, TypeVar, cast
 from weakref import ref
 
 # Third-party imports
 import pytest
+from typing_extensions import override
 
 # Local imports
-from openide.nodes._like_netbeans.properties import FeatureDescriptor
+from openide.nodes import FeatureDescriptor
 
 FD = TypeVar('FD', bound=FeatureDescriptor)
 ValuesType: TypeAlias = MutableMapping[str, Any | None]
@@ -280,7 +281,7 @@ def test_short_description(
 
 
 class DummyObject:
-    @override
+    @override  # object
     def __str__(self) -> str:
         return 'Dummy!'
 
@@ -369,7 +370,7 @@ class SubFeatureDescriptorNoInitArg(FeatureDescriptor):
         super().__init__()
         self.__other_field: str | None = None
 
-    @override
+    @override  # FeatureDescriptor
     def __copy_super__(self, new: FeatureDescriptor) -> None:
         super().__copy_super__(new)
 
@@ -384,7 +385,7 @@ class SubFeatureDescriptorNoInitArg(FeatureDescriptor):
     def other_field(self, value: str | None) -> None:
         self.__other_field = value
 
-    @override
+    @override  # FeatureDescriptor
     def __str_add__(self) -> Generator[str, None, None]:
         yield from super().__str_add__()
 
@@ -412,7 +413,7 @@ class SubFeatureDescriptorWithInitArg(FeatureDescriptor):
         super().__init__()
         self.__other_field: str | None = other_field
 
-    @override
+    @override  # FeatureDescriptor
     def __copy__(self) -> SubFeatureDescriptorWithInitArg:
         new = type(self)(self.other_field)
         self.__copy_super__(new)

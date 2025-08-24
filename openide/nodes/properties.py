@@ -5,7 +5,7 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # spell-checker:words
-# spell-checker:ignore observable_property
+# spell-checker:ignore
 
 """"""
 
@@ -14,7 +14,9 @@ from __future__ import annotations
 # System imports
 from abc import ABC, abstractmethod
 from copy import copy
-from typing import TYPE_CHECKING, Generic, Protocol, Self, TypeAlias, TypeVar, cast, override
+from enum import Enum, auto
+from functools import partial
+from typing import TYPE_CHECKING, Any, Generic, Protocol, Self, TypeVar, cast, override
 from weakref import ReferenceType
 
 # Third-party imports
@@ -28,8 +30,153 @@ KT = TypeVar('KT')  # Key Type
 IT = TypeVar('IT')  # Item Type
 ES_contra = TypeVar('ES_contra', contravariant=True)  # Event source
 if TYPE_CHECKING:
-    from collections.abc import Iterator, Sequence
-    from typing import Any
+    from collections.abc import Callable, Iterator
+    from typing import Final, Literal
+
+    from openide.nodes import GetterSetterProperty
+
+
+__all__: Final = (
+    'FeatureDescriptor',
+    'IndexedProperty',
+    'Property',
+    'PropertyListener',  # Re-export from listeners
+    'PropertySet',
+    'PropertySetChangeListener',
+    'PropertySetModificationKind',
+    'Sheet',
+    'SheetChangeListener',
+    'SheetModificationKind',
+    'node_property',
+)
+
+
+def node_property(
+    *,
+    system_name: str | None = None,
+    display_name: str | None = None,
+    short_description: str | None = None,
+    is_expert: bool | None = None,
+    is_hidden: bool | None = None,
+    is_preferred: bool | None = None,
+    force_no_getter: bool = False,
+    force_no_setter: bool = False,
+) -> type[observable_property]:
+    return partial(
+        _NodeProperty,
+        system_name=system_name,
+        display_name=display_name,
+        short_description=short_description,
+        is_expert=is_expert,
+        is_hidden=is_hidden,
+        is_preferred=is_preferred,
+        force_no_getter=force_no_getter,
+        force_no_setter=force_no_setter,
+    )
+
+
+class _NodeProperty(observable_property):
+    __slots__ = (
+        '__display_name',
+        '__doc__',
+        '__force_no_getter',
+        '__force_no_setter',
+        '__is_expert',
+        '__is_hidden',
+        '__is_preferred',
+        '__short_description',
+        '__system_name',
+    )
+
+    def __init__(
+        self,
+        *args: Any,
+        system_name: str | None = None,
+        display_name: str | None = None,
+        short_description: str | None = None,
+        is_expert: bool | None = None,
+        is_hidden: bool | None = None,
+        is_preferred: bool | None = None,
+        force_no_getter: bool = False,
+        force_no_setter: bool = False,
+        **kwargs: Any,
+    ) -> None:
+        super().__init__(*args, **kwargs)
+
+        self.__system_name = system_name
+        self.__display_name = display_name
+        self.__short_description = short_description
+        self.__is_expert = is_expert
+        self.__is_hidden = is_hidden
+        self.__is_preferred = is_preferred
+        self.__force_no_getter = force_no_getter
+        self.__force_no_setter = force_no_setter
+
+    def _set_attributes(self, prop: GetterSetterProperty) -> None:
+        if self.__system_name is not None:
+            prop.system_name = self.__system_name
+        if self.__display_name is not None:
+            prop.display_name = self.__display_name
+        if self.__short_description is not None:
+            prop.short_description = self.__short_description
+        if self.__is_expert is not None:
+            prop.is_expert = self.__is_expert
+        if self.__is_hidden is not None:
+            prop.is_hidden = self.__is_hidden
+        if self.__is_preferred is not None:
+            prop.is_preferred = self.__is_preferred
+        if self.__force_no_getter:
+            prop.force_no_getter()
+        if self.__force_no_setter:
+            prop.force_no_setter()
+
+    def getter(self, fget: Callable[[Any], Any], /) -> Self:
+        return type(self)(
+            fget,
+            self.fset,
+            self.fdel,
+            self.__doc__,
+            system_name=self.__system_name,
+            display_name=self.__display_name,
+            short_description=self.__short_description,
+            is_expert=self.__is_expert,
+            is_hidden=self.__is_hidden,
+            is_preferred=self.__is_preferred,
+            force_no_getter=self.__force_no_getter,
+            force_no_setter=self.__force_no_setter,
+        )
+
+    def setter(self, fset: Callable[[Any, Any], None], /) -> Self:
+        return type(self)(
+            self.fget,
+            fset,
+            self.fdel,
+            self.__doc__,
+            system_name=self.__system_name,
+            display_name=self.__display_name,
+            short_description=self.__short_description,
+            is_expert=self.__is_expert,
+            is_hidden=self.__is_hidden,
+            is_preferred=self.__is_preferred,
+            force_no_getter=self.__force_no_getter,
+            force_no_setter=self.__force_no_setter,
+        )
+
+    def deleter(self, fdel: Callable[[Any], None], /) -> Self:
+        return type(self)(
+            self.fget,
+            self.fset,
+            fdel,
+            self.__doc__,
+            system_name=self.__system_name,
+            display_name=self.__display_name,
+            short_description=self.__short_description,
+            is_expert=self.__is_expert,
+            is_hidden=self.__is_hidden,
+            is_preferred=self.__is_preferred,
+            force_no_getter=self.__force_no_getter,
+            force_no_setter=self.__force_no_setter,
+        )
 
 
 class FeatureDescriptor:
@@ -166,7 +313,7 @@ class FeatureDescriptor:
 
         return new
 
-    @observable_property
+    @node_property(display_name='System name')
     def system_name(self) -> str | None:
         """Programmatic name for this object."""
         return self.__system_name
@@ -180,7 +327,7 @@ class FeatureDescriptor:
         self.system_name = value
         return self
 
-    @observable_property
+    @node_property(display_name='Display name')
     def display_name(self) -> str | None:
         """
         Display name for this object.
@@ -198,7 +345,7 @@ class FeatureDescriptor:
         self.display_name = value
         return self
 
-    @observable_property
+    @node_property(display_name='Is expert')
     def is_expert(self) -> bool:
         """Tells if this feature is flagged as an expert feature
         (ie. shown to end users only when an expert context is activated)."""
@@ -213,7 +360,7 @@ class FeatureDescriptor:
         self.is_expert = value
         return self
 
-    @observable_property
+    @node_property(display_name='Is hidden')
     def is_hidden(self) -> bool:
         """Tells if this feature is flagged as an hidden feature
         (ie. for programmatic access only, not shown to end users)."""
@@ -228,7 +375,7 @@ class FeatureDescriptor:
         self.is_hidden = value
         return self
 
-    @observable_property
+    @node_property(display_name='Is preferred')
     def is_preferred(self) -> bool:
         """Tells if this feature is flagged as a preferred feature
         (ie. shown with importance (eg. highlighted, first) to end users)."""
@@ -243,7 +390,7 @@ class FeatureDescriptor:
         self.is_preferred = value
         return self
 
-    @observable_property
+    @node_property(display_name='Short description')
     def short_description(self) -> str | None:
         """
         Short description for this object.
@@ -291,7 +438,7 @@ class FeatureDescriptor:
         self.set_value(name, value)
         return self
 
-    @property
+    @node_property(display_name='Attribute names')
     def attribute_names(self) -> frozenset[str]:
         """Returns set of known dynamic attribute names."""
         if self.__values is not None:
@@ -396,7 +543,7 @@ class FeatureDescriptor:
 class Property(FeatureDescriptor, Generic[VT], ABC):
     """Provides property declaration for nodes."""
 
-    listeners: Observable[PropertyChangeProtocol[Self, VT]]
+    listeners: Observable[PropertyListener[Self, VT]]
 
     def __init__(self, value_type: type[VT], **kwargs: Any) -> None:
         """Initialises a Property with defaults from FeatureDescriptor,
@@ -640,7 +787,7 @@ class IndexedProperty(Property[VT], Generic[VT, KT, IT]):
 class PropertySet(FeatureDescriptor, ABC):
     """Represents a set of properties."""
 
-    listeners: Observable[PropertyChangeProtocol[Self, VT]]
+    listeners: Observable[PropertySetChangeListener]
 
     def __init__(
         self,
@@ -659,7 +806,7 @@ class PropertySet(FeatureDescriptor, ABC):
 
     @property
     @abstractmethod
-    def properties(self) -> Sequence[Property[Any]]:
+    def properties(self) -> Iterator[Property[Any]]:
         """The properties in this set."""
         raise NotImplementedError  # pragma: no cover
 
@@ -671,7 +818,17 @@ class PropertySet(FeatureDescriptor, ABC):
         # system_name.
         if not isinstance(other, PropertySet):
             return False
-        return super().__eq__(other)
+        if not super().__eq__(other):
+            return False
+
+        try:
+            for our_prop, their_prop in zip(self.properties, other.properties, strict=True):
+                if our_prop != their_prop:
+                    return False
+        except ValueError:
+            return False
+        else:
+            return True
 
     @override  # object
     def __hash__(self) -> int:
@@ -694,12 +851,47 @@ class PropertySet(FeatureDescriptor, ABC):
         return None
 
 
-# class PropertyChangeProtocol(Protocol[VT_contra, ES_contra]):
-#     def __call__(
-#         self,
-#         source: ES_contra,
-#         property_name: str,
-#         old_value: VT_contra,
-#         new_value: VT_contra,
-#     ) -> Any: ...  # noqa: ANN401
-PropertyChangeProtocol: TypeAlias = PropertyListener[ES_contra, VT_contra]
+class Sheet(ABC):
+    """Represents a collection of PropertySet"""
+
+    listeners: Observable[SheetChangeListener]
+
+    @property
+    @abstractmethod
+    def property_sets(self) -> Iterator[PropertySet]:
+        """Iterate over the property sets in this sheet"""
+        raise NotImplementedError  # pragma: no cover
+
+
+class PropertySetModificationKind(Enum):
+    AddProperty = auto()
+    RemoveProperty = auto()
+    ReplaceProperty = auto()
+    ClearAllProperties = auto()
+
+
+class PropertySetChangeListener(Protocol):
+    def __call__(
+        self,
+        prop_set: PropertySet,
+        kind: PropertySetModificationKind,
+        old_prop: Property[Any] | None,
+        new_prop: Property[Any] | None,
+    ) -> Any: ...  # noqa: ANN401
+
+
+class SheetModificationKind(Enum):
+    AddPropertySet = auto()
+    RemovePropertySet = auto()
+    ReplacePropertySet = auto()
+    ClearAllPropertySet = auto()
+
+
+class SheetChangeListener(Protocol):
+    def __call__(
+        self,
+        sheet: Sheet,
+        kind: SheetModificationKind,
+        old_prop_set: PropertySet | None,
+        new_prop_set: PropertySet | None,
+    ) -> Any: ...  # noqa: ANN401
