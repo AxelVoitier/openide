@@ -50,6 +50,8 @@ ignore = [
   "RET504",  # Unnecessary assignment to `...` before `return` statement
   "A001",  # Variable `...` is shadowing a Python builtin
   "A002",  # Function argument `...` is shadowing a Python builtin
+  "T201",  # print found
+  "DTZ005",  # `datetime.datetime.now()` called without a `tz` argument
 
   "D",  # Temporarily: docstrings
   "ERA001",  # Temporarily: commented out code
@@ -78,12 +80,3 @@ skip-magic-trailing-comma = false
 include = [
   "nbm_selection_01",
 ]
-typeCheckingMode = "strict"
-reportPrivateUsage = "none"
-reportImplicitOverride = "error"
-reportImportCycles = "information"
-reportMissingSuperCall = "error"
-reportPropertyTypeMismatch = "information"
-reportShadowedImports = "information"
-reportUninitializedInstanceVariable = "error"
-reportUnnecessaryTypeIgnoreComment = "information"

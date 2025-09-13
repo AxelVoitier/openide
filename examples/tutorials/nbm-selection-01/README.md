@@ -1,6 +1,6 @@
 # nbm-selection-01 tutorial
 
-This is a reimplementation of [Netbeans Platform selection tutorial, part 1](https://netbeans.apache.org/tutorials/nbm-selection-1.html). But using Python OpenIDE framework.
+This is a reimplementation of [Netbeans Platform selection tutorial, part 1](https://netbeans.apache.org/tutorial/main/tutorials/nbm-selection-1/). But using Python OpenIDE framework.
 
 Install it first in an environment:
 ```
