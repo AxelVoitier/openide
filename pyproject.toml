@@ -46,6 +46,9 @@ dependencies = [
     "listeners",
 ]
 
+[project.scripts]
+openide-debug = "openide.startup.debug_cli:cmd"
+
 [project.entry-points.hatch]
 openide_integrations = "openide.integrations.hatch_hook"
 
