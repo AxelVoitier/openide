@@ -97,6 +97,10 @@ class GenericNode(Node[PN, CN]):
         super(GenericNode, type(self)).system_name.fset(self, value)
 
         if (disp_format := self._display_format) is not None:
+            # TODO: Review teh whole display format thing to be more user-friendly:
+            # - Should have a setter that automatically change display_name with the new formatter
+            # - Should be able to take either more named parameters (but taken from where),
+            #   or maybe just be a user-controlled callback all by itself
             self.display_name = disp_format.format(value)
         else:
             self._fire_own_property_change('display_name', None, None)
