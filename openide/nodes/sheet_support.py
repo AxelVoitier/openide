@@ -16,7 +16,7 @@ from threading import RLock
 from typing import TYPE_CHECKING, Any, Self, override
 
 # Third-party imports
-from listeners import Observable
+from listeners import Listeners, Observable
 
 # Local imports
 from .properties import (
@@ -40,7 +40,7 @@ __all__: Final = (
 
 
 class PropertySetSupport(PropertySet):
-    listeners: Observable[PropertySetChangeListener]
+    listeners: Listeners[PropertySetChangeListener]
     """Property change listeners listening on this set"""
 
     def __init__(self) -> None:
@@ -51,7 +51,8 @@ class PropertySetSupport(PropertySet):
 
         self.__lock = RLock()
 
-        self.listeners = Observable[PropertySetChangeListener]()
+        self.listeners = Listeners[PropertySetChangeListener]()
+        self._observable = Observable(self.listeners)
 
     @property
     @override
@@ -82,11 +83,16 @@ class PropertySetSupport(PropertySet):
             index = self.__find_index(name)
             removed = None
             if index == -1:
-                with self.listeners.fire(self, PropertySetModificationKind.AddProperty, None, prop):
+                with self._observable.fire(
+                    self,
+                    PropertySetModificationKind.AddProperty,
+                    None,
+                    prop,
+                ):
                     self.__props.append(prop)
             else:
                 removed = self.__props[index]
-                with self.listeners.fire(
+                with self._observable.fire(
                     self,
                     PropertySetModificationKind.ReplaceProperty,
                     removed,
@@ -120,7 +126,7 @@ class PropertySetSupport(PropertySet):
                 return None
 
             removed = self.__props[index]
-            with self.listeners.fire(
+            with self._observable.fire(
                 self,
                 PropertySetModificationKind.RemoveProperty,
                 removed,
@@ -133,7 +139,7 @@ class PropertySetSupport(PropertySet):
 
         with (
             self.__lock,
-            self.listeners.fire(self, PropertySetModificationKind.ClearAllProperties, None, None),
+            self._observable.fire(self, PropertySetModificationKind.ClearAllProperties, None, None),
         ):
             self.__props.clear()
 
@@ -161,7 +167,7 @@ class SheetSupport(Sheet):
     EXPERT = 'expert'
     """Name for expert property set"""
 
-    listeners: Observable[SheetChangeListener]
+    listeners: Listeners[SheetChangeListener]
     """Property change listeners"""
 
     @classmethod
@@ -207,7 +213,8 @@ class SheetSupport(Sheet):
 
         self.__lock = RLock()
 
-        self.listeners = Observable[SheetChangeListener]()
+        self.listeners = Listeners[SheetChangeListener]()
+        self._observable = Observable(self.listeners)
 
     @property
     @override
@@ -237,7 +244,7 @@ class SheetSupport(Sheet):
             index = self.__find_index(name)
             removed = None
             if index == -1:
-                with self.listeners.fire(
+                with self._observable.fire(
                     self,
                     SheetModificationKind.AddPropertySet,
                     None,
@@ -246,7 +253,7 @@ class SheetSupport(Sheet):
                     self.__sets.append(sheet_set)
             else:
                 removed = self.__sets[index]
-                with self.listeners.fire(
+                with self._observable.fire(
                     self,
                     SheetModificationKind.ReplacePropertySet,
                     removed,
@@ -268,7 +275,9 @@ class SheetSupport(Sheet):
                 return None
 
             removed = self.__sets[index]
-            with self.listeners.fire(self, SheetModificationKind.RemovePropertySet, removed, None):
+            with self._observable.fire(
+                self, SheetModificationKind.RemovePropertySet, removed, None
+            ):
                 return self.__sets.pop(index)
 
     def clear(self) -> None:
@@ -276,7 +285,7 @@ class SheetSupport(Sheet):
 
         with (
             self.__lock,
-            self.listeners.fire(self, SheetModificationKind.ClearAllPropertySet, None, None),
+            self._observable.fire(self, SheetModificationKind.ClearAllPropertySet, None, None),
         ):
             self.__sets.clear()
 

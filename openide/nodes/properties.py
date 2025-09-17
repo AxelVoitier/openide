@@ -20,7 +20,7 @@ from typing import TYPE_CHECKING, Any, Generic, Protocol, Self, TypeVar, cast, o
 from weakref import ReferenceType
 
 # Third-party imports
-from listeners import Observable, PropertyListener, observable_property
+from listeners import PropertyListener, observable_property
 
 # Local imports
 
@@ -31,7 +31,9 @@ IT = TypeVar('IT')  # Item Type
 ES_contra = TypeVar('ES_contra', contravariant=True)  # Event source
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterator
-    from typing import Final, Literal
+    from typing import Final
+
+    from listeners import Listeners
 
     from openide.nodes import GetterSetterProperty
 
@@ -543,7 +545,7 @@ class FeatureDescriptor:
 class Property(FeatureDescriptor, Generic[VT], ABC):
     """Provides property declaration for nodes."""
 
-    listeners: Observable[PropertyListener[Self, VT]]
+    listeners: Listeners[PropertyListener[Self, VT]]
 
     def __init__(self, value_type: type[VT], **kwargs: Any) -> None:
         """Initialises a Property with defaults from FeatureDescriptor,
@@ -787,7 +789,7 @@ class IndexedProperty(Property[VT], Generic[VT, KT, IT]):
 class PropertySet(FeatureDescriptor, ABC):
     """Represents a set of properties."""
 
-    listeners: Observable[PropertySetChangeListener]
+    listeners: Listeners[PropertySetChangeListener]
 
     def __init__(
         self,
@@ -854,7 +856,7 @@ class PropertySet(FeatureDescriptor, ABC):
 class Sheet(ABC):
     """Represents a collection of PropertySet"""
 
-    listeners: Observable[SheetChangeListener]
+    listeners: Listeners[SheetChangeListener]
 
     @property
     @abstractmethod

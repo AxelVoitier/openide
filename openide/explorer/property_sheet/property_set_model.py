@@ -8,7 +8,7 @@ from functools import reduce
 from operator import add
 from typing import TYPE_CHECKING, ClassVar, Protocol
 
-from listeners import Observable
+from listeners import Listeners, Observable
 
 from openide.nodes import Property
 
@@ -55,7 +55,7 @@ class PropertySetModel:
     so they remain closed for other similar nodes"""
     # TODO: Somehow reload closed_sets from persisted preferences
 
-    listeners: Observable[PropertySetModelChangeProtocol]
+    listeners: Listeners[PropertySetModelChangeProtocol]
 
     def __init__(self, pset: Sequence[PropertySet] | None = None) -> None:
         super().__init__()
@@ -65,7 +65,8 @@ class PropertySetModel:
         self.__feats: list[Property[Any] | PropertySet] = []
         self.__sort_key: Callable[[Property[Any]], SupportsRichComparison] | None = None
 
-        self.listeners = Observable[PropertySetModelChangeProtocol]()
+        self.listeners = Listeners[PropertySetModelChangeProtocol]()
+        self._observable = Observable(self.listeners)
 
         self.set_property_sets(pset)
 
@@ -77,7 +78,7 @@ class PropertySetModel:
         if sets is None:
             sets = []
 
-        with self.listeners.fire(
+        with self._observable.fire(
             source=self,
             type=PropertySetModelChangeType.WholesaleChange,
             start=-1,
@@ -102,7 +103,7 @@ class PropertySetModel:
         """Set the comparator the model will use for sorting properties"""
 
         if key != self.__sort_key:
-            with self.listeners.fire(
+            with self._observable.fire(
                 source=self,
                 type=PropertySetModelChangeType.WholesaleChange,
                 start=-1,
@@ -238,7 +239,7 @@ class PropertySetModel:
         )
         props = list(self.__filter_hidden_props(self.__sets[set_index].properties))
 
-        with self.listeners.fire(
+        with self._observable.fire(
             source=self,
             type=event_type,
             start=index + 1,

@@ -30,7 +30,7 @@ from typing import (
 )
 
 # Third-party imports
-from listeners import ObservablePropertySupport, observable_property
+from listeners import Observable, ObservablePropertySupport, observable_property
 from typing_extensions import Never
 
 # Local imports
@@ -40,7 +40,7 @@ if TYPE_CHECKING:
     from collections.abc import Iterator, Mapping
     from typing import Final, TypeAlias
 
-    from listeners import Observable
+    from listeners import Listener, Listeners, ListenersChangeEvent, Observable
 
 __all__: Final = (
     'DescriptorProperty',
@@ -225,39 +225,38 @@ def _get_last_arg_type(func: Callable[..., Any] | None, n: int = 0) -> type | No
     return next(islice(reversed(type_hints.values()), n, n + 1))
 
 
-class GetterSetterProperty(Property[VT]):
-    class _ValueDescriptor(ObservablePropertySupport['GetterSetterProperty[DVT]', DVT]):
-        __slots__ = ('__name__',)
+class _ValueDescriptor(ObservablePropertySupport['GetterSetterProperty[VT]', VT]):
+    __slots__ = ('__name__',)
 
-        def __init__(self) -> None:
-            super().__init__()
-            self.__name__ = 'value'
+    def __init__(self) -> None:
+        super().__init__()
+        self.__name__ = 'value'
 
-        def __set_name__(self, owner: type[DVT], name: str) -> None:
-            self.__name__ = name
+    def __set_name__(self, owner: type[VT], name: str) -> None:
+        self.__name__ = name
 
-        def __get__(
-            self,
-            obj: GetterSetterProperty[DVT] | None,
-            objtype: type[GetterSetterProperty[DVT]] | None = None,
-        ) -> DVT | Self:
-            if obj is None:
-                return self
-                # msg = 'Can only get on an instance'
-                # raise AttributeError(msg)
+    def __get__(
+        self,
+        obj: GetterSetterProperty[VT] | None,
+        objtype: type[GetterSetterProperty[VT]] | None = None,
+    ) -> VT | Self:
+        if obj is None:
+            return self
+            # msg = 'Can only get on an instance'
+            # raise AttributeError(msg)
 
-            if (get := obj._get) is None:
-                msg = 'Property is not readable'
-                raise AttributeError(msg)
+        if (get := obj._get) is None:
+            msg = 'Property is not readable'
+            raise AttributeError(msg)
 
-            return get()
+        return get()
 
-        def __set__(self, obj: GetterSetterProperty[DVT], new_value: DVT) -> None:
-            if (set := obj._set) is None:
-                msg = 'Property is not writable'
-                raise AttributeError(msg)
+    def __set__(self, obj: GetterSetterProperty[VT], new_value: VT) -> None:
+        if (set := obj._set) is None:
+            msg = 'Property is not writable'
+            raise AttributeError(msg)
 
-            observable = self._get_observable(obj)
+        if observable := self._get_observable(obj):
             name = obj.system_name or self.__name__
             old_value = get() if (get := obj._get) is not None else None
             obj._firing = True
@@ -267,6 +266,15 @@ class GetterSetterProperty(Property[VT]):
             finally:
                 obj._firing = False
 
+        else:
+            obj._firing = True
+            try:
+                set(new_value)
+            finally:
+                obj._firing = False
+
+
+class GetterSetterProperty(Property[VT]):
     @staticmethod
     def _guess_getset_type(
         getter: Callable[..., Any] | None,
@@ -320,17 +328,21 @@ class GetterSetterProperty(Property[VT]):
         )
         return kwargs
 
-    value: VT = _ValueDescriptor[VT]()  # pyright: ignore[reportAssignmentType,reportIncompatibleMethodOverride]
+    value = _ValueDescriptor[VT]()  # pyright: ignore[reportIncompatibleMethodOverride, reportAssignmentType]
 
     @property
     @override
-    def listeners(self) -> Observable[PropertyListener[Self, VT]]:
-        return type(self).value._get_observable(self)
+    def listeners(self) -> Listeners[PropertyListener[Self, VT]]:
+        return type(self).value.get_listeners(self)
 
     @listeners.setter
     @override
-    def listeners(self, _: Observable[PropertyListener[Self, VT]]) -> None:  # pyright: ignore[reportIncompatibleVariableOverride]
+    def listeners(self, _: Listeners[PropertyListener[Self, VT]]) -> None:  # pyright: ignore[reportIncompatibleVariableOverride]
         pass
+
+    @property
+    def _observable(self) -> Observable[PropertyListener[GetterSetterProperty[VT], VT]] | None:
+        return cast('_ValueDescriptor[VT]', type(self).value)._get_observable(self)
 
     @property
     @override  # Property
@@ -471,7 +483,7 @@ class _DescriptorPropertyMixins(GetterSetterProperty[VT]):
             self.system_name = descriptor_name
 
         if isinstance(descriptor, (observable_property, ObservablePropertySupport)):
-            descriptor.watch(instance, self.__forward_event)
+            self.listeners.own_changes += self.__on_own_listeners_change
 
         # For copy
         self._instance = instance
@@ -491,6 +503,21 @@ class _DescriptorPropertyMixins(GetterSetterProperty[VT]):
         return kwargs
 
     @contextmanager
+    def __on_own_listeners_change(
+        self,
+        listeners: Listeners[PropertyListener[T_contra, VT]],
+        event: ListenersChangeEvent,
+        listener: Listener[PropertyListener[T_contra, VT]] | None,
+    ) -> Iterator[None]:
+        if not listeners:
+            self._descriptor.get_listeners(self._instance).add(self.__forward_event)  # pyright: ignore[reportAttributeAccessIssue, reportUnknownMemberType]
+
+        yield
+
+        if not listeners:
+            self._descriptor.get_listeners(self._instance).remove(self.__forward_event)  # pyright: ignore[reportUnknownMemberType, reportAttributeAccessIssue]
+
+    @contextmanager
     def __forward_event(
         self,
         owner: Any,  # noqa: ANN401
@@ -502,7 +529,10 @@ class _DescriptorPropertyMixins(GetterSetterProperty[VT]):
             yield
             return
 
-        with self.listeners.fire(self, attr_name, old_value, new_value):
+        if (observable := self._observable) is not None:
+            with observable.fire(self, attr_name, old_value, new_value):
+                yield
+        else:
             yield
 
 

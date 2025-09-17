@@ -22,7 +22,7 @@ from typing import TYPE_CHECKING, Any, Generic, Literal, Protocol, Self, TypeVar
 from weakref import ReferenceType, ref
 
 # Third-party imports
-from listeners import Observable
+from listeners import Listeners, Observable
 from lookups import GenericLookup, InstanceContent, Lookup, LookupProvider
 from lookups.generic_lookup import Pair
 from lookups.instance_content import Convertor, SimpleItem
@@ -328,7 +328,8 @@ class CookieSet(LookupProvider):
         self.__map: dict[type[Cookie], __Result[Cookie]] = {}
         self.__lock = threading.RLock()
 
-        self.listeners = Observable[CookieSetChangeProtocol]()
+        self.listeners = Listeners[CookieSetChangeProtocol]()
+        self._observable = Observable(self.listeners)
 
     @override  # LookupProvider
     def get_lookup(self) -> Lookup:
@@ -360,7 +361,7 @@ class CookieSet(LookupProvider):
             msg = 'Cannot add a None cookie'
             raise ValueError(msg)
 
-        with self.listeners.fire(CookieSetChangeProtocol.ChangeKind.Add, cookie):
+        with self._observable.fire(CookieSetChangeProtocol.ChangeKind.Add, cookie):
             self.__add(cookie)
 
     def __add(self, cookie: Cookie) -> None:
@@ -381,7 +382,7 @@ class CookieSet(LookupProvider):
             msg = 'Cannot remove a None cookie'
             raise ValueError(msg)
 
-        with self.listeners.fire(CookieSetChangeProtocol.ChangeKind.Remove, cookie):
+        with self._observable.fire(CookieSetChangeProtocol.ChangeKind.Remove, cookie):
             self.__remove(cookie)
 
     def __remove(self, cookie: Cookie) -> None:
@@ -576,7 +577,7 @@ class CookieSet(LookupProvider):
     def add_with_factory(self, factory: CookieFactory[Ck], *classes: type[Ck]) -> None:
         """Registers a factory for a given cookie class or set of cookie classes"""
 
-        with self.listeners.fire(CookieSetChangeProtocol.ChangeKind.Add, factory):
+        with self._observable.fire(CookieSetChangeProtocol.ChangeKind.Add, factory):
             entries = [__CookieEntry(factory, cls) for cls in classes]
             with self.__lock:
                 for cls, entry in zip(classes, entries, strict=True):
@@ -589,7 +590,7 @@ class CookieSet(LookupProvider):
     def remove_with_factory(self, factory: CookieFactory[Ck], *classes: type[Ck]) -> None:
         """Unregisters a factory for a given cookie class or set of cookie classes"""
 
-        with self.listeners.fire(CookieSetChangeProtocol.ChangeKind.Remove, factory):
+        with self._observable.fire(CookieSetChangeProtocol.ChangeKind.Remove, factory):
             with self.__lock:
                 entries: list[__CookieEntry[Ck]] = []
                 for cls in classes:
@@ -614,7 +615,7 @@ class CookieSet(LookupProvider):
         instances: The one, or more, or none, instances to put into the lookup.
         """
 
-        with self.listeners.fire(CookieSetChangeProtocol.ChangeKind.Replace, instances):
+        with self._observable.fire(CookieSetChangeProtocol.ChangeKind.Replace, instances):
             while True:
                 if (cookie := self.__lookup_cookie(cls)) is not None:
                     with self.__lock:
@@ -682,7 +683,7 @@ class CookieSetContent(InstanceContent):
                 pairs.append(SimpleItem(instance))
 
             if changed:
-                with jar.listeners.fire(CookieSetChangeProtocol.ChangeKind.Replace, pairs):
+                with jar._observable.fire(CookieSetChangeProtocol.ChangeKind.Replace, pairs):
                     self._set_pairs(pairs)
 
         finally:
