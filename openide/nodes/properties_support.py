@@ -30,7 +30,7 @@ from typing import (
 )
 
 # Third-party imports
-from listeners import Observable, ObservablePropertySupport, observable_property
+from listeners import ObservablePropertySupport, observable_property
 from typing_extensions import Never
 
 # Local imports
@@ -40,7 +40,7 @@ if TYPE_CHECKING:
     from collections.abc import Iterator, Mapping
     from typing import Final, TypeAlias
 
-    from listeners import Listener, Listeners, ListenersChangeEvent, Observable
+    from listeners import Listener, Listeners, ListenersChangeEvent
 
 __all__: Final = (
     'DescriptorProperty',
@@ -225,56 +225,56 @@ def _get_last_arg_type(func: Callable[..., Any] | None, n: int = 0) -> type | No
     return next(islice(reversed(type_hints.values()), n, n + 1))
 
 
-class _ValueDescriptor(ObservablePropertySupport['GetterSetterProperty[VT]', VT]):
-    __slots__ = ('__name__',)
-
-    def __init__(self) -> None:
-        super().__init__()
-        self.__name__ = 'value'
-
-    def __set_name__(self, owner: type[VT], name: str) -> None:
-        self.__name__ = name
-
-    def __get__(
-        self,
-        obj: GetterSetterProperty[VT] | None,
-        objtype: type[GetterSetterProperty[VT]] | None = None,
-    ) -> VT | Self:
-        if obj is None:
-            return self
-            # msg = 'Can only get on an instance'
-            # raise AttributeError(msg)
-
-        if (get := obj._get) is None:
-            msg = 'Property is not readable'
-            raise AttributeError(msg)
-
-        return get()
-
-    def __set__(self, obj: GetterSetterProperty[VT], new_value: VT) -> None:
-        if (set := obj._set) is None:
-            msg = 'Property is not writable'
-            raise AttributeError(msg)
-
-        if observable := self._get_observable(obj):
-            name = obj.system_name or self.__name__
-            old_value = get() if (get := obj._get) is not None else None
-            obj._firing = True
-            try:
-                with observable.fire(obj, name, old_value, new_value):
-                    set(new_value)
-            finally:
-                obj._firing = False
-
-        else:
-            obj._firing = True
-            try:
-                set(new_value)
-            finally:
-                obj._firing = False
-
-
 class GetterSetterProperty(Property[VT]):
+    class _ValueDescriptor(ObservablePropertySupport['GetterSetterProperty[DVT]', DVT]):
+        __slots__ = ('__name__',)
+
+        def __init__(self) -> None:
+            super().__init__()
+            self.__name__ = 'value'
+
+        def __set_name__(self, owner: type[DVT], name: str) -> None:
+            self.__name__ = name
+
+        def __get__(
+            self,
+            instance: GetterSetterProperty[DVT] | None,
+            owner: type[GetterSetterProperty[DVT]] | None = None,
+            /,
+        ) -> DVT | Self:
+            if instance is None:
+                return self
+                # msg = 'Can only get on an instance'
+                # raise AttributeError(msg)
+
+            if (getter := instance._get) is None:
+                msg = 'Property is not readable'
+                raise AttributeError(msg)
+
+            return getter()
+
+        def __set__(self, instance: GetterSetterProperty[DVT], value: DVT, /) -> None:
+            if (setter := instance._set) is None:
+                msg = 'Property is not writable'
+                raise AttributeError(msg)
+
+            if observable := self.get_observable(instance):
+                name = instance.system_name or self.__name__
+                old_value = get() if (get := instance._get) is not None else None
+                instance._firing = True
+                try:
+                    with observable.fire(instance, name, old_value, value):
+                        setter(value)
+                finally:
+                    instance._firing = False
+
+            else:
+                instance._firing = True
+                try:
+                    setter(value)
+                finally:
+                    instance._firing = False
+
     @staticmethod
     def _guess_getset_type(
         getter: Callable[..., Any] | None,
@@ -329,20 +329,8 @@ class GetterSetterProperty(Property[VT]):
         return kwargs
 
     value = _ValueDescriptor[VT]()  # pyright: ignore[reportIncompatibleMethodOverride, reportAssignmentType]
-
-    @property
-    @override
-    def listeners(self) -> Listeners[PropertyListener[Self, VT]]:
-        return type(self).value.get_listeners(self)
-
-    @listeners.setter
-    @override
-    def listeners(self, _: Listeners[PropertyListener[Self, VT]]) -> None:  # pyright: ignore[reportIncompatibleVariableOverride]
-        pass
-
-    @property
-    def _observable(self) -> Observable[PropertyListener[GetterSetterProperty[VT], VT]] | None:
-        return cast('_ValueDescriptor[VT]', type(self).value)._get_observable(self)
+    listeners = value.listeners_property()  # pyright: ignore[reportAssignmentType]
+    _observable = value.observable_property()
 
     @property
     @override  # Property
@@ -372,16 +360,15 @@ SV_contra = TypeVar('SV_contra', contravariant=True)
 
 @runtime_checkable
 class GettableDescriptorProtocol(Protocol[T_contra, GV_co]):
-    def __get__(
-        self,
-        obj: T_contra | None,
-        objtype: type[T_contra] | None = None,
-    ) -> GV_co: ...  # pragma: no cover
+    @overload
+    def __get__(self, instance: None, owner: type[T_contra], /) -> Self: ...
+    @overload
+    def __get__(self, instance: T_contra, owner: type[T_contra] | None, /) -> GV_co: ...
 
 
 @runtime_checkable
 class SettableDescriptorProtocol(Protocol[T_contra, SV_contra]):
-    def __set__(self, obj: T_contra, value: SV_contra) -> None: ...  # pragma: no cover
+    def __set__(self, instance: T_contra, value: SV_contra) -> None: ...
 
 
 class DescriptorProtocol(
