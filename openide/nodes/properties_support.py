@@ -76,13 +76,14 @@ class PropertySupport(Property[VT], Generic[VT]):
             msg = 'A property should be at least either readable or writable'
             raise ValueError(msg)
 
+        self.__can_read = can_read
+        self.__can_write = can_write
+
         super().__init__(value_type)
 
         self.system_name = system_name
         self.display_name = display_name
         self.short_description = short_description
-        self.__can_read = can_read
-        self.__can_write = can_write
 
     @override  # Feature descriptor
     def __copy__(self) -> Self:
