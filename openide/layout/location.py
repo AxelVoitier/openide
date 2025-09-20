@@ -407,6 +407,18 @@ class LeftPanelLocation(Location):
 
 
 @Location.Registration(
+    name='under-left-panel',
+    kind='dock',
+    paths=[
+        LocationPathConfig(orientation='horizontal', index=-50),
+        LocationPathConfig(orientation='vertical', index=50),
+    ],
+)
+class UnderLeftPanelLocation(Location):
+    pass
+
+
+@Location.Registration(
     name='right-panel',
     kind='dock',
     paths=[LocationPathConfig(orientation='horizontal', index=50)],
