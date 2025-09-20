@@ -7,16 +7,16 @@
 from __future__ import annotations
 
 # System imports
-from collections.abc import Set  # noqa: PYI025
+from collections.abc import Set
 from enum import Enum
-from typing import TYPE_CHECKING, TypeVar
+from typing import TYPE_CHECKING, Any, Protocol, TypeVar
 from weakref import WeakSet, ref
 
 # Third-party imports
-from listeners import KeyedObservable
+from listeners import KeyedListeners, KeyedObservable
 
 # Local imports
-from openide.utils import MetaClassResolver, SingletonMeta
+from openide.utils import MetaClassResolver, SingletonABCMeta
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -42,17 +42,31 @@ class _ReadOnlySet(Set[T]):
         return iter(self._delegate)
 
 
-class ContextTracker(MetaClassResolver(KeyedObservable, extra_metas=[SingletonMeta])):
-    class Events(Enum):
-        Opened = 'opened'
-        Closed = 'closed'
-        Activated = 'activated'
+class ContextTrackerEvents(Enum):
+    Opened = 'opened'
+    Closed = 'closed'
+    Activated = 'activated'
 
+
+class ContextTrackerChangeProtocol(Protocol):
+    def __call__(
+        self,
+        event: ContextTrackerEvents,
+        top_component: TopComponent,
+        previous: TopComponent | None = None,
+    ) -> Any: ...  # noqa: ANN401
+
+
+class ContextTracker(
+    KeyedListeners[ContextTrackerEvents, ContextTrackerChangeProtocol],
+    metaclass=SingletonABCMeta,
+):
     def __init__(self) -> None:
-        super().__init__(keys=ContextTracker.Events)
+        super().__init__(keys=ContextTrackerEvents)
 
         self._activated_tc: ReferenceType[TopComponent] | None = None
         self._open_components: WeakSet[TopComponent] = WeakSet()
+        self._observables = KeyedObservable(self)
 
     @property
     def opened(self) -> Set[TopComponent]:
@@ -76,21 +90,21 @@ class ContextTracker(MetaClassResolver(KeyedObservable, extra_metas=[SingletonMe
         else:
             self._activated_tc = None
 
-        event = ContextTracker.Events.Activated
-        self[event](event, tc, old)
+        event = ContextTrackerEvents.Activated
+        self._observables[event](event, tc, old)
 
     def top_component_opened(self, tc: TopComponent) -> None:
         if tc in self._open_components:
             return
 
         self._open_components.add(tc)
-        event = ContextTracker.Events.Opened
-        self[event](event, tc)
+        event = ContextTrackerEvents.Opened
+        self._observables[event](event, tc)
 
     def top_component_closed(self, tc: TopComponent) -> None:
         if tc not in self._open_components:
             return
 
         self._open_components.remove(tc)
-        event = ContextTracker.Events.Closed
-        self[event](event, tc)
+        event = ContextTrackerEvents.Closed
+        self._observables[event](event, tc)

@@ -14,7 +14,7 @@ from lookups import DelegatedLookup, EmptyLookup, Lookup, LookupProvider
 
 # Local imports
 from openide.services import GlobalContext, ServiceProvider
-from openide.windows import ContextTracker
+from openide.windows import ContextTracker, ContextTrackerEvents
 
 if TYPE_CHECKING:
     from lookups import Lookup
@@ -27,7 +27,7 @@ class DefaultGlobalContext(DelegatedLookup, LookupProvider, GlobalContext):
     def __init__(self) -> None:
         self._default_lookup: Lookup = EmptyLookup()
         self._current_lookup: Lookup = self._default_lookup
-        ContextTracker()[ContextTracker.Events.Activated].add(self._context_changed)
+        ContextTracker()[ContextTrackerEvents.Activated].add(self._context_changed)
 
         super().__init__(self)
 
@@ -36,11 +36,11 @@ class DefaultGlobalContext(DelegatedLookup, LookupProvider, GlobalContext):
 
     def _context_changed(
         self,
-        event: ContextTracker.Events,
+        event: ContextTrackerEvents,
         tc: TopComponent | None,
-        old=None,
+        old: TopComponent | None = None,
     ) -> None:
-        if event != ContextTracker.Events.Activated:
+        if event != ContextTrackerEvents.Activated:
             return
 
         lookup = None

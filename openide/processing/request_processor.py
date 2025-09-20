@@ -31,7 +31,7 @@ from typing import (
 )
 
 # Third-party imports
-from listeners import KeyedObservable, VetoException
+from listeners import KeyedListeners, KeyedObservable, VetoError
 from typing_extensions import override
 
 # Local imports
@@ -74,9 +74,11 @@ class Task(Generic[P, R_co]):
         self._kwargs = kwargs
 
         # TODO: Find a way to be able to call immediately on Finished listeners whenever the task is already finished upon watching
-        self.listeners = KeyedObservable[Callable[[Self, Future[R_co], Task.Events], Any]](
-            keys=Task.Events,
-        )
+        self.listeners = KeyedListeners[
+            Task.Events,
+            Callable[[Self, Future[R_co], Task.Events], Any],
+        ](keys=Task.Events)
+        self._observables = KeyedObservable(self.listeners)
 
     def run(self, future: Future[R_co]) -> None:
         # We don't want to inadvertently declare the future as running in case
@@ -84,16 +86,18 @@ class Task(Generic[P, R_co]):
         # cancellable if it is already declared as running).
         if future.cancelled():
             future.set_running_or_notify_cancel()
-            self.listeners[Task.Events.Cancelled](self, future, Task.Events.Cancelled)
+            self._observables[Task.Events.Cancelled](self, future, Task.Events.Cancelled)
             return
 
         try:
-            with self.listeners[Task.Events.Processing].fire(self, future, Task.Events.Processing):
+            with self._observables[Task.Events.Processing].fire(
+                self, future, Task.Events.Processing
+            ):
                 if not future.set_running_or_notify_cancel():
-                    self.listeners[Task.Events.Cancelled](self, future, Task.Events.Cancelled)
+                    self._observables[Task.Events.Cancelled](self, future, Task.Events.Cancelled)
                     return
 
-                self.listeners[Task.Events.Started](self, future, Task.Events.Started)
+                self._observables[Task.Events.Started](self, future, Task.Events.Started)
 
                 try:
                     result = self._target(*self._args, **self._kwargs)
@@ -102,13 +106,13 @@ class Task(Generic[P, R_co]):
                 else:
                     future.set_result(result)
 
-            self.listeners[Task.Events.Finished](self, future, Task.Events.Finished)
+            self._observables[Task.Events.Finished](self, future, Task.Events.Finished)
 
-        except VetoException:
+        except VetoError:
             _logger.info('Task %s has been vetoed from running', self)
             future.cancel()
             future.set_running_or_notify_cancel()
-            self.listeners[Task.Events.Cancelled](self, future, Task.Events.Cancelled)
+            self._observables[Task.Events.Cancelled](self, future, Task.Events.Cancelled)
 
         finally:
             # Break a reference cycle with the exception 'exc'
@@ -180,7 +184,7 @@ class ThreadPoolProcessor(ThreadPoolExecutor):
             future = item.future
 
             try:
-                with task.listeners[Task.Events.Submitted].fire(
+                with task._observables[Task.Events.Submitted].fire(  # pyright: ignore[reportPrivateUsage]
                     task,
                     future,
                     Task.Events.Submitted,
@@ -189,11 +193,11 @@ class ThreadPoolProcessor(ThreadPoolExecutor):
                     self._adjust_thread_count()
                     return future
 
-            except VetoException:
+            except VetoError:
                 _logger.info('Item %s has been vetoed from submitting', item)
                 future.cancel()
                 future.set_running_or_notify_cancel()
-                task.listeners[Task.Events.Cancelled](task, future, Task.Events.Cancelled)
+                task._observables[Task.Events.Cancelled](task, future, Task.Events.Cancelled)  # pyright: ignore[reportPrivateUsage]
                 raise
 
     def submit_task(
@@ -385,7 +389,7 @@ if __name__ == '__main__':
         event: Task.Events,
     ) -> Iterator[None]:
         print(f'Task {task} is {event.name}')
-        # raise VetoException('Nope')
+        # raise VetoError('Nope')
         yield
         print(f'Task {task} is done {event.name}, result is {future.result()}')
 

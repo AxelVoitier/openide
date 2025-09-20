@@ -15,7 +15,7 @@ from copy import copy
 from typing import Any, Literal, Self
 
 # Third-party imports
-from listeners import Observable, PropertyListener, observable_property
+from listeners import Listeners, PropertyListener, observable_property
 
 # Local imports
 from openide.nodes import DescriptorProperty
@@ -35,13 +35,7 @@ class RWObservableProperty:
     def attr(self, value: int) -> None:
         self.__attr = value
 
-    @property
-    def attr_listeners(self) -> Observable[PropertyListener[Self, int]]:
-        return type(self).attr._get_observable(self)
-
-    @attr_listeners.setter
-    def attr_listeners(self, _: Observable[PropertyListener[Self, int]]) -> None:
-        pass
+    attr_listeners = attr.listeners_property()
 
 
 def test_read_write() -> None:
@@ -51,7 +45,7 @@ def test_read_write() -> None:
     def callback_on_object(
         instance: RWObservableProperty,
         attr_name: str,
-        old_value: int,
+        old_value: int | None,
         new_value: int,
     ) -> None:
         nonlocal called_on_object
@@ -68,7 +62,7 @@ def test_read_write() -> None:
     def callback_on_property(
         instance: DescriptorProperty[int],
         attr_name: str,
-        old_value: int,
+        old_value: int | None,
         new_value: int,
     ) -> None:
         nonlocal called_on_property
