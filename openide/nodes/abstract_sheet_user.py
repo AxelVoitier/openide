@@ -6,20 +6,30 @@
 #
 # spell-checker:enableCompoundWords
 # spell-checker:words
-# spell-checker:ignore
+# spell-checker:ignore qabc
 """"""
 
 from __future__ import annotations
 
 # System imports
 import logging
-from abc import ABC, abstractmethod
+from abc import abstractmethod
 from contextlib import contextmanager
 from typing import TYPE_CHECKING, Any, Generic, TypeVar
 
 # Third-party imports
+from PySide6.QtCore import Signal
+
 # Local imports
-from .properties import PropertySetModificationKind, SheetModificationKind
+from openide.utils_qt import QABC
+
+from .properties import (
+    Property,
+    PropertySet,
+    PropertySetModificationKind,
+    Sheet,
+    SheetModificationKind,
+)
 
 PropertySetItem = TypeVar('PropertySetItem')
 PropertyItem = TypeVar('PropertyItem')
@@ -27,22 +37,31 @@ if TYPE_CHECKING:
     from collections.abc import Iterator
     from typing import Final
 
-    from .properties import Property, PropertySet, Sheet
 
 __all__: Final = ('AbstractSheetUser',)
 
 _logger = logging.getLogger(__name__)
 
 
-class AbstractSheetUser(ABC, Generic[PropertySetItem, PropertyItem]):
+class AbstractSheetUser(
+    QABC,
+    # QObject,  # NB: We expect subclasses to descend from QObject
+    Generic[PropertySetItem, PropertyItem],
+):
     def __init__(self, *args: Any, **kwargs: Any) -> None:
-        super().__init__(*args, **kwargs)
-
         self.__sheet: Sheet | None = None
         self.__prop_set_to_item: dict[PropertySet, PropertySetItem] = {}
         self.__prop_to_item: dict[Property[Any], PropertyItem] = {}
         self.__show_expert = False
         self.__show_hidden = False
+
+        super().__init__(*args, **kwargs)
+
+        self.__add_property_set_signal.connect(self.__add_property_set)  # pyright: ignore[reportUnknownMemberType, reportAttributeAccessIssue]
+        self.__remove_property_set_signal.connect(self.__remove_property_set)  # pyright: ignore[reportUnknownMemberType, reportAttributeAccessIssue]
+        self.__add_property_signal.connect(self.__add_property)  # pyright: ignore[reportUnknownMemberType, reportAttributeAccessIssue]
+        self.__remove_property_signal.connect(self.__remove_property)  # pyright: ignore[reportUnknownMemberType, reportAttributeAccessIssue]
+        self.__on_property_event_signal.connect(self._on_property_event)  # pyright: ignore[reportUnknownMemberType, reportAttributeAccessIssue]
 
     @property
     def show_expert(self) -> bool:
@@ -70,6 +89,7 @@ class AbstractSheetUser(ABC, Generic[PropertySetItem, PropertyItem]):
     # Sheets
     #
 
+    # Can run in any thread
     def set_sheet(self, sheet: Sheet | None) -> None:
         if self.__sheet is not None:
             self.__clear_sheet()
@@ -79,19 +99,21 @@ class AbstractSheetUser(ABC, Generic[PropertySetItem, PropertyItem]):
             return
 
         for prop_set in sheet.property_sets:
-            self.__add_property_set(prop_set)
+            self.__add_property_set_signal.emit(prop_set)  # pyright: ignore[reportUnknownMemberType, reportAttributeAccessIssue]
 
         sheet.listeners += self.__sheet_event
         self.__sheet = sheet
 
+    # Can run in any thread
     def __clear_sheet(self) -> None:
         # NB: Capture it in tuple because it is going to change size during operation
         for prop_set in tuple(self.__prop_set_to_item):
-            self.__remove_property_set(prop_set)
+            self.__remove_property_set_signal.emit(prop_set)
 
         assert not self.__prop_set_to_item
         assert not self.__prop_to_item
 
+    # Can run in any thread
     @contextmanager
     def __sheet_event(
         self,
@@ -103,10 +125,10 @@ class AbstractSheetUser(ABC, Generic[PropertySetItem, PropertyItem]):
         match kind:
             case SheetModificationKind.RemovePropertySet | SheetModificationKind.ReplacePropertySet:
                 assert old_prop_set is not None, 'Cannot remove a None property set'
-                self.__remove_property_set(old_prop_set)
+                self.__remove_property_set_signal.emit(old_prop_set)
             case SheetModificationKind.ClearAllPropertySet:
                 for prop_set in sheet.property_sets:
-                    self.__remove_property_set(prop_set)
+                    self.__remove_property_set_signal.emit(prop_set)
             case _:
                 pass
 
@@ -115,7 +137,7 @@ class AbstractSheetUser(ABC, Generic[PropertySetItem, PropertyItem]):
         match kind:
             case SheetModificationKind.AddPropertySet | SheetModificationKind.ReplacePropertySet:
                 assert new_prop_set is not None, 'Cannot add a None property'
-                self.__add_property_set(new_prop_set)
+                self.__add_property_set_signal.emit(new_prop_set)  # pyright: ignore[reportUnknownMemberType, reportAttributeAccessIssue]
             case _:
                 pass
 
@@ -123,6 +145,9 @@ class AbstractSheetUser(ABC, Generic[PropertySetItem, PropertyItem]):
     # Property Sets
     #
 
+    __add_property_set_signal = Signal(PropertySet)
+
+    # Runs only in the QObject thread
     def __add_property_set(self, prop_set: PropertySet) -> None:
         if prop_set.is_hidden and not self.__show_hidden:
             return
@@ -138,14 +163,19 @@ class AbstractSheetUser(ABC, Generic[PropertySetItem, PropertyItem]):
             self.__prop_set_to_item[prop_set] = item
             prop_set.listeners += self.__property_set_event
 
+    # Runs only in the QObject thread
     def _accept_property_set(self, prop: PropertySet) -> bool:
         return True
 
+    # Runs only in the QObject thread
     @contextmanager
     @abstractmethod
     def _on_adding_property_set(self, prop_set: PropertySet) -> Iterator[PropertySetItem]:
         raise NotImplementedError
 
+    __remove_property_set_signal = Signal(PropertySet)
+
+    # Runs only in the QObject thread
     def __remove_property_set(self, prop_set: PropertySet) -> None:
         if prop_set not in self.__prop_set_to_item:
             return
@@ -156,6 +186,7 @@ class AbstractSheetUser(ABC, Generic[PropertySetItem, PropertyItem]):
                 self.__remove_property(prop)
             del self.__prop_set_to_item[prop_set]
 
+    # Runs only in the QObject thread
     @contextmanager
     @abstractmethod
     def _on_removing_property_set(
@@ -165,9 +196,11 @@ class AbstractSheetUser(ABC, Generic[PropertySetItem, PropertyItem]):
     ) -> Iterator[None]:
         raise NotImplementedError
 
+    # Can run in any thread
     def _get_property_set_item(self, prop_set: PropertySet) -> PropertySetItem:
         return self.__prop_set_to_item[prop_set]
 
+    # Can run in any thread
     @contextmanager
     def __property_set_event(
         self,
@@ -182,10 +215,10 @@ class AbstractSheetUser(ABC, Generic[PropertySetItem, PropertyItem]):
                 | PropertySetModificationKind.ReplaceProperty
             ):
                 assert old_prop is not None, 'Cannot remove a None property'
-                self.__remove_property(old_prop)
+                self.__remove_property_signal.emit(old_prop)
             case PropertySetModificationKind.ClearAllProperties:
                 for prop in prop_set.properties:
-                    self.__remove_property(prop)
+                    self.__remove_property_signal.emit(prop)
             case _:
                 pass
 
@@ -198,7 +231,7 @@ class AbstractSheetUser(ABC, Generic[PropertySetItem, PropertyItem]):
             ):
                 assert new_prop is not None, 'Cannot add a None property'
                 parent_item = self.__prop_set_to_item[prop_set]
-                self.__add_property(new_prop, parent_item)
+                self.__add_property_signal.emit(new_prop, parent_item)
             case _:
                 pass
 
@@ -206,6 +239,9 @@ class AbstractSheetUser(ABC, Generic[PropertySetItem, PropertyItem]):
     # Properties
     #
 
+    __add_property_signal = Signal(Property, object)
+
+    # Runs only in the QObject thread
     def __add_property(self, prop: Property[Any], parent_item: PropertySetItem) -> None:
         if prop.is_hidden and not self.__show_hidden:
             return
@@ -218,9 +254,11 @@ class AbstractSheetUser(ABC, Generic[PropertySetItem, PropertyItem]):
             self.__prop_to_item[prop] = item
             prop.listeners += self.__prop_event
 
+    # Runs only in the QObject thread
     def _accept_property(self, prop: Property[Any]) -> bool:
         return True
 
+    # Runs only in the QObject thread
     @contextmanager
     @abstractmethod
     def _on_adding_property(
@@ -230,6 +268,9 @@ class AbstractSheetUser(ABC, Generic[PropertySetItem, PropertyItem]):
     ) -> Iterator[PropertyItem]:
         raise NotImplementedError
 
+    __remove_property_signal = Signal(Property)
+
+    # Runs only in the QObject thread
     def __remove_property(self, prop: Property[Any]) -> None:
         if prop not in self.__prop_to_item:
             return
@@ -238,14 +279,17 @@ class AbstractSheetUser(ABC, Generic[PropertySetItem, PropertyItem]):
             prop.listeners -= self.__prop_event
             del self.__prop_to_item[prop]
 
+    # Runs only in the QObject thread
     @contextmanager
     @abstractmethod
     def _on_removing_property(self, prop: Property[Any], item: PropertyItem) -> Iterator[None]:
         raise NotImplementedError
 
+    # Can run in any thread
     def _get_property_item(self, prop: Property[Any]) -> PropertyItem:
         return self.__prop_to_item[prop]
 
+    # Can run in any thread
     def __prop_event(
         self,
         prop: Property[Any],
@@ -254,8 +298,11 @@ class AbstractSheetUser(ABC, Generic[PropertySetItem, PropertyItem]):
         new_value: Any,  # noqa: ANN401
     ) -> None:
         item = self.__prop_to_item[prop]
-        self._on_property_event(prop, attr_name, old_value, new_value, item)
+        self.__on_property_event_signal.emit(prop, attr_name, old_value, new_value, item)
 
+    __on_property_event_signal = Signal(Property, str, object, object, object)
+
+    # Runs only in the QObject thread
     @abstractmethod
     def _on_property_event(
         self,

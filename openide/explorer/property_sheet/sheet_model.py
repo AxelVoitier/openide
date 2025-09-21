@@ -22,7 +22,6 @@ from PySide6.QtCore import QModelIndex, QPersistentModelIndex, Qt, Signal
 from PySide6.QtGui import QStandardItem, QStandardItemModel
 
 from openide.nodes import AbstractSheetUser
-from openide.utils_qt import QABC
 
 # Local imports
 
@@ -38,16 +37,18 @@ __all__: Final = ('SheetModel',)
 _logger = logging.getLogger(__name__)
 
 
-class SheetModel(AbstractSheetUser[QStandardItem, QStandardItem], QABC, QStandardItemModel):
+class SheetModel(AbstractSheetUser[QStandardItem, QStandardItem], QStandardItemModel):
     section_span = Signal(int, QModelIndex, bool, arguments=['row', 'parent', 'span'])
     expand = Signal(QModelIndex, bool, arguments=['index', 'expanded'])
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
+        self.__currently_setting: set[Property[Any]] = set()
+
         super().__init__(*args, **kwargs)
 
         self.setColumnCount(2)
-        self.__currently_setting: set[Property[Any]] = set()
 
+    # Runs only in the QObject thread
     @contextmanager
     @override  # AbstractSheetUser
     def _on_adding_property_set(self, prop_set: PropertySet) -> Iterator[QStandardItem]:
@@ -62,6 +63,7 @@ class SheetModel(AbstractSheetUser[QStandardItem, QStandardItem], QABC, QStandar
         self.section_span.emit(item.row(), QModelIndex(), True)  # noqa: FBT003
         self.expand.emit(item.index(), True)  # noqa: FBT003
 
+    # Runs only in the QObject thread
     @contextmanager
     @override  # AbstractSheetUser
     def _on_removing_property_set(
@@ -72,6 +74,7 @@ class SheetModel(AbstractSheetUser[QStandardItem, QStandardItem], QABC, QStandar
         yield
         self.removeRow(item.row())
 
+    # Runs only in the QObject thread
     @contextmanager
     @override  # AbstractSheetUser
     def _on_adding_property(
@@ -102,12 +105,14 @@ class SheetModel(AbstractSheetUser[QStandardItem, QStandardItem], QABC, QStandar
 
         parent_item.appendRow([name_item, value_item])
 
+    # Runs only in the QObject thread
     @contextmanager
     @override  # AbstractSheetUser
     def _on_removing_property(self, prop: Property[Any], item: QStandardItem) -> Iterator[None]:
         yield
         item.parent().removeRow(item.row())
 
+    # Runs only in the QObject thread
     @override  # AbstractSheetUser
     def _on_property_event(
         self,
