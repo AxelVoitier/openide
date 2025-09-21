@@ -5,7 +5,7 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # spell-checker:words
-# spell-checker:ignore
+# spell-checker:ignore fdel
 
 """"""
 
@@ -13,6 +13,7 @@ from __future__ import annotations
 
 # System imports
 from abc import ABC, abstractmethod
+from collections.abc import MutableMapping
 from copy import copy
 from enum import Enum, auto
 from functools import partial
@@ -20,7 +21,7 @@ from typing import TYPE_CHECKING, Any, Generic, Protocol, Self, TypeVar, cast, o
 from weakref import ReferenceType
 
 # Third-party imports
-from listeners import PropertyListener, observable_property
+from listeners import Listeners, PropertyListener, observable_property
 
 # Local imports
 
@@ -30,10 +31,8 @@ KT = TypeVar('KT')  # Key Type
 IT = TypeVar('IT')  # Item Type
 ES_contra = TypeVar('ES_contra', contravariant=True)  # Event source
 if TYPE_CHECKING:
-    from collections.abc import Callable, Iterator
+    from collections.abc import Callable, Collection, Iterator
     from typing import Final
-
-    from listeners import Listeners
 
     from openide.nodes import GetterSetterProperty
 
@@ -63,7 +62,7 @@ def node_property(
     is_preferred: bool | None = None,
     force_no_getter: bool = False,
     force_no_setter: bool = False,
-) -> type[observable_property]:
+) -> type[observable_property[FeatureDescriptor, Any]]:
     return partial(
         _NodeProperty,
         system_name=system_name,
@@ -74,10 +73,10 @@ def node_property(
         is_preferred=is_preferred,
         force_no_getter=force_no_getter,
         force_no_setter=force_no_setter,
-    )
+    )  # pyright: ignore[reportReturnType]
 
 
-class _NodeProperty(observable_property):
+class _NodeProperty(observable_property['FeatureDescriptor', Any]):
     __slots__ = (
         '__display_name',
         '__doc__',
@@ -114,7 +113,7 @@ class _NodeProperty(observable_property):
         self.__force_no_getter = force_no_getter
         self.__force_no_setter = force_no_setter
 
-    def _set_attributes(self, prop: GetterSetterProperty) -> None:
+    def _set_attributes(self, prop: GetterSetterProperty[Any]) -> None:
         if self.__system_name is not None:
             prop.system_name = self.__system_name
         if self.__display_name is not None:
@@ -132,6 +131,7 @@ class _NodeProperty(observable_property):
         if self.__force_no_setter:
             prop.force_no_setter()
 
+    @override  # property
     def getter(self, fget: Callable[[Any], Any], /) -> Self:
         return type(self)(
             fget,
@@ -148,6 +148,7 @@ class _NodeProperty(observable_property):
             force_no_setter=self.__force_no_setter,
         )
 
+    @override  # property
     def setter(self, fset: Callable[[Any, Any], None], /) -> Self:
         return type(self)(
             self.fget,
@@ -164,6 +165,7 @@ class _NodeProperty(observable_property):
             force_no_setter=self.__force_no_setter,
         )
 
+    @override  # property
     def deleter(self, fdel: Callable[[Any], None], /) -> Self:
         return type(self)(
             self.fget,
@@ -179,6 +181,44 @@ class _NodeProperty(observable_property):
             force_no_getter=self.__force_no_getter,
             force_no_setter=self.__force_no_setter,
         )
+
+
+class _FeatureListeners(MutableMapping[str, Listeners[PropertyListener['FeatureDescriptor', Any]]]):
+    __slots__ = ('__feature',)
+
+    def __init__(self, feature: FeatureDescriptor) -> None:
+        super().__init__()
+
+        self.__feature = feature
+
+    @override  # Mapping
+    def __getitem__(self, key: str) -> Listeners[PropertyListener[FeatureDescriptor, Any]]:
+        feature = self.__feature
+        return cast(
+            'observable_property[FeatureDescriptor, Any]',
+            getattr(type(feature), key),
+        ).get_listeners(feature)
+
+    @override  # MutableMapping
+    def __setitem__(
+        self,
+        key: str,
+        value: Listeners[PropertyListener[FeatureDescriptor, Any]],
+    ) -> None:
+        pass
+
+    @override  # MutableMapping
+    def __delitem__(self, key: str) -> None:
+        msg = 'Cannot delete a listeners'
+        raise TypeError(msg)
+
+    @override  # Iterable
+    def __iter__(self) -> Iterator[str]:
+        return iter(self.__feature._sub_property_names())
+
+    @override  # Iterable
+    def __len__(self) -> int:
+        return len(self.__feature._sub_property_names())
 
 
 class FeatureDescriptor:
@@ -221,7 +261,19 @@ class FeatureDescriptor:
         # Lazy instantiation of dynamic attribute dict
         self.__values: dict[str, Any] | None = None
 
+        self.feature_listeners = _FeatureListeners(self)
+
         super().__init__(**kwargs)
+
+    def _sub_property_names(self) -> Collection[str]:
+        return (
+            'system_name',
+            'display_name',
+            'is_preferred',
+            'is_hidden',
+            'is_expert',
+            'short_description',
+        )
 
     def __copy_init_kwargs__(self) -> dict[str, Any]:
         if hasattr(super(), '__copy_init_kwargs__'):
