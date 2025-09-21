@@ -40,7 +40,7 @@ cmd.add_typer(lookup_cli, name='lookup')
 
 
 @config_cli.command('show')
-def config_show() -> None:
+def config_show(form='tree') -> None:  # Literal['tree', 'yaml', 'json']
     def per_package_cb(package_name: str, config: str) -> None:
         print(f'Found config for package {package_name}:')
         print('----------')
@@ -50,24 +50,36 @@ def config_show() -> None:
 
     full_config = load_config(per_package_cb)
 
-    def handle_value(k: str, v: Any, tree: Tree) -> None:
-        if isinstance(v, dict):
-            sub_tree = tree.add(k)
-            traverse(v, sub_tree)
-        elif isinstance(v, list):
-            sub_tree = tree.add(k)
-            for vv in v:
-                handle_value('-', vv, sub_tree)
-        else:
-            tree.add(f'{k}: {v}')
+    if form == 'tree':
 
-    def traverse(config: dict[str, Any], tree: Tree) -> None:
-        for k, v in config.items():
-            handle_value(k, v, tree)
+        def handle_value(k: str, v: Any, tree: Tree) -> None:
+            if isinstance(v, dict):
+                sub_tree = tree.add(k)
+                traverse(v, sub_tree)
+            elif isinstance(v, list):
+                sub_tree = tree.add(k)
+                for vv in v:
+                    handle_value('-', vv, sub_tree)
+            else:
+                tree.add(f'{k}: {v}')
 
-    root_tree = Tree('Final config:', guide_style='bold bright_green')
-    traverse(full_config, root_tree)
-    print(root_tree)
+        def traverse(config: dict[str, Any], tree: Tree) -> None:
+            for k, v in config.items():
+                handle_value(k, v, tree)
+
+        root_tree = Tree('Final config:', guide_style='bold bright_green')
+        traverse(full_config, root_tree)
+        print(root_tree)
+
+    elif form == 'yaml':
+        import yaml
+
+        print(yaml.dump(full_config.prune_none().to_dict()))
+
+    elif form == 'json':
+        import json
+
+        print(json.dumps(full_config.prune_none().to_dict()))
 
 
 @lookup_cli.command('ls')
