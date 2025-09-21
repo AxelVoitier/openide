@@ -5,7 +5,7 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # spell-checker:words openide
-# spell-checker:ignore fqname uifile
+# spell-checker:ignore fqname uifile qabc
 
 from __future__ import annotations
 
@@ -26,12 +26,11 @@ from openide.actions import Actions
 from openide.integrations import mark_setup
 from openide.services import WindowManager
 from openide.utils import (
-    MetaClassResolver,
     class_decorator,
     class_decorator_ext,
     class_loader,
 )
-from openide.utils_qt import load_ui_from_resource
+from openide.utils_qt import QABC, load_ui_from_resource
 
 if TYPE_CHECKING:
     from typing import Final, TypeVar
@@ -74,7 +73,7 @@ class ComponentConfig(ComponentConfigDescription, ComponentConfigRegistration):
     pass
 
 
-class TopComponent(MetaClassResolver(LookupProvider, QWidget), LookupProvider, QWidget):
+class TopComponent(LookupProvider, QABC, QWidget):
     PREFERRED_ID: str
     DISPLAY_NAME: str
     ICON_BASE: str | None = None
