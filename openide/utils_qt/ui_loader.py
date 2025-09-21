@@ -7,6 +7,7 @@ from __future__ import annotations
 import importlib
 import importlib.resources
 import logging
+from pathlib import Path
 from typing import TYPE_CHECKING, cast
 from xml.etree.ElementTree import ElementTree
 
@@ -19,9 +20,14 @@ from typing_extensions import override
 # Local imports
 
 if TYPE_CHECKING:
-    from pathlib import Path
+    from typing import Final
 
     from PySide6.QtWidgets import QWidget
+
+__all__: Final = (
+    'load_ui',
+    'load_ui_from_resource',
+)
 
 _logger = logging.getLogger(__name__)
 

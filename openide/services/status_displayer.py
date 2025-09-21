@@ -9,10 +9,16 @@ from __future__ import annotations
 # System imports
 from abc import abstractmethod
 from enum import IntEnum
+from typing import TYPE_CHECKING
 
 # Third-party imports
 # Local imports
-from openide.services import ServiceSingletonABCMeta
+from openide.services.registration import ServiceSingletonABCMeta
+
+if TYPE_CHECKING:
+    from typing import Final
+
+__all__: Final = ('StatusDisplayer',)
 
 
 class StatusDisplayer(metaclass=ServiceSingletonABCMeta):

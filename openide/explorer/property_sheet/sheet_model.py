@@ -6,14 +6,13 @@
 #
 # spell-checker:enableCompoundWords
 # spell-checker:words
-# spell-checker:ignore pset descr
+# spell-checker:ignore pset descr qabc
 """"""
 
 from __future__ import annotations
 
-import logging
-
 # System imports
+import logging
 from contextlib import contextmanager
 from enum import Enum
 from typing import TYPE_CHECKING, cast, override
@@ -30,10 +29,11 @@ from openide.utils_qt import QABC
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
-    from typing import Any
+    from typing import Any, Final
 
     from openide.nodes import Property, PropertySet
 
+__all__: Final = ('SheetModel',)
 
 _logger = logging.getLogger(__name__)
 

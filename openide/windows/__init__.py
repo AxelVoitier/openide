@@ -4,16 +4,12 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-# ruff: noqa: I001  # Order matters to avoid circular imports
+from . import context_tracker, main_window, top_component
+from .context_tracker import *  # noqa: F403
+from .main_window import *  # noqa: F403
+from .top_component import *  # noqa: F403
 
-from .context_tracker import ContextTracker
-from .top_component import ComponentConfig, Location, TopComponent
-from .main_window import MainWindow
-
-__all__ = [
-    'ComponentConfig',
-    'ContextTracker',
-    'Location',
-    'MainWindow',
-    'TopComponent',
-]
+__all__: list[str] = []
+__all__ += context_tracker.__all__
+__all__ += top_component.__all__
+__all__ += main_window.__all__

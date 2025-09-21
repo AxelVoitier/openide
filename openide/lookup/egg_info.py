@@ -27,9 +27,11 @@ from openide.utils import class_loader
 T = TypeVar('T')
 if TYPE_CHECKING:
     from collections.abc import Sequence
+    from typing import Final
 
     from lookups.lookup import Item
 
+__all__: Final = ('EggInfoLookup',)
 
 _logger = logging.getLogger(__name__)
 

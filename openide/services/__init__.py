@@ -10,26 +10,18 @@
 # ruff: noqa: I001
 
 # Order matters to avoid cyclic imports
+from . import registration
+from . import global_context, package_lifecycle, status_displayer, window_manager
 
-from .registration import (
-    ServiceConfig,
-    ServiceProvider,
-    ServiceSingletonABCMeta,
-    ServiceSingletonMeta,
-)
+from .registration import *  # noqa: F403
+from .global_context import *  # noqa: F403
+from .package_lifecycle import *  # noqa: F403
+from .status_displayer import *  # noqa: F403
+from .window_manager import *  # noqa: F403
 
-from .global_context import GlobalContext
-from .package_lifecycle import PackageLifecycle
-from .status_displayer import StatusDisplayer
-from .window_manager import WindowManager
-
-__all__ = [
-    'GlobalContext',
-    'PackageLifecycle',
-    'ServiceConfig',
-    'ServiceProvider',
-    'ServiceSingletonABCMeta',
-    'ServiceSingletonMeta',
-    'StatusDisplayer',
-    'WindowManager',
-]
+__all__: list[str] = []
+__all__ += registration.__all__
+__all__ += global_context.__all__
+__all__ += package_lifecycle.__all__
+__all__ += status_displayer.__all__
+__all__ += window_manager.__all__

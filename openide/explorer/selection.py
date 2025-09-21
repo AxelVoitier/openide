@@ -29,9 +29,14 @@ from openide.nodes import Node
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
-    from typing import Any
+    from typing import Any, Final
 
     from openide.explorer.model import ModelIndex
+
+__all__: Final = (
+    'NodeSelection',
+    'NodeSelectionModel',
+)
 
 
 class NodeSelection(QItemSelection, Generic[N, CN]):

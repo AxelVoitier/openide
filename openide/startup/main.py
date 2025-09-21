@@ -13,6 +13,7 @@ from __future__ import annotations
 import logging
 import sys
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 # Third-party imports
 from lookups import Lookup
@@ -21,6 +22,11 @@ from lookups import Lookup
 from openide.config import Config, load_config
 from openide.services import PackageLifecycle
 from openide.utils import SingletonMeta
+
+if TYPE_CHECKING:
+    from typing import Final
+
+__all__: Final = ('IDEApplication',)
 
 _logger = logging.getLogger(__name__)
 

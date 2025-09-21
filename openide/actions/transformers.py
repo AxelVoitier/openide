@@ -23,7 +23,16 @@ from PySide6.QtGui import QAction
 from openide.utils import MetaClassResolver
 
 if TYPE_CHECKING:
+    from typing import Final
+
     from lookups import Lookup
+
+__all__: Final = (
+    'ContextAwareAction',
+    'ContextMenuPresenter',
+    'MenuPresenter',
+    'ToolbarPresenter',
+)
 
 _logger = logging.getLogger(__name__)
 

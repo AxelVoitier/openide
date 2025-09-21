@@ -25,13 +25,17 @@ from PySide6.QtWidgets import QComboBox, QStyledItemDelegate
 # Local imports
 
 if TYPE_CHECKING:
-    from typing import Any, Literal
+    from typing import Any, Final, Literal
 
     from PySide6.QtCore import QAbstractItemModel, QModelIndex, QPersistentModelIndex
     from PySide6.QtWidgets import QStyleOptionViewItem, QWidget
 
     from openide.nodes import Property
 
+__all__: Final = (
+    'PropertyValueDelegate',
+    'TypeInfo',
+)
 
 _logger = logging.getLogger(__name__)
 

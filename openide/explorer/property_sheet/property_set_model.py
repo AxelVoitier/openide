@@ -1,20 +1,30 @@
+# Copyright (c) 2025 Contributors as noted in the AUTHORS file
+#
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+#
 # spell-checker:words dunder
 # spell-checker:ignore pset
 
 from __future__ import annotations
 
+# System imports
+import logging
 from enum import Enum, auto
 from functools import reduce
 from operator import add
 from typing import TYPE_CHECKING, ClassVar, Protocol
 
+# Third-party imports
 from listeners import Listeners, Observable
 
+# Local imports
 from openide.nodes import Property
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterable, Iterator, Sequence
-    from typing import Any, TypeAlias, TypeVar
+    from typing import Any, Final, TypeAlias, TypeVar
 
     from openide.nodes import PropertySet
 
@@ -27,6 +37,14 @@ if TYPE_CHECKING:
         def __gt__(self, other: _T_contra, /) -> bool: ...
 
     SupportsRichComparison: TypeAlias = SupportsDunderLT[Any] | SupportsDunderGT[Any]
+
+__all__: Final = (
+    'PropertySetModel',
+    'PropertySetModelChangeProtocol',
+    'PropertySetModelChangeType',
+)
+
+_logger = logging.getLogger(__name__)
 
 
 class PropertySetModelChangeType(Enum):

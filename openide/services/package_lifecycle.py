@@ -12,11 +12,18 @@
 from __future__ import annotations
 
 # System imports
+from typing import TYPE_CHECKING
+
 # Third-party imports
 from typing_extensions import override
 
 # Local imports
-from openide.services import ServiceSingletonABCMeta
+from openide.services.registration import ServiceSingletonABCMeta
+
+if TYPE_CHECKING:
+    from typing import Final
+
+__all__: Final = ('PackageLifecycle',)
 
 
 class PackageLifecycle(metaclass=ServiceSingletonABCMeta):

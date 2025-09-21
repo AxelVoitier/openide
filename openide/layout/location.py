@@ -7,14 +7,12 @@
 # spell-checker:enableCompoundWords
 # spell-checker:words
 # spell-checker:ignore fqname
-""""""
 
 from __future__ import annotations
 
 # System imports
 import logging
-from collections.abc import Iterable, Iterator, Mapping
-from dataclasses import dataclass
+from collections.abc import Iterator, Mapping
 from functools import partial
 from typing import (
     TYPE_CHECKING,
@@ -36,7 +34,7 @@ from openide.layout import LayoutConfig
 from openide.utils import class_decorator_ext
 
 if TYPE_CHECKING:
-    from typing import TypeVar
+    from typing import Final, TypeVar
 
     # Qt and QDockWidget will be imported at runtime within specific functions to avoid
     # import issue during the setup process
@@ -49,6 +47,14 @@ if TYPE_CHECKING:
     from openide.windows.top_component import TopComponent
 
     LC = TypeVar('LC', bound=type['Location'])
+
+__all__: Final = (
+    'Location',
+    'LocationConfig',
+    'LocationKind',
+    'LocationPathConfig',
+    'LocationsModel',
+)
 
 _logger = logging.getLogger(__name__)
 

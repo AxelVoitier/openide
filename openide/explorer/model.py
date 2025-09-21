@@ -23,7 +23,7 @@ from openide.utils_qt import QABC
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Iterator
-    from typing import Any, TypeAlias
+    from typing import Any, Final, TypeAlias
 
     from PySide6.QtCore import QObject
 
@@ -38,6 +38,8 @@ if TYPE_CHECKING:
 
 N = TypeVar('N', bound=Node[Any, Any])
 CN = TypeVar('CN', bound=Node[Any, Any])
+
+__all__: Final = ('NodeModel',)
 
 
 class NodeModel(NodeListener[N, CN], QABC, QAbstractItemModel):

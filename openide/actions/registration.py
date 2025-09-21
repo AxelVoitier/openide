@@ -18,7 +18,7 @@ from openide.integrations import mark_setup
 from openide.utils import class_decorator
 
 if TYPE_CHECKING:
-    from typing import Any, TypeVar
+    from typing import Any, Final, TypeVar
 
     from PySide6.QtGui import QAction
 
@@ -26,6 +26,12 @@ if TYPE_CHECKING:
     from openide.utils.datastructures import RecursiveDict
 
     AC = TypeVar('AC', bound=type['QAction'])
+
+__all__: Final = (
+    'ActionConfig',
+    'ActionReference',
+    'Actions',
+)
 
 
 @dataclasses.dataclass

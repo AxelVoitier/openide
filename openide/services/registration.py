@@ -20,13 +20,19 @@ from openide.integrations import mark_setup
 from openide.utils import class_decorator
 
 if TYPE_CHECKING:
-    from typing import Any, ClassVar, TypeVar
+    from typing import Any, ClassVar, Final, TypeVar
 
     from openide.utils.classes import ClassDecorator
     from openide.utils.datastructures import RecursiveDict
 
     C = TypeVar('C', bound=type)
 
+__all__: Final = (
+    'ServiceConfig',
+    'ServiceProvider',
+    'ServiceSingletonABCMeta',
+    'ServiceSingletonMeta',
+)
 
 _logger = logging.getLogger(__name__)
 

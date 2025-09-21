@@ -3,6 +3,9 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
+#
+# spell-checker:words metaclasses metas uniquify metatypes fqname passthrough
+# spell-checker:ignore shiboken pyside abstractmethods typeobject staticbase mcls
 
 from __future__ import annotations
 
@@ -21,16 +24,27 @@ from lookups import Lookup
 
 # Local imports
 
-_logger = logging.getLogger(__name__)
-
 C = TypeVar('C', bound=type)
 P = ParamSpec('P')
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterable, Iterator
-    from typing import Any, TypeAlias
+    from typing import Any, Final, TypeAlias
 
     ClassDecorator: TypeAlias = Callable[[C], C]
     ParametrisedClassDecorator: TypeAlias = Callable[P, ClassDecorator[C]]
+
+__all__: Final = (
+    'Debug',
+    'MetaClassResolver',
+    'SingletonABCMeta',
+    'SingletonMeta',
+    'class_decorator',
+    'class_decorator_ext',
+    'class_loader',
+    'dig_wrapped',
+)
+
+_logger = logging.getLogger(__name__)
 
 
 class SingletonMeta(type):
@@ -100,11 +114,11 @@ def MetaClassResolver(*subclasses: C, extra_metas: Iterable[type] | None = None)
     #
     # In a glimpse, it looks like if you revert the order of the subclasses of _ResolverMeta, it
     # seems to be working. But actually, because ATM PySide does not support cooperative multiple
-    # inheritence (ie. won't call super), ABCMeta.__new__ is never called, and the
+    # inheritance (ie. won't call super), ABCMeta.__new__ is never called, and the
     # __abstractmethods__ attribute on the class is never set. And if that was another metaclass
     # than ABCMeta, it would be the same, its __new__ would never be executed.
     # And in that case, we cannot make _ResolverMeta.__new__ explicitly call each subclass __new__,
-    # like you would in an __init__ in a diamond inheritence. Because each __new__ will return you a
+    # like you would in an __init__ in a diamond inheritance. Because each __new__ will return you a
     # different instance, when you want a unique one.
     #
     # The (cryptic) "is not safe" error comes from a check on Python side, from Objects/typeobject.c
@@ -197,7 +211,7 @@ def MetaClassResolver(*subclasses: C, extra_metas: Iterable[type] | None = None)
 
 def dig_wrapped(cls: C) -> C:
     while hasattr(cls, '__wrapped__'):
-        cls = cls.__wrapped__  # pyright: ignore[reportAttributeAccessIssue]
+        cls = cls.__wrapped__
     return cls
 
 

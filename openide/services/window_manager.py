@@ -12,11 +12,15 @@ from typing import TYPE_CHECKING
 
 # Third-party imports
 # Local imports
-from openide.services import ServiceSingletonABCMeta
+from openide.services.registration import ServiceSingletonABCMeta
 
 if TYPE_CHECKING:
+    from typing import Final
+
     from openide.layout import Location, LocationsModel
     from openide.windows.top_component import TopComponent
+
+__all__: Final = ('WindowManager',)
 
 
 class WindowManager(metaclass=ServiceSingletonABCMeta):

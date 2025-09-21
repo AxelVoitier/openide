@@ -4,15 +4,12 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-from .registration import ActionConfig, ActionReference, Actions
-from .transformers import ContextAwareAction, ContextMenuPresenter, MenuPresenter, ToolbarPresenter
+from __future__ import annotations
 
-__all__ = (
-    'ActionConfig',
-    'ActionReference',
-    'Actions',
-    'ContextAwareAction',
-    'ContextMenuPresenter',
-    'MenuPresenter',
-    'ToolbarPresenter',
-)
+from . import registration, transformers
+from .registration import *  # noqa: F403
+from .transformers import *  # noqa: F403
+
+__all__: list[str] = []
+__all__ += registration.__all__
+__all__ += transformers.__all__

@@ -10,11 +10,9 @@
 from __future__ import annotations
 
 # System imports
-import importlib.resources
 import logging
 import warnings
 from enum import StrEnum, auto
-from pathlib import Path
 from typing import TYPE_CHECKING, TypedDict
 
 # Third-party imports
@@ -36,7 +34,7 @@ from openide.utils import (
 from openide.utils_qt import load_ui_from_resource
 
 if TYPE_CHECKING:
-    from typing import TypeVar
+    from typing import Final, TypeVar
 
     from PySide6.QtCore import QObject
     from PySide6.QtGui import QHideEvent, QShowEvent
@@ -47,6 +45,11 @@ if TYPE_CHECKING:
 
     TC = TypeVar('TC', bound=type['TopComponent'])
 
+__all__: Final = (
+    'ComponentConfig',
+    'Location',
+    'TopComponent',
+)
 
 _logger = logging.getLogger(__name__)
 

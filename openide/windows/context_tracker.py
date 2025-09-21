@@ -14,30 +14,41 @@ from weakref import WeakSet, ref
 
 # Third-party imports
 from listeners import KeyedListeners, KeyedObservable
+from typing_extensions import override
 
 # Local imports
-from openide.utils import MetaClassResolver, SingletonABCMeta
+from openide.utils import SingletonABCMeta
 
+T = TypeVar('T')
 if TYPE_CHECKING:
     from collections.abc import Iterator
+    from typing import Final
     from weakref import ReferenceType
 
     from openide.windows.top_component import TopComponent
 
-
-T = TypeVar('T')
+__all__: Final = (
+    'ContextTracker',
+    'ContextTrackerChangeProtocol',
+    'ContextTrackerEvents',
+)
 
 
 class _ReadOnlySet(Set[T]):
     def __init__(self, delegate: WeakSet[T]) -> None:
+        super().__init__()
+
         self._delegate = delegate
 
+    @override  # Collection
     def __len__(self) -> int:
         return len(self._delegate)
 
+    @override  # AbstractSet
     def __contains__(self, other: object) -> bool:
         return other in self._delegate
 
+    @override  # Iterable
     def __iter__(self) -> Iterator[T]:
         return iter(self._delegate)
 

@@ -7,14 +7,19 @@
 from __future__ import annotations
 
 # System imports
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 # Third-party imports
 from lookups import Convertor, GenericLookup, InstanceContent, ProxyLookup
 
 # Local imports
-from openide.lookup import EggInfoLookup
+from openide.lookup.egg_info import EggInfoLookup
 from openide.utils import MetaClassResolver, SingletonMeta
+
+if TYPE_CHECKING:
+    from typing import Final
+
+__all__: Final = ('MainLookup',)
 
 
 class MainLookup(MetaClassResolver(ProxyLookup, extra_metas=[SingletonMeta])):

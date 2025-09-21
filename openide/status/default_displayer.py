@@ -26,7 +26,11 @@ from openide.services import ServiceProvider, StatusDisplayer, WindowManager
 from openide.utils import MetaClassResolver
 
 if TYPE_CHECKING:
+    from typing import Final
+
     from PySide6.QtWidgets import QMainWindow, QStatusBar
+
+__all__: Final = ()
 
 _logger = logging.getLogger(__name__)
 

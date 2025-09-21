@@ -17,9 +17,13 @@ from openide.services import GlobalContext, ServiceProvider
 from openide.windows import ContextTracker, ContextTrackerEvents
 
 if TYPE_CHECKING:
+    from typing import Final
+
     from lookups import Lookup
 
     from openide.windows.top_component import TopComponent
+
+__all__: Final = ()
 
 
 @ServiceProvider(service=GlobalContext)

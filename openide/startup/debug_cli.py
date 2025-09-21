@@ -24,6 +24,11 @@ from typer import Typer
 from openide.config import load_config
 from openide.startup.main import IDEApplication
 
+if TYPE_CHECKING:
+    from typing import Final
+
+__all__: Final = ()
+
 _logger = logging.getLogger(__name__)
 
 

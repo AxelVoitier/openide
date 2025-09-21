@@ -1,15 +1,35 @@
+# Copyright (c) 2025 Contributors as noted in the AUTHORS file
+#
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+#
+# spell-checker:enableCompoundWords
+# spell-checker:words
+# spell-checker:ignore
+
 from __future__ import annotations
 
+# System imports
+import logging
 from typing import TYPE_CHECKING, Any, cast, override
 
+# Third-party imports
 from PySide6.QtWidgets import QAbstractItemView, QHeaderView, QTreeView
 
+# Local imports
 from openide.explorer.property_sheet.editor_support import PropertyValueDelegate
 from openide.explorer.property_sheet.sheet_model import SheetModel
 
 if TYPE_CHECKING:
+    from typing import Final
+
     from PySide6.QtCore import QAbstractItemModel
     from PySide6.QtWidgets import QAbstractItemDelegate
+
+__all__: Final = ('SheetTable',)
+
+_logger = logging.getLogger(__name__)
 
 
 class SheetTable(QTreeView):

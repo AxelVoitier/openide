@@ -4,9 +4,10 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-from .request_processor import RequestProcessor, Task
+from __future__ import annotations
 
-__all__ = [
-    'RequestProcessor',
-    'Task',
-]
+from . import request_processor
+from .request_processor import *  # noqa: F403
+
+__all__: list[str] = []
+__all__ += request_processor.__all__

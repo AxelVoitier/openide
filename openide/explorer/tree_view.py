@@ -21,9 +21,13 @@ from openide.explorer.abstract_view import AbstractNodeView
 from openide.explorer.model import N
 
 if TYPE_CHECKING:
+    from typing import Final
+
     from PySide6.QtGui import QContextMenuEvent
 
     from openide.explorer.model import ModelIndex
+
+__all__: Final = ('NodeTreeView',)
 
 
 class NodeTreeView(AbstractNodeView[N], QTreeView):

@@ -21,6 +21,7 @@ from contextlib import contextmanager
 from itertools import count
 from queue import PriorityQueue
 from typing import (
+    TYPE_CHECKING,
     Any,
     Generic,
     Literal,
@@ -38,6 +39,13 @@ from typing_extensions import override
 
 P = ParamSpec('P')
 R_co = TypeVar('R_co', covariant=True)
+if TYPE_CHECKING:
+    from typing import Final
+
+__all__: Final = (
+    'RequestProcessor',
+    'Task',
+)
 
 _logger = logging.getLogger(__name__)
 

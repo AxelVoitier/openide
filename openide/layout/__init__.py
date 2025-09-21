@@ -21,18 +21,8 @@ class LayoutConfig(TypedDict):
 
 
 # Re-export part
-from .location import (  # noqa: E402
-    Location,
-    LocationConfig,
-    LocationKind,
-    LocationPathConfig,
-    LocationsModel,
-)
+from . import location  # noqa: E402
+from .location import *  # noqa: E402, F403
 
-__all__ = [
-    'Location',
-    'LocationConfig',
-    'LocationKind',
-    'LocationPathConfig',
-    'LocationsModel',
-]
+__all__: list[str] = []
+__all__ += location.__all__

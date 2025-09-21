@@ -25,13 +25,17 @@ from openide.utils.datastructures import RecursiveDict
 
 if TYPE_CHECKING:
     from collections.abc import Callable
-    from typing import Any
+    from typing import Any, Final
 
     from openide.actions import ActionConfig
     from openide.layout import LayoutConfig
     from openide.services.registration import ServiceConfig
     from openide.windows import ComponentConfig
 
+__all__: Final = (
+    'Config',
+    'load_config',
+)
 
 _logger = logging.getLogger(__name__)
 

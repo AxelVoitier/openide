@@ -18,7 +18,11 @@ from typing_extensions import override
 from openide.explorer.model import N, NodeModel
 
 if TYPE_CHECKING:
+    from typing import Final
+
     from openide.explorer.model import ModelIndex
+
+__all__: Final = ('AbstractNodeView',)
 
 
 # For some reasons, if we subclass QAbstractItemView,

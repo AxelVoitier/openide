@@ -7,11 +7,16 @@ from __future__ import annotations
 
 # System imports
 from collections.abc import Mapping
-from typing import Any, Self
+from typing import TYPE_CHECKING, Any, Self
 
 # Third-party imports
 
 # Local imports
+
+if TYPE_CHECKING:
+    from typing import Final
+
+__all__: Final = ('RecursiveDict',)
 
 
 class RecursiveDict(dict[Any, Any]):

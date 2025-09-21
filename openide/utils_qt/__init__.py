@@ -4,11 +4,12 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-from .classes import QABC
-from .ui_loader import load_ui, load_ui_from_resource
+from __future__ import annotations
 
-__all__ = [
-    'QABC',
-    'load_ui',
-    'load_ui_from_resource',
-]
+from . import classes, ui_loader
+from .classes import *  # noqa: F403
+from .ui_loader import *  # noqa: F403
+
+__all__: list[str] = []
+__all__ += classes.__all__
+__all__ += ui_loader.__all__

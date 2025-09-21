@@ -25,13 +25,18 @@ from openide import IDEApplication
 from openide.layout import LocationsModel
 from openide.services import ServiceProvider, WindowManager
 from openide.utils import MetaClassResolver, class_loader
-from openide.windows import ContextTracker, TopComponent
+from openide.windows.context_tracker import ContextTracker
+from openide.windows.top_component import TopComponent
 
 if TYPE_CHECKING:
+    from typing import Final
+
     from PySide6.QtGui import QAction, QCloseEvent
     from PySide6.QtWidgets import QMenu, QWidget
 
     from openide.layout import Location
+
+__all__: Final = ('MainWindow',)
 
 _logger = logging.getLogger(__name__)
 

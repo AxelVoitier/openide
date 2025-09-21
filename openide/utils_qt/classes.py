@@ -3,26 +3,33 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
+#
+# spell-checker:words abstractmethods
+# spell-checker:ignore qabc pylance
 
 from __future__ import annotations
 
 # System imports
 from abc import ABCMeta
-from typing import Self
+from typing import TYPE_CHECKING
 
 # Third-party imports
 from PySide6.QtCore import QObject
 
+if TYPE_CHECKING:
+    from typing import Any, Final, Self
+
+__all__: Final = ('QABC',)
+
+
 # Needed to make Generics work on user classes, despite all the "error" here...
-_QObjectType: type[type[QObject]] = type(QObject)  # type: ignore[valid-type]
+_QObjectType: type[type[QObject]] = type(QObject)
 
 
-class _QObjectTypeFence(_QObjectType):  # type: ignore[valid-type,misc]
-    ...
+class _QObjectTypeFence(_QObjectType): ...
 
 
-class _QABCMeta(_QObjectTypeFence, ABCMeta, _QObjectType):  # type: ignore[valid-type,misc]
-    ...
+class _QABCMeta(_QObjectTypeFence, ABCMeta, _QObjectType): ...
 
 
 class QABC(metaclass=_QABCMeta):

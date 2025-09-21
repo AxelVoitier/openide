@@ -40,3 +40,6 @@ def mark_setup(
         return func
 
     return _inner
+
+
+__all__: tuple[str, ...] = ()
