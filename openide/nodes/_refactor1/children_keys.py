@@ -24,7 +24,11 @@ from typing_extensions import override
 
 # Local imports
 from .children import ChildNode, Children, ChildrenEntry, ParentNode
-from .children_array import ChildrenArray
+from .children_array import (
+    ChildrenArray,
+    _ChildrenArrayBase,
+    _ChildrenArrayChildrenSubClassInterface,
+)
 
 Key = TypeVar('Key')
 
@@ -52,7 +56,7 @@ class __KeyEntry(ChildrenEntry[ChildNode], Generic[Key, ChildNode]):
     # OK, Match
     def __init__(
         self,
-        keys: ChildrenKeys[Key, ParentNode, ChildNode],
+        keys: _ChildrenKeysSubClassInterface[Key, ParentNode, ChildNode],
         key: Key | None = None,
     ) -> None:
         """Initialise the __KeyEntry.
@@ -158,76 +162,104 @@ class __KeyEntry(ChildrenEntry[ChildNode], Generic[Key, ChildNode]):
             return False
 
 
-class ChildrenKeys(
-    ChildrenArray[ParentNode, ChildNode],
-    ABC,
-    Generic[Key, ParentNode, ChildNode],
-):
-    """Implements an array of child nodes associated nonuniquely with keys and sorted by these keys.
-
-    There is a _create_nodes() method that should for each key create an array of
-    nodes that represents the key.
-
-    This class is preferable to ChildrenArray because:
-    - It more clearly separates model for view, and encourages use of a discrete model.
-    - It correctly handles adding, removing, and reordering children while preserving
-      existing node selections in a tree (or other) view where possible.
-
-    Typical usage:
-    - Subclass.
-    - Decide what type your key should be.
-    - Implements _create_nodes() to create some nodes (usually exactly one) per key.
-    - Override _add_notify() to comput a set of keys, and set it using _set_keys().
-      The collection of keys may be ordered.
-    - Override _remove_notify() to just call _set_keys() with an empty collection.
-    - When your model changes, call _set_keys() with the new set of keys. ChildrenKeys
-      will be smart and calculate exactly what it needs to do efficiently.
-    - Optional: if your notion of what the node for a given key changes (but the key
-      stays the same), you can call _refresh_key(). Usually this is not necessary
-
-    Note that for simple case, it may be preferable to subclass ChildFactory and
-    pass the result to Children.create(). Doing so makes it easy to switch to using
-    child nodes computed on a background thread if necessary for performance reasons.
-
-    Args:
-        Key: The type of a key.
-        ParentNode: The type of those children parent node.
-        ChildNode: The type of node those children have.
-    """
-
+class _ChildrenKeysBase(_ChildrenArrayBase[ParentNode, ChildNode]):
     _LOCK = RLock()
-    __LAST_RUNS: ClassVar[
-        MutableMapping[ChildrenKeys[Key, ParentNode, ChildNode], Callable[[], None]]
-    ] = {}
+    __LAST_RUNS: ClassVar[MutableMapping[_ChildrenKeysBase[Any, Any], Callable[[], None]]] = {}
     """The last runnable (created in method _set_keys()) for each children object"""
 
     # OK, Match
-    def __init__(self, *, _lazy: bool = False) -> None:
-        """Initialises a new ChildrenKeys.
+    # Should be __ private, but we need to call it from other internal classes
+    def _apply_keys(self, new_keys: Iterable[ChildrenEntry[ChildNode]]) -> None:
+        def implementation() -> None:
+            if not self.__keys_check(self, implementation):
+                return
 
-        There are certain requirements for usage of lazy mode:
-        It is forbidden to create more than 1 node in _create_nodes() for a given key.
-        In optimal case, there should be 1:1 pairing between key and node. But it
-        is also possible to have 1:0 pairing (ie. create no node by returning None).
-        In such case, after detection that there is no node for a key, the key is
-        automatically removed and a change event is fired (removal of "dummy" node).
+            self._entry_support._set_entries(new_keys)
+            self.__keys_exit(self, implementation)
 
-        Args:
-            _lazy: Optional lazy behaviour that tries to avoid computation of nodes if possible.
-        """
+        self.__keys_enter(self, implementation)
+        Children.MUTEX.post_write_request(implementation)
 
-        super().__init__(_lazy=_lazy)
+    # OK, Match
+    @classmethod
+    def __keys_enter(
+        cls,
+        children: _ChildrenKeysBase[ParentNode, ChildNode],
+        call: Callable[[], None],
+    ) -> None:
+        """Enter of _set_keys()"""
 
-        self.__before = False
-        """Tells if we add array children before or after keys ones"""
+        with cls._LOCK:
+            cls.__LAST_RUNS[children] = call
 
-    # TODO: Review
-    @override  # Array
-    def __deepcopy__(self, memo: dict[int, Any]) -> Self:
-        new = super().__deepcopy__(memo)
-        new.__before = self.__before
+    # OK, Match
+    @classmethod
+    def __keys_exit(
+        cls,
+        children: _ChildrenKeysBase[ParentNode, ChildNode],
+        call: Callable[[], None],
+    ) -> None:
+        """Clears the entry for the children"""
 
-        return new
+        with cls._LOCK:
+            was = cls.__LAST_RUNS.pop(children, None)
+
+            if (was is not None) and (was != call):
+                cls.__LAST_RUNS[children] = was
+
+    # OK, Match
+    @classmethod
+    def __keys_check(
+        cls,
+        children: _ChildrenKeysBase[ParentNode, ChildNode],
+        call: Callable[[], None],
+    ) -> bool:
+        """Check whether the callable is "the current" for a given children"""
+
+        with cls._LOCK:
+            return call == cls.__LAST_RUNS.get(children)
+
+    if TYPE_CHECKING:
+        # Following methods are defined in _ChildrenKeysSubClassInterface
+        @property
+        def _before(self) -> bool: ...
+        @_before.setter
+        def _before(self, value: bool) -> None: ...
+
+
+class _ChildrenKeysChildrenSubClassInterface(
+    _ChildrenKeysBase[ParentNode, ChildNode],
+    _ChildrenArrayChildrenSubClassInterface[ParentNode, ChildNode],
+):
+    # OK, Match
+    # Deprecated
+    @override
+    def add(self, nodes: Sequence[ChildNode]) -> bool:
+        """Do not use! Just call _set_keys() with a larger set."""
+
+        if self._lazy_support:
+            self._fallback_to_default_support()
+
+        return super().add(nodes)
+
+    # OK, Match
+    # Deprecated
+    @override
+    def remove(self, nodes: Sequence[ChildNode]) -> bool:
+        """Do not use! Just call _set_keys() with a smaller set."""
+
+        if self._lazy_support:
+            return False
+
+        with Children.MUTEX.write_access():
+            if self._nodes is not None:
+                # Removing from array, just if the array nodes are really created.
+                # Expecting  len(nodes) == 1, which is the usual case
+                nodes = [node for node in nodes if (node in self._nodes)]
+
+            super().remove(nodes)
+
+        return True
 
     # Compatibility with legacy ChildrenArray API
     # OK, Match
@@ -275,36 +307,21 @@ class ChildrenKeys(
             entry_support._set_entries(entries)
 
     # OK, Match
-    # Deprecated
-    @override
-    def add(self, nodes: Sequence[ChildNode]) -> bool:
-        """Do not use! Just call _set_keys() with a larger set."""
+    @override  # Children
+    def _destroy_nodes(self, nodes: Iterable[ChildNode]) -> None:
+        for node in nodes:
+            node._fire_node_destroyed()
 
-        if self._lazy_support:
-            self._fallback_to_default_support()
 
-        return super().add(nodes)
+class _ChildrenKeysSubClassInterface(
+    _ChildrenKeysBase[ParentNode, ChildNode],
+    Generic[Key, ParentNode, ChildNode],
+):
+    def __init__(self, **kwargs: Any) -> None:
+        self.__before = False
+        """Tells if we add array children before or after keys ones"""
 
-    # OK, Match
-    # Deprecated
-    @override
-    def remove(self, nodes: Sequence[ChildNode]) -> bool:
-        """Do not use! Just call _set_keys() with a smaller set."""
-
-        if self._lazy_support:
-            return False
-
-        with Children.MUTEX.write_access():
-            if self._nodes is not None:
-                # Removing from array, just if the array nodes are really created.
-                # Expecting  len(nodes) == 1, which is the usual case
-                nodes = [node for node in nodes if (node in self._nodes)]
-
-            super().remove(nodes)
-
-        return True
-
-    # Note: remove (L1414) is deprecated
+        super().__init__(**kwargs)
 
     # OK, Match
     @final
@@ -347,22 +364,24 @@ class ChildrenKeys(
             if not self._before and (self._nodes_entry is not None):
                 new_keys.append(self._nodes_entry)
 
-        self.__apply_keys(new_keys)
+        self._apply_keys(new_keys)
 
     # OK, Match
-    def __apply_keys(self, new_keys: Iterable[ChildrenEntry[ChildNode]]) -> None:
-        def implementation() -> None:
-            if not self.__keys_check(self, implementation):
-                return
+    @abstractmethod
+    def _create_nodes(self, key: Key) -> Sequence[ChildNode] | None:
+        """Creates nodes for a given key.
 
-            self._entry_support._set_entries(new_keys)
-            self.__keys_exit(self, implementation)
+        Args:
+            key: The key.
 
-        self.__keys_enter(self, implementation)
-        Children.MUTEX.post_write_request(implementation)
+        Returns:
+            Child nodes for this key, or None if there should be no nodes for this key.
+        """
+
+        raise NotImplementedError  # pragma: no cover
 
     @property
-    def _before(self) -> bool:
+    def _before(self) -> bool:  # pyright: ignore[reportImplicitOverride]
         """Tells if we add array children before or after keys ones"""
 
         return self.__before
@@ -389,64 +408,71 @@ class ChildrenKeys(
 
                 entry_support._set_entries(entries)
 
+
+class ChildrenKeys(
+    _ChildrenKeysSubClassInterface[Key, ParentNode, ChildNode],
+    _ChildrenKeysChildrenSubClassInterface[ParentNode, ChildNode],
+    _ChildrenKeysBase[ParentNode, ChildNode],
+    ChildrenArray[ParentNode, ChildNode],
+    ABC,
+    Generic[Key, ParentNode, ChildNode],
+):
+    """Implements an array of child nodes associated nonuniquely with keys and sorted by these keys.
+
+    There is a _create_nodes() method that should for each key create an array of
+    nodes that represents the key.
+
+    This class is preferable to ChildrenArray because:
+    - It more clearly separates model for view, and encourages use of a discrete model.
+    - It correctly handles adding, removing, and reordering children while preserving
+      existing node selections in a tree (or other) view where possible.
+
+    Typical usage:
+    - Subclass.
+    - Decide what type your key should be.
+    - Implements _create_nodes() to create some nodes (usually exactly one) per key.
+    - Override _add_notify() to compute a set of keys, and set it using _set_keys().
+      The collection of keys may be ordered.
+    - Override _remove_notify() to just call _set_keys() with an empty collection.
+    - When your model changes, call _set_keys() with the new set of keys. ChildrenKeys
+      will be smart and calculate exactly what it needs to do efficiently.
+    - Optional: if your notion of what the node for a given key changes (but the key
+      stays the same), you can call _refresh_key(). Usually this is not necessary
+
+    Note that for simple case, it may be preferable to subclass ChildFactory and
+    pass the result to Children.create(). Doing so makes it easy to switch to using
+    child nodes computed on a background thread if necessary for performance reasons.
+
+    Args:
+        Key: The type of a key.
+        ParentNode: The type of those children parent node.
+        ChildNode: The type of node those children have.
+    """
+
     # OK, Match
-    @abstractmethod
-    def _create_nodes(self, key: Key) -> Sequence[ChildNode] | None:
-        """Creates nodes for a given key.
+    def __init__(self, *, _lazy: bool = False) -> None:
+        """Initialises a new ChildrenKeys.
+
+        There are certain requirements for usage of lazy mode:
+        It is forbidden to create more than 1 node in _create_nodes() for a given key.
+        In optimal case, there should be 1:1 pairing between key and node. But it
+        is also possible to have 1:0 pairing (ie. create no node by returning None).
+        In such case, after detection that there is no node for a key, the key is
+        automatically removed and a change event is fired (removal of "dummy" node).
 
         Args:
-            key: The key.
-
-        Returns:
-            Child nodes for this key, or None if there should be no nodes for this key.
+            _lazy: Optional lazy behaviour that tries to avoid computation of nodes if possible.
         """
 
-        raise NotImplementedError  # pragma: no cover
+        super().__init__(_lazy=_lazy)
 
-    # OK, Match
-    @override  # Children
-    def _destroy_nodes(self, nodes: Iterable[ChildNode]) -> None:
-        for node in nodes:
-            node._fire_node_destroyed()
+    # TODO: Review
+    @override  # Array
+    def __deepcopy__(self, memo: dict[int, Any]) -> Self:
+        new = super().__deepcopy__(memo)
+        new.__before = self.__before
 
-    # OK, Match
-    @classmethod
-    def __keys_enter(
-        cls,
-        children: ChildrenKeys[Key, ParentNode, ChildNode],
-        call: Callable[[], None],
-    ) -> None:
-        """Enter of _set_keys()"""
-
-        with cls._LOCK:
-            cls.__LAST_RUNS[children] = call
-
-    # OK, Match
-    @classmethod
-    def __keys_exit(
-        cls,
-        children: ChildrenKeys[Key, ParentNode, ChildNode],
-        call: Callable[[], None],
-    ) -> None:
-        """Clears the entry for the children"""
-
-        with cls._LOCK:
-            was = cls.__LAST_RUNS.pop(children, None)
-
-            if (was is not None) and (was != call):
-                cls.__LAST_RUNS[children] = was
-
-    # OK, Match
-    @classmethod
-    def __keys_check(
-        cls,
-        children: ChildrenKeys[Key, ParentNode, ChildNode],
-        call: Callable[[], None],
-    ) -> bool:
-        """Check whether the callable is "the current" for a given children"""
-
-        with cls._LOCK:
-            return call == cls.__LAST_RUNS.get(children)
+        return new
 
 
 Children.Keys = ChildrenKeys
