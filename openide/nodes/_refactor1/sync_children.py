@@ -20,8 +20,8 @@ from typing_extensions import override
 
 # Local imports
 from .child_factory import ChildFactory
-from .children_keys import K, Keys
-from .node import ParentNode, ANode
+from .children import ChildNode, ParentNode
+from .children_keys import ChildrenKeys, Key
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, MutableSequence, Sequence
@@ -32,9 +32,9 @@ __all__: Final = ('SyncChildren',)
 _logger = logging.getLogger(__name__)
 
 
-class SyncChildren(Keys[K, ParentNode, ANode], ChildFactory.Observer):
+class SyncChildren(ChildrenKeys[Key, ParentNode, ChildNode], ChildFactory.Observer):
     # OK, Match
-    def __init__(self, factory: ChildFactory[K, ANode]) -> None:
+    def __init__(self, factory: ChildFactory[Key, ChildNode]) -> None:
         super().__init__()
 
         self.__factory = factory
@@ -56,12 +56,12 @@ class SyncChildren(Keys[K, ParentNode, ANode], ChildFactory.Observer):
 
     # OK, Match
     @override  # Keys
-    def _create_nodes(self, key: K) -> Sequence[ANode] | None:
+    def _create_nodes(self, key: Key) -> Sequence[ChildNode] | None:
         return self.__factory._create_nodes_for_key(key)
 
     # OK, Match
     @override  # Children and Keys
-    def _destroy_nodes(self, nodes: Iterable[ANode]) -> None:
+    def _destroy_nodes(self, nodes: Iterable[ChildNode]) -> None:
         super()._destroy_nodes(nodes)
         self.__factory._destroy_nodes(nodes)
 
@@ -70,7 +70,7 @@ class SyncChildren(Keys[K, ParentNode, ANode], ChildFactory.Observer):
     def refresh(self, *, immediate: bool) -> None:
         print(f'SyncChildren.refresh: {self._active=}')
         if self._active:
-            to_populate: MutableSequence[K] = []
+            to_populate: MutableSequence[Key] = []
             while not self.__factory._create_keys(to_populate):
                 pass
 

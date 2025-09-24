@@ -78,6 +78,11 @@ class _ChildrenCopy(Generic[ParentNode, ChildNode]):
 
 
 class _ChildrenSubClassInterface(ABC, Generic[ChildNode]):
+    # NB: As understood from the various Children implementations, these add() and remove()
+    # interfaces are remanent from an old, simplistic behaviour pretty much suitable only
+    # for ChildrenArray.
+    # --> Set to dissapear in _refactor2, most likely.
+
     @abstractmethod
     def add(self, nodes: Sequence[ChildNode]) -> bool:
         """Add nodes to this container.
@@ -115,6 +120,9 @@ class _ChildrenSubClassInterface(ABC, Generic[ChildNode]):
         """
         raise NotImplementedError
 
+    # Theory: ChildrenKeys._check_support() implementation kind-of point us toward the idea that
+    # this is part of ensuring compatibility with a legacy ChildrenArray interface.
+    #
     # OK, Match
     def _check_support(self) -> None:
         pass

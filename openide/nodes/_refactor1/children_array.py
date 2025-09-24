@@ -20,8 +20,14 @@ from typing import TYPE_CHECKING, Generic, final
 from typing_extensions import override
 
 # Local imports
-from .children import Children, ChildrenEntry, ChildrenEntrySupport, _ChildrenSubClassInterface
-from .node import ChildNode, ParentNode
+from .children import (
+    ChildNode,
+    Children,
+    ChildrenEntry,
+    ChildrenEntrySupport,
+    ParentNode,
+    _ChildrenSubClassInterface,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Callable, MutableSequence, Sequence
@@ -72,7 +78,7 @@ class _ChildrenArrayBase(Children[ParentNode, ChildNode]):
         if not _lazy:
             self._nodes_entry = self._create_nodes_entry()
 
-        self.__nodes = _nodes
+        self._nodes = _nodes
         """Collection of added children"""
 
     # OK, Match
@@ -85,8 +91,8 @@ class _ChildrenArrayBase(Children[ParentNode, ChildNode]):
         """
 
         with ChildrenArray._COLLECTION_LOCK:
-            if (nodes := self.__nodes) is None:
-                nodes = self.__nodes = self._init_collection()
+            if (nodes := self._nodes) is None:
+                nodes = self._nodes = self._init_collection()
 
         return nodes
 
@@ -182,8 +188,8 @@ class _ChildrenArraySubClassInterface(_ChildrenArrayBase[ParentNode, ChildNode])
                 self._entry_support._refresh_entry(self._nodes_entry)
                 self._entry_support.get_nodes(optimal_result=False)
 
-            elif self.__nodes is not None:
-                for node in self.__nodes:
+            elif self._nodes is not None:
+                for node in self._nodes:
                     node._assign_to(self, -1)
 
         Children.MUTEX.post_write_request(_implementation)
@@ -253,11 +259,11 @@ class ChildrenArray(
             new._nodes_entry = new._create_nodes_entry()
 
         with Children.MUTEX.read_access():
-            if self.__nodes is not None:
-                new.__nodes = new._init_collection()
-                new.__nodes.clear()
-                for node in self.__nodes:
-                    new.__nodes.append(node.clone())
+            if self._nodes is not None:
+                new._nodes = new._init_collection()
+                new._nodes.clear()
+                for node in self._nodes:
+                    new._nodes.append(node.clone())
 
         return new
 

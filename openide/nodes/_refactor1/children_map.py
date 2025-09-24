@@ -20,8 +20,7 @@ from typing import TYPE_CHECKING, Generic, TypeVar, final
 from typing_extensions import override
 
 # Local imports
-from .children import Children, ChildrenEntry, _ChildrenSubClassInterface
-from .node import ChildNode, ParentNode
+from .children import ChildNode, Children, ChildrenEntry, ParentNode, _ChildrenSubClassInterface
 
 T_Hashable = TypeVar('T_Hashable', bound=Hashable)
 
@@ -36,10 +35,10 @@ _logger = logging.getLogger(__name__)
 
 # OK, Match
 # TODO: For some reasons, original does not have this one private?!
-class __MapEntry(ChildrenEntry[ChildNode], Generic[T_Hashable, ChildNode]):
+class __MapEntry(ChildrenEntry[ChildNode]):
     """Entry mapping one key to a node"""
 
-    def __init__(self, key: T_Hashable, node: ChildNode) -> None:
+    def __init__(self, key: Hashable, node: ChildNode) -> None:
         super().__init__()
 
         self.key = key
@@ -183,7 +182,7 @@ class _ChildrenMapSubClassInterface(_ChildrenMapBase[T_Hashable, ParentNode, Chi
         """
 
         with Children.MUTEX.write_access():
-            self._entry_support._refresh_entry(__MapEntry(key, None))
+            self._entry_support._refresh_entry(__MapEntry[ChildNode](key, None))
 
     # OK, Match
     # Note: Calling the mutex-wrapped refresh methods as we inlined the implementation ones
