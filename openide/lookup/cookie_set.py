@@ -40,6 +40,7 @@ if TYPE_CHECKING:
     from lookups import Item
 
 __all__: Final = (
+    'Ck',
     'CookieFactory',
     'CookieSet',
     'CookieSetChangeProtocol',

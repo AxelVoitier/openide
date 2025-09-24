@@ -238,6 +238,7 @@ class GenericNode(Node[PN, CN]):
     # only access a list of PropertySet and not the Sheet itself" just seems like
     # some whatever Java-trust-issue madness...
     @property
+    @override  # Node
     def sheet(self) -> Sheet:
         return self._sheet
 

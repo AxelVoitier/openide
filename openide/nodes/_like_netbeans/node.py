@@ -49,7 +49,7 @@ if TYPE_CHECKING:
     from PySide6.QtWidgets import QMenu
 
     from openide.lookup.cookie_set import CookieSet
-    from openide.nodes._like_netbeans.children import Children  # noqa: TC004  # No it's not
+    from openide.nodes._like_netbeans.children import Children
     from openide.nodes._like_netbeans.children_storage import ChildrenStorage
     from openide.nodes._like_netbeans.node_listener import NodeListener
     from openide.nodes._like_netbeans.node_lookup import NodeLookup
@@ -751,6 +751,8 @@ class Node(FeatureDescriptor, LookupProvider, Generic[PN, CN], ABC):
             return
 
         attr = 'children_added' if added else 'children_removed'
+
+        from .children import Children  # noqa: PLC0415
 
         with Children.MUTEX.read_access():
             event = NodeMemberEvent(
