@@ -35,6 +35,11 @@ _logger = logging.getLogger(__name__)
 
 
 class _Empty(Children[ParentNode, NoNode]):
+    """Empty list of children.
+
+    Does not allow anybody to insert a node. Treated especially in the _attach_to() method.
+    """
+
     @override  # Children
     def add(self, nodes: Sequence[NoNode]) -> bool:
         return False

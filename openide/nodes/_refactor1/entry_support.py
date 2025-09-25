@@ -24,7 +24,7 @@ if TYPE_CHECKING:
     from collections.abc import Iterable, MutableSequence, Sequence
     from typing import Final
 
-    from .children import Children, ChildrenEntry
+    from .children import ChildrenEntry, _ChildrenEntrySupportInterface
 
 __all__: Final = ('EntrySupport',)
 
@@ -33,14 +33,14 @@ _logger = logging.getLogger(__name__)
 
 class EntrySupport(ABC, Generic[ParentNode, ChildNode]):
     # OK, Match
-    def __init__(self, children: Children[ParentNode, ChildNode]) -> None:
+    def __init__(self, children: _ChildrenEntrySupportInterface[ParentNode, ChildNode]) -> None:
         super().__init__()
 
         self.__children = children
 
     # Note: This is to keep children as a RO public attribute
     @property
-    def children(self) -> Children[ParentNode, ChildNode]:
+    def children(self) -> _ChildrenEntrySupportInterface[ParentNode, ChildNode]:
         return self.__children
 
     # OK, Match

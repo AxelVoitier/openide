@@ -24,7 +24,7 @@ from .children import (
     ChildNode,
     Children,
     ChildrenEntry,
-    ChildrenEntrySupport,
+    _ChildrenEntrySupportInterface,
     ParentNode,
     _ChildrenSubClassInterface,
 )
@@ -198,7 +198,7 @@ class _ChildrenArraySubClassInterface(_ChildrenArrayBase[ParentNode, ChildNode])
 
 class _ArrayChildrenEntrySupport(
     _ChildrenArrayBase[ParentNode, ChildNode],
-    ChildrenEntrySupport[ParentNode, ChildNode],
+    _ChildrenEntrySupportInterface[ParentNode, ChildNode],
 ):
     # OK, Match
     @override  # ChildrenEntrySupport

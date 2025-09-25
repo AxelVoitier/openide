@@ -15,7 +15,7 @@ from __future__ import annotations
 import logging
 from abc import ABC, abstractmethod
 from threading import RLock
-from typing import TYPE_CHECKING, Any, ClassVar, Generic, TypeVar, final
+from typing import TYPE_CHECKING, Any, ClassVar, Generic, TypeVar, final, override
 
 # Third-party imports
 # Local imports
@@ -44,37 +44,53 @@ _logger = logging.getLogger(__name__)
 
 
 class ChildrenEntry(ABC, Generic[ChildNode]):
+    """Interface that provides a set of nodes"""
+
     @abstractmethod
     def nodes(self, source: Any) -> MutableSequence[ChildNode]:  # noqa: ANN401
+        """Set of nodes associated with this entry"""
+
         raise NotImplementedError  # pragma: no cover
 
 
-class _ChildrenLock:
+class _ChildrenBase(Generic[ParentNode, ChildNode]):
     MUTEX: ClassVar = Mutex()
+    """Lock for access to hierarchy of all node lists.
+
+    Anyone who needs to ensure that there will not be shared accesses to hierarchy
+    nodes can use this mutex.
+
+    All operations on the hierarchy of nodes (add, remove, etc.) are done in the
+    Mutex.write_access() method of this lock. So if someone needs for a certain
+    amount of time to forbid modification, they can execute their code in Mutex.read_access().
+    """
+
     _LOCK: ClassVar = RLock()  # Class lock
 
-    def __init__(self, **kwargs: Any) -> None:
+    def __init__(self, *, _lazy: bool = False) -> None:
         self._lock = RLock()  # Instance lock
+        self._lazy_support = _lazy
 
-        super().__init__(**kwargs)
+        super().__init__()
 
+    # OK, Match
+    @property
+    def _is_lazy(self) -> bool:
+        return self._lazy_support
 
-class _ChildrenCopy(Generic[ParentNode, ChildNode]):
-    # TODO: Review
-    def __deepcopy__(self, memo: dict[int, Any]) -> Self:
-        """
-        Subclasses should first call super().__deepcopy__() to get
-        an instance. And then call their own SubClass.__init__(instance, ...)
-        (or do the initialisation in __deepcopy__ as they see fit).
+    if TYPE_CHECKING:
+        # Following methods are defined in _ChildrenEntrySupportInterface
+        @property
+        def _entry_support(self) -> EntrySupport[ParentNode, ChildNode]: ...
+        @property
+        def _entry_support_raw(self) -> EntrySupport[ParentNode, ChildNode] | None: ...
+        @_entry_support_raw.setter
+        def _entry_support_raw(self, value: EntrySupport[ParentNode, ChildNode] | None) -> None: ...
 
-        Subclasses that don't want to be cloned should overload
-        and just return Children.LEAF.
-        """
-
-        new = Children.__new__(type(self))
-        Children[ParentNode, ChildNode].__init__(new, _lazy=self._lazy_support)
-
-        return new
+        # Following method is defined in _ChildrenSubClassInterface
+        def _check_support(self) -> None: ...
+        def _add_notify(self) -> None: ...
+        def _remove_notify(self) -> None: ...
 
 
 class _ChildrenSubClassInterface(ABC, Generic[ChildNode]):
@@ -104,6 +120,7 @@ class _ChildrenSubClassInterface(ABC, Generic[ChildNode]):
         Returns:
             bool: True if successfully added. False otherwise.
         """
+
         raise NotImplementedError
 
     @abstractmethod
@@ -118,6 +135,7 @@ class _ChildrenSubClassInterface(ABC, Generic[ChildNode]):
         Returns:
             bool: True if the nodes could be removed. False otherwise.
         """
+
         raise NotImplementedError
 
     # Theory: ChildrenKeys._check_support() implementation kind-of point us toward the idea that
@@ -162,20 +180,39 @@ class _ChildrenSubClassInterface(ABC, Generic[ChildNode]):
         """
 
 
-class _ChildrenParentNodeInterface(_ChildrenLock, Generic[ParentNode, ChildNode]):
+class _ChildrenParentNodeInterface(_ChildrenBase[ParentNode, ChildNode]):
     def __init__(self, **kwargs: Any) -> None:
         self._parent: ParentNode | None = None
+        """Parent node for all nodes in this list"""
 
         super().__init__(**kwargs)
 
     @property
     def node(self) -> ParentNode | None:
+        """The parent node of these children, or none if they are detached"""
+
         return self._parent
 
     # OK, Match
     @final
     def _attach_to(self, parent: ParentNode) -> None:
+        """Setter of parent node for this list of children.
+
+        Each children in the list will have this node set as parent. The parent
+        node will return nodes in this list as its children.
+
+        This method is called from the Node constructor.
+
+        Args:
+            parent: The node to attach to.
+
+        Raises:
+            RuntimeError: When this object is already used with a different node.
+        """
+
+        # Special treatment for LEAF object
         if self is Children[ParentNode, ChildNode].LEAF:
+            # Do not attach the node because the LEAF cannot have children
             return
 
         with self._lock:
@@ -185,10 +222,13 @@ class _ChildrenParentNodeInterface(_ChildrenLock, Generic[ParentNode, ChildNode]
 
             self._parent = parent
 
+        # Do not get Children.MUTEX if not necessary
         nodes = self.__test_nodes()
         if not nodes:
             return
 
+        # This is the only place where parent is changed, but only under read_access()
+        # => Double check if it happened correctly.
         with Children.MUTEX.read_access():
             nodes = self.__test_nodes()
             if not nodes:
@@ -201,7 +241,15 @@ class _ChildrenParentNodeInterface(_ChildrenLock, Generic[ParentNode, ChildNode]
     # OK, Match
     @final
     def _detach_from(self) -> None:
+        """Called when node changes it's children to different nodes.
+
+        Raises:
+            RuntimeError: If the children were already detached.
+        """
+
+        # Special treatment for LEAF object
         if self is Children[ParentNode, ChildNode].LEAF:
+            # Nothing to do
             return
 
         with self._lock:
@@ -223,6 +271,14 @@ class _ChildrenParentNodeInterface(_ChildrenLock, Generic[ParentNode, ChildNode]
     # OK, Match
     @final
     def snapshot(self) -> Sequence[ChildNode]:
+        """Creates an immutable snapshot representing the current view of the nodes.
+
+        There are no attempt to remove incorrect or invalid nodes from the list.
+        As a result, the value may not be exactly the same as returned by get_nodes().
+
+        Returns:
+            An immutable sequence of nodes in this Children object.
+        """
         return self._entry_support._snapshot()
 
     # OK, Match
@@ -230,6 +286,15 @@ class _ChildrenParentNodeInterface(_ChildrenLock, Generic[ParentNode, ChildNode]
     # Or just let client code do len(children.nodes) or len(children.nodes_optimal)?
     # Note: getNodesCount() is final, but getNodesCount(optimalResult) is not.
     def get_nodes_count(self, *, optimal_result: bool = False) -> int:
+        """Get the number of nodes in the list.
+
+        Args:
+            optimal_result: Whether to try to perform a full initialisation.
+
+        Returns:
+            The count.
+        """
+
         self._check_support()
         return self._entry_support.get_nodes_count(optimal_result=optimal_result)
 
@@ -237,28 +302,34 @@ class _ChildrenParentNodeInterface(_ChildrenLock, Generic[ParentNode, ChildNode]
     @property
     @final
     def _is_initialised(self) -> bool:
+        """Tests whether the children content has ever been used or it is still not initialised"""
+
         return self._entry_support.is_initialised
 
     # OK, Match
     def __test_nodes(self) -> Sequence[ChildNode] | None:
         """Returns either nodes associated with this children, or None if they are not created."""
 
-        if (entry_support := self._ChildrenEntrySupport__entry_support) is not None:
+        if (entry_support := self._entry_support_raw) is not None:
             # Note: Compared to original, we are skipping the getter, sparing us a lock acquisition
             return entry_support.test_nodes()
         else:
             return None
 
 
-class ChildrenEntrySupport(Generic[ParentNode, ChildNode]):
+class _ChildrenEntrySupportInterface(_ChildrenBase[ParentNode, ChildNode]):
     def __init__(self, **kwargs: Any) -> None:
         self.__entry_support: EntrySupport[ParentNode, ChildNode] | None = None
+        """Access to entries/nodes"""
 
         super().__init__(**kwargs)
 
     # OK, Match
     @property
+    @override
     def _entry_support(self) -> EntrySupport[ParentNode, ChildNode]:
+        """Initialises entry support if needed"""
+
         with Children._LOCK:
             if (entry_support := self._entry_support_raw) is None:
                 if self._lazy_support:
@@ -280,11 +351,15 @@ class ChildrenEntrySupport(Generic[ParentNode, ChildNode]):
 
     # OK, Match
     def _post_init_entry_support(self, entry_support: EntrySupport[ParentNode, ChildNode]) -> None:
-        pass
+        """Let a subclass do further initialisation of entry support.
+
+        It is called just once, under internal lock so subclasses should behave sanely.
+        """
 
     # OK, Match
     @property
     def _entry_support_raw(self) -> EntrySupport[ParentNode, ChildNode] | None:
+        """The entry support, without attempt to initialise it first"""
         return self.__entry_support
 
     # OK, Match
@@ -296,6 +371,23 @@ class ChildrenEntrySupport(Generic[ParentNode, ChildNode]):
 
     # OK, Match
     def find_child(self, system_name: str | None) -> ChildNode | None:
+        """Find a child by name.
+
+        This may be overridden in subclasses to provide more advanced way of finding
+        the child. But the default implementation simply scans through the list
+        of nodes to find the first one with the requested name.
+
+        Normally, the list of nodes should have been computed by the time this
+        returns, but see get_nodes() for an important caveat as to why this may
+        not be doing what you want, and what to do instead.
+
+        Args:
+            system_name: System name of child node to find, or None if any
+                         arbitrary child may be returned.
+        Returns:
+            The node, or None if it could not be found.
+        """
+
         nodes = self.get_nodes()
 
         if not nodes:
@@ -314,6 +406,11 @@ class ChildrenEntrySupport(Generic[ParentNode, ChildNode]):
     # TODO: __getitem__?
     @final
     def get_node_at(self, index: int) -> ChildNode | None:
+        """Getter for a child at a given position.
+
+        If child with such index does not exists, it returns None.
+        """
+
         self._check_support()
         return self._entry_support.get_node_at(index)
 
@@ -322,6 +419,30 @@ class ChildrenEntrySupport(Generic[ParentNode, ChildNode]):
     # like that). Potentially propagate to EntrySupport (and all its implementations).
     # Note: getNodes() is final, but getNodes(optimalResult) is not.
     def get_nodes(self, *, optimal_result: bool = False) -> Sequence[ChildNode]:
+        """Get a (sorted) array of nodes in this list.
+
+        If the children object is not yet initialised, it will be (using _add_notify())
+        before the nodes are returned.
+
+        WARNING: If optimal_result is False (default), not all children implementations
+                 will do a complete calculation at this point.
+
+        If you are extending Children, you should make sure this method will return
+        a complete list of nodes if optimal_result is True. The default implementation
+        will do this correctly so long as your subclass implements find_child(None)
+        to initialise all subnodes.
+
+        NOTE: You should not call this method from inside Children.MUTEX.read_access().
+              If you do so, the Node will be unable to update its state before you
+              leave the read_access().
+
+        Args:
+            optimal_result: Whether to try to get a fully initialised array.
+
+        Returns:
+            Sequence of nodes.
+        """
+
         self._check_support()
         return self._entry_support.get_nodes(optimal_result=optimal_result)
 
@@ -347,13 +468,18 @@ class _ChildrenUnknown(Generic[ParentNode, ChildNode]):
 class Children(
     _ChildrenSubClassInterface[ChildNode],
     _ChildrenParentNodeInterface[ParentNode, ChildNode],
-    ChildrenEntrySupport[ParentNode, ChildNode],
+    _ChildrenEntrySupportInterface[ParentNode, ChildNode],
     _ChildrenUnknown[ParentNode, ChildNode],
-    _ChildrenCopy[ParentNode, ChildNode],
-    _ChildrenLock,
+    _ChildrenBase[ParentNode, ChildNode],
     Generic[ParentNode, ChildNode],
 ):
     LEAF: ClassVar[_Empty[AnyNode]]
+    """The object representing an empty set of children.
+
+    Should be used to represent the children of leaf nodes. The same object may
+    be used by all such nodes.
+    """
+
     Array: type[Array] = None  # type: ignore[assignment]
     SortedArray: type[SortedArray] = None  # type: ignore[assignment]
     Map: type[Map] = None  # type: ignore[assignment]
@@ -366,6 +492,30 @@ class Children(
         *,
         asynchronous: bool,
     ) -> Children[ParentNode, ChildNode]:
+        """Create a Children object using the passed ChildFactory object.
+
+        The ChildFactory will be asked to create a list of arbitrary model objects
+        (aka keys) that are the children; then for each object in the list,
+        ChildFactory._create_nodes_for_key() will be called to instantiate one or
+        more Node for each modeel object.
+
+        Args:
+            factory: A factory which will provide child objects.
+            asynchronous: If True, the factory will always be called to create the list of keys on
+                          a background thread, displaying a "Please Wait" child node util some or
+                          all child nodes have been computed.
+                          Pass True for any case where computing child nodes is expensive and
+                          should not be done in the event thread.
+
+        Returns:
+            A children object which will invoke the factory instance as needed to
+            supply model objects and child nodes for it.
+
+        Raises:
+            RuntimeError: If the passed factory has already been used in a previous
+                          call to this method.
+        """
+
         children: Children[ParentNode, ChildNode]
         if not asynchronous:
             from .sync_children import SyncChildren  # noqa: PLC0415
@@ -386,19 +536,39 @@ class Children(
     def create_lazy(
         factory_cb: Callable[[], Children[ParentNode, ChildNode]],
     ) -> Children[ParentNode, ChildNode]:
+        """Create a lazy children implementation.
+
+        Args:
+            factory: The callable which is called when node's children are really needed.
+
+        Returns:
+            Provides a lazy children implementation that can be passed to Node
+            constructor, and thus allows the client code to decide what children
+            the node should have when the callable is called.
+        """
+
         from .children_implementations import _LazyChildren  # noqa: PLC0415
 
         return _LazyChildren(factory_cb)
 
     def __init__(self, *, _lazy: bool = False) -> None:
-        self._lazy_support = _lazy
+        super().__init__(_lazy=_lazy)
 
-        super().__init__()
+    # TODO: Review
+    def __deepcopy__(self, memo: dict[int, Any]) -> Self:
+        """
+        Subclasses should first call super().__deepcopy__() to get
+        an instance. And then call their own SubClass.__init__(instance, ...)
+        (or do the initialisation in __deepcopy__ as they see fit).
 
-    # OK, Match
-    @property
-    def _is_lazy(self) -> bool:
-        return self._lazy_support
+        Subclasses that don't want to be cloned should overload
+        and just return Children.LEAF.
+        """
+
+        new = Children.__new__(type(self))
+        Children[ParentNode, ChildNode].__init__(new, _lazy=self._lazy_support)
+
+        return new
 
 
 from . import children_implementations, children_array, children_keys, children_map

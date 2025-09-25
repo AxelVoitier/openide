@@ -24,7 +24,7 @@ from typing_extensions import override
 
 # Local imports
 from . import node_operations
-from .children import Children, ChildrenEntry
+from .children import ChildrenEntry, _ChildrenEntrySupportInterface
 from .children_storage import ChildrenStorage
 from .entry_support import EntrySupport
 from .node import ChildNode, ParentNode
@@ -119,7 +119,7 @@ class _StorageRef(ReferenceType[ChildrenStorage[ParentNode, ChildNode]]):
 
 
 class EntrySupportDefault(
-    EntrySupport[ParentNode, ChildNode]
+    EntrySupport[ParentNode, ChildNode],
 ):  # , Debug(f'{__name__}.EntrySupportDefault')):
     # OK, Match
     @final
@@ -168,7 +168,7 @@ class EntrySupportDefault(
     # OK, Match
     # Note: map is already initialised to avoid having it Optional
     # (original does not actually check it everytime it tries to use it!).
-    def __init__(self, children: Children[ParentNode, ChildNode]) -> None:
+    def __init__(self, children: _ChildrenEntrySupportInterface[ParentNode, ChildNode]) -> None:
         # print('starting to instantiate an entry support default', time.monotonic(), self, children)
         super().__init__(children)
 
