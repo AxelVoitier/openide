@@ -368,7 +368,7 @@ class _ChildrenKeysSubClassInterface(
 
     # OK, Match
     @abstractmethod
-    def _create_nodes(self, key: Key) -> Sequence[ChildNode] | None:
+    def _create_nodes(self, key: Key) -> Iterable[ChildNode] | None:
         """Creates nodes for a given key.
 
         Args:

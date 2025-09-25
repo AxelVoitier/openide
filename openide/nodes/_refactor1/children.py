@@ -152,7 +152,7 @@ class _ChildrenSubClassInterface(ABC, Generic[ChildNode]):
         Typical implementation at this time calculate their node list (or keys for
         ChildrenKeys, etc.).
 
-        NB: Call to get_nodes() inside of thi method will return an empty array of nodes.
+        NB: Call to get_nodes() inside of this method will return an empty array of nodes.
         """
 
     # OK, Match
@@ -473,6 +473,28 @@ class Children(
     _ChildrenBase[ParentNode, ChildNode],
     Generic[ParentNode, ChildNode],
 ):
+    """Factory for the child Nodes of a Node.
+
+    Every Node has a Children object.
+    Children are initially un-initialised, and child Nodes are created on demand
+    when, for example, the Node is expanded in an Explorer view.
+    If you know your Node has no child nodes, pass `Children.LEAF`.
+    Typically, a Children object will create a Collection of objects from some
+    data model, and create one or more Nodes for each object on demand.
+
+    If initialising the list of children of a Node is time-consuming (ie. it does
+    I/O, parses a file, or some other expensive operation), implement ChildFactory
+    and pass it to `Children.create(the_factory, True)` to have the child nodes be
+    computed asynchronously on a background thread.
+
+    In almost all cases youwant to subclass ChildFactory and pass it to `Children.create()`,
+    or subclass ChildrenKeys. Subclassing Children directly is not recommended.
+
+    Args:
+        ParentNode: The type of those children parent node.
+        ChildNode: The type of node those children have.
+    """
+
     LEAF: ClassVar[_Empty[AnyNode]]
     """The object representing an empty set of children.
 

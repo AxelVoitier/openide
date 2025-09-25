@@ -378,6 +378,8 @@ class GenericNodeRepresentation(_GenericNodeLock, _NodeRepresentationInterface):
 
 
 class GenericNode(
+    GenericNodeCopy,
+    GenericNodeActions,
     GenericNodeCopyPasteDnD,
     GenericNodeRepresentation,
     GenericNodeLookupAndCookie,

@@ -19,20 +19,22 @@ from typing import TYPE_CHECKING
 from typing_extensions import override
 
 # Local imports
-from .child_factory import ChildFactory
+from .child_factory import ChildFactoryObserver
 from .children import ChildNode, ParentNode
 from .children_keys import ChildrenKeys, Key
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable, MutableSequence, Sequence
+    from collections.abc import Iterable, MutableSequence
     from typing import Final
+
+    from .child_factory import ChildFactory
 
 __all__: Final = ('SyncChildren',)
 
 _logger = logging.getLogger(__name__)
 
 
-class SyncChildren(ChildrenKeys[Key, ParentNode, ChildNode], ChildFactory.Observer):
+class SyncChildren(ChildrenKeys[Key, ParentNode, ChildNode], ChildFactoryObserver):
     # OK, Match
     def __init__(self, factory: ChildFactory[Key, ChildNode]) -> None:
         super().__init__()
@@ -56,7 +58,7 @@ class SyncChildren(ChildrenKeys[Key, ParentNode, ChildNode], ChildFactory.Observ
 
     # OK, Match
     @override  # Keys
-    def _create_nodes(self, key: Key) -> Sequence[ChildNode] | None:
+    def _create_nodes(self, key: Key) -> Iterable[ChildNode] | None:
         return self.__factory._create_nodes_for_key(key)
 
     # OK, Match
