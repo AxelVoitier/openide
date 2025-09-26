@@ -36,11 +36,11 @@ The objectives of this first refactoring are:
   - [x] ChildrenArray
   - [x] ChildrenMap
   - [x] ChildrenKeys
-  - [ ] SyncChildren
+  - [x] SyncChildren
   - [ ] AsyncChildren
 - [x] ChildFactory
-- [ ] EntrySupport
-- [ ] EntrySupportDefault
+- [x] EntrySupport
+- [x] EntrySupportDefault
 - [ ] EntrySupportLazy
 - [ ] ChildrenStorage
 - [ ] NodeListener
@@ -59,6 +59,27 @@ The objectives of this first refactoring are:
   - [ ] SyncChildren
   - [ ] AsyncChildren
 - [x] ChildFactory
+- [ ] EntrySupport
+- [ ] EntrySupportDefault
+- [ ] EntrySupportLazy
+- [ ] ChildrenStorage
+- [ ] NodeListener
+- [ ] NodeLookup
+- [ ] node_operations
+
+
+### Tests
+
+- [ ] Node
+  - [ ] GenericNode
+  - [ ] FilterNode
+- [ ] Children
+  - [ ] ChildrenArray
+  - [ ] ChildrenMap
+  - [ ] ChildrenKeys
+  - [ ] SyncChildren
+  - [ ] AsyncChildren
+- [ ] ChildFactory
 - [ ] EntrySupport
 - [ ] EntrySupportDefault
 - [ ] EntrySupportLazy

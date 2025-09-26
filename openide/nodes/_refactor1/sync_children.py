@@ -35,8 +35,16 @@ _logger = logging.getLogger(__name__)
 
 
 class SyncChildren(ChildrenKeys[Key, ParentNode, ChildNode], ChildFactoryObserver):
+    """Synchronous children implementation that takes a ChildFactory."""
+
     # OK, Match
     def __init__(self, factory: ChildFactory[Key, ChildNode]) -> None:
+        """Initialises a new instance of SyncChildren.
+
+        Args:
+            factory: An instance of ChildFactory which will provide keys, values, and nodes.
+        """
+
         super().__init__()
 
         self.__factory = factory

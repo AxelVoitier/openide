@@ -37,11 +37,16 @@ class EntrySupport(ABC, Generic[ParentNode, ChildNode]):
         super().__init__()
 
         self.__children = children
+        """Children we are attached to"""
 
     # Note: This is to keep children as a RO public attribute
     @property
     def children(self) -> _ChildrenEntrySupportInterface[ParentNode, ChildNode]:
+        """Children we are attached to"""
+
         return self.__children
+
+    # Interfaces to be called from Children
 
     # OK, Match
     @abstractmethod
@@ -57,11 +62,18 @@ class EntrySupport(ABC, Generic[ParentNode, ChildNode]):
     # TODO: __getitem__?
     @abstractmethod
     def get_node_at(self, index: int) -> ChildNode | None:
+        """Getter for a node at a given position.
+
+        If node with such index does not exists, it should return None.
+        """
+
         raise NotImplementedError  # pragma: no cover
 
     # OK, Match
     @abstractmethod
     def test_nodes(self) -> Sequence[ChildNode] | None:
+        """Returns currently created nodes, os None if no nodes is created."""
+
         raise NotImplementedError  # pragma: no cover
 
     # OK, Match
@@ -89,14 +101,22 @@ class EntrySupport(ABC, Generic[ParentNode, ChildNode]):
     @property
     @abstractmethod
     def _entries(self) -> MutableSequence[ChildrenEntry[ChildNode]]:
+        """Access to copy of current entries."""
+
         raise NotImplementedError  # pragma: no cover
 
     # OK, Match
     @abstractmethod
     def _snapshot(self) -> Sequence[ChildNode]:
+        """Returns an immutable list of Nodes that represent the children at the present moment."""
+
         raise NotImplementedError  # pragma: no cover
 
     # OK, Match
     @abstractmethod
     def _refresh_entry(self, entry: ChildrenEntry[ChildNode]) -> None:
+        """Refreshes content of one entry.
+
+        Updates the state of children appropriately."""
+
         raise NotImplementedError  # pragma: no cover
