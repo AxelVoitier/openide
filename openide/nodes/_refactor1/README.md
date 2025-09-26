@@ -43,7 +43,7 @@ The objectives of this first refactoring are:
 - [x] EntrySupportDefault
 - [ ] EntrySupportLazy
 - [X] ChildrenStorage
-- [ ] NodeListener
+- [X] NodeListener & Co
 - [ ] NodeLookup
 - [ ] node_operations
 
@@ -63,7 +63,7 @@ The objectives of this first refactoring are:
 - [ ] EntrySupportDefault
 - [ ] EntrySupportLazy
 - [ ] ChildrenStorage
-- [ ] NodeListener
+- [ ] NodeListener & Co
 - [ ] NodeLookup
 - [ ] node_operations
 
@@ -84,7 +84,7 @@ The objectives of this first refactoring are:
 - [ ] EntrySupportDefault
 - [ ] EntrySupportLazy
 - [ ] ChildrenStorage
-- [ ] NodeListener
+- [ ] NodeListener & Co
 - [ ] NodeLookup
 - [ ] node_operations
 
@@ -105,6 +105,6 @@ The objectives of this first refactoring are:
 - [ ] EntrySupportDefault
 - [ ] EntrySupportLazy
 - [ ] ChildrenStorage
-- [ ] NodeListener
+- [ ] NodeListener & Co
 - [ ] NodeLookup
 - [ ] node_operations
