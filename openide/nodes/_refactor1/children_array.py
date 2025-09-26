@@ -44,7 +44,7 @@ _logger = logging.getLogger(__name__)
 
 
 # OK, Match
-class __ArrayEntry(ChildrenEntry[ChildNode], Generic[ParentNode, ChildNode]):
+class _ArrayEntry(ChildrenEntry[ChildNode], Generic[ParentNode, ChildNode]):
     """One entry that holds all the nodes in the collection"""
 
     def __init__(self, array: _ChildrenArrayBase[ParentNode, ChildNode]) -> None:
@@ -165,7 +165,7 @@ class _ChildrenArraySubClassInterface(_ChildrenArrayBase[ParentNode, ChildNode])
     def _create_nodes_entry(self) -> ChildrenEntry[ChildNode]:
         """Allows subclasses to provide own version of ChildrenEntry"""
 
-        return __ArrayEntry[ParentNode, ChildNode](self)
+        return _ArrayEntry[ParentNode, ChildNode](self)
 
     # OK, Match
     # Note: Inlined refreshImpl as it did not seemed to be (locally) subclassed

@@ -44,7 +44,7 @@ _logger = logging.getLogger(__name__)
 # OK, Match
 # Note: Original separates it in two classes Dupl+KE, with Dupl being
 # protected (ie. package-private). But apparently, that's just for testing reason.
-class __KeyEntry(ChildrenEntry[ChildNode], Generic[Key, ChildNode]):
+class _KeyEntry(ChildrenEntry[ChildNode], Generic[Key, ChildNode]):
     """Entry for a key
 
     Supports duplicated objects that still should not be equal.
@@ -70,7 +70,7 @@ class __KeyEntry(ChildrenEntry[ChildNode], Generic[Key, ChildNode]):
         super().__init__()
 
         self._keys = keys
-        self._key: Key | __KeyEntry[Key, ChildNode] | None = key
+        self._key: Key | _KeyEntry[Key, ChildNode] | None = key
         """The key. Either a real value, or another instance of ourself, for some recursivity."""
 
     # OK, Match
@@ -112,7 +112,7 @@ class __KeyEntry(ChildrenEntry[ChildNode], Generic[Key, ChildNode]):
         """The key represented by this object"""
 
         assert self._key is not None
-        if isinstance(self._key, __KeyEntry):
+        if isinstance(self._key, _KeyEntry):
             return self._key.key  # Yo dawg
         else:
             return self._key
@@ -124,9 +124,9 @@ class __KeyEntry(ChildrenEntry[ChildNode], Generic[Key, ChildNode]):
         """Counts the index of this key"""
 
         counter = 0
-        d: Key | __KeyEntry[Key, ChildNode] | None = self
+        d: Key | _KeyEntry[Key, ChildNode] | None = self
 
-        while isinstance(d, __KeyEntry):
+        while isinstance(d, _KeyEntry):
             d = d._key
             counter += 1
 
@@ -134,7 +134,7 @@ class __KeyEntry(ChildrenEntry[ChildNode], Generic[Key, ChildNode]):
 
     # OK, Match
     @final
-    def __create_instance(self, obj: Key, counter: int) -> __KeyEntry[Key, ChildNode]:
+    def __create_instance(self, obj: Key, counter: int) -> _KeyEntry[Key, ChildNode]:
         """Creates a cloned instance of ourself, with a recursive representation for the key"""
         first = d = copy(self)
 
@@ -156,7 +156,7 @@ class __KeyEntry(ChildrenEntry[ChildNode], Generic[Key, ChildNode]):
     # OK, Match
     @override  # object
     def __eq__(self, other: object) -> bool:
-        if isinstance(other, __KeyEntry):
+        if isinstance(other, _KeyEntry):
             return (self.key == other.key) and (self.count == other.count)
         else:
             return False
@@ -337,7 +337,7 @@ class _ChildrenKeysSubClassInterface(
     def _create_entry_for_key(self, key: Key) -> ChildrenEntry[ChildNode]:
         """To be overridden by FilterNode.Children"""
 
-        return __KeyEntry[Key, ChildNode](self, key)
+        return _KeyEntry[Key, ChildNode](self, key)
 
     # OK, Match (skipping the assert stuffs)
     @final
@@ -352,7 +352,7 @@ class _ChildrenKeysSubClassInterface(
         """
 
         new_keys: list[ChildrenEntry[ChildNode]] = []
-        updator = __KeyEntry[Key, ChildNode](self)
+        updator = _KeyEntry[Key, ChildNode](self)
         if self._lazy_support:
             updator.update_list(keys_set, new_keys)
         else:
