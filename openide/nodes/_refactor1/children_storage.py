@@ -14,17 +14,15 @@ from __future__ import annotations
 # System imports
 import logging
 from threading import RLock
-from typing import TYPE_CHECKING, TypeVar, final
+from typing import TYPE_CHECKING, final
 from weakref import WeakKeyDictionary
 
 # Third-party imports
 from typing_extensions import override
 
 # Local imports
-from .node import ParentNode
+from .children import ChildNode, ParentNode
 from .node_listener import NodeListener
-
-ChildNode = TypeVar('ChildNode', bound='_NodeChildrenInterface[Any, Any]')
 
 if TYPE_CHECKING:
     from collections.abc import MutableMapping, MutableSequence
@@ -32,7 +30,6 @@ if TYPE_CHECKING:
 
     from .children import Children
     from .entry_support_default import EntrySupportDefault
-    from .node import _NodeChildrenInterface
     from .node_listener import (
         NodeEvent,
         NodeMemberEvent,
@@ -46,6 +43,11 @@ _logger = logging.getLogger(__name__)
 
 @final
 class ChildrenStorage(NodeListener[ParentNode, ChildNode]):
+    """Holder of nodes for a children object.
+
+    Communicates with children to notify when created/finalised.
+    """
+
     # OK, Match (_fake is an addition)
     def __init__(self, *, _fake: bool = False) -> None:
         if _fake:  # For light instantiation of a quickly deleted storage
@@ -55,7 +57,9 @@ class ChildrenStorage(NodeListener[ParentNode, ChildNode]):
 
         self._lock = RLock()
         self.entry_support: EntrySupportDefault[ParentNode, ChildNode] | None = None
+        """Children's EntrySupport"""
         self.__nodes: list[ChildNode] | None = None
+        """Associated nodes"""
         self.__map: MutableMapping[EntrySupportDefault._Info, MutableSequence[ChildNode]] | None = (
             None
         )
@@ -79,6 +83,8 @@ class ChildrenStorage(NodeListener[ParentNode, ChildNode]):
     # OK, Match
     @property
     def nodes(self) -> list[ChildNode] | None:
+        """Getter method to receive ("pull" from EntrySupport) a set of computed nodes."""
+
         if (entry_support := self.entry_support) is None:
             return None
 
@@ -88,17 +94,24 @@ class ChildrenStorage(NodeListener[ParentNode, ChildNode]):
 
             children = entry_support.children
             for node in nodes:
+                # Keeps a hard reference from the children node to this so we can
+                # be GCed only when child nodes are gone.
                 node._reassign_to(children, self)
 
+            # If at least one node => be weak
             entry_support._register_children_storage(self, weak=bool(nodes))
 
         return nodes
 
     # OK, Match
     def clear(self) -> None:
+        """Clears the array of nodes."""
+
         if self.__nodes is not None:
             self.__nodes = None
 
+            # Register in the children to be held by hard reference. Because we
+            # keep no reference to nodes, we can be hard held by children
             if self.entry_support is not None:
                 self.entry_support._register_children_storage(self, weak=False)
 
@@ -110,6 +123,8 @@ class ChildrenStorage(NodeListener[ParentNode, ChildNode]):
     # OK, Match
     @property
     def is_initialised(self) -> bool:
+        """Initialised if has some nodes."""
+
         return self.__nodes is not None
 
     # Note: Ignoring logInfo
@@ -121,6 +136,8 @@ class ChildrenStorage(NodeListener[ParentNode, ChildNode]):
         *,
         has_to_exist: bool,
     ) -> MutableSequence[ChildNode]:
+        """Gets the nodes for given info."""
+
         with self._lock:
             if (map := self.__map) is None:
                 assert not has_to_exist, 'Should already be initialised'
@@ -147,6 +164,8 @@ class ChildrenStorage(NodeListener[ParentNode, ChildNode]):
 
     # OK, Match
     def use_nodes(self, info: EntrySupportDefault._Info, nodes: MutableSequence[ChildNode]) -> None:
+        """Refreshes the nodes for given info."""
+
         with self._lock:
             if (map := self.__map) is None:
                 map = self.__map = WeakKeyDictionary()

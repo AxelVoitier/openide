@@ -42,7 +42,7 @@ The objectives of this first refactoring are:
 - [x] EntrySupport
 - [x] EntrySupportDefault
 - [ ] EntrySupportLazy
-- [ ] ChildrenStorage
+- [X] ChildrenStorage
 - [ ] NodeListener
 - [ ] NodeLookup
 - [ ] node_operations

@@ -24,10 +24,9 @@ from typing_extensions import override
 
 # Local imports
 from . import node_operations
-from .children import Children, ChildrenEntry, _ChildrenEntrySupportInterface
+from .children import ChildNode, Children, ChildrenEntry, ParentNode, _ChildrenEntrySupportInterface
 from .children_storage import ChildrenStorage
 from .entry_support import EntrySupport
-from .node import ChildNode, ParentNode
 
 if TYPE_CHECKING:
     from collections.abc import (
