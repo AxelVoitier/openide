@@ -29,7 +29,7 @@ The objectives of this first refactoring are:
 
 ### Documenting
 
-- [ ] Node
+- [X] Node
   - [ ] GenericNode
   - [ ] FilterNode
 - [x] Children
