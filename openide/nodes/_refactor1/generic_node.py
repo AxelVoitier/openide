@@ -6,7 +6,7 @@
 #
 # spell-checker:enableCompoundWords
 # spell-checker:words
-# spell-checker:ignore
+# spell-checker:ignore disp nuitka javax
 """"""
 
 from __future__ import annotations
@@ -14,7 +14,7 @@ from __future__ import annotations
 # System imports
 import logging
 from threading import RLock
-from typing import TYPE_CHECKING, Any, ClassVar, Generic, Iterable, Self, TypeAlias, final
+from typing import TYPE_CHECKING, Any, ClassVar, Generic, Self, TypeAlias, final
 
 # Third-party imports
 from typing_extensions import override
@@ -29,6 +29,7 @@ from .node import (
     Node,
     ParentNode,
     _NodeActionsInterface,
+    _NodeBase,
     _NodeCopyMixin,
     _NodeCopyPasteDnDInterface,
     _NodeLookupAndCookieMixin,
@@ -39,12 +40,14 @@ from .node import (
 AnyGenericNode: TypeAlias = 'GenericNode[AnyNode, AnyNode]'
 
 if TYPE_CHECKING:
+    from collections.abc import Sequence
     from typing import Final
 
     from lookups import Lookup
     from PySide6.QtGui import QAction, QColor, QIcon, QPixmap
 
     from openide.lookup.cookie_set import Ck
+    from openide.nodes import PropertySet
     from openide.nodes.properties import Sheet
 
     from .node import NodeHandle
@@ -69,7 +72,7 @@ class _GenericNodeLock:
         super().__init__(**kwargs)
 
 
-class GenericNodeActions(_NodeActionsInterface):
+class GenericNodeActions(_NodeActionsInterface[ChildNode]):
     def __init__(self, **kwargs: Any) -> None:
         # TODO:
         self.__preferred_action: QAction | None = None
@@ -196,7 +199,11 @@ class GenericNodeCopyPasteDnD(_NodeCopyPasteDnDInterface):
         raise NotImplementedError
 
 
-class GenericNodeLookupAndCookie(_GenericNodeLock, _NodeLookupAndCookieMixin):
+class GenericNodeLookupAndCookie(
+    _GenericNodeLock,
+    _NodeLookupAndCookieMixin[ChildNode],
+    Generic[ParentNode, ChildNode],
+):
     def __init__(self, **kwargs: Any) -> None:
         self.__cookie_set: CookieSet | None = None
         """Array of cookies for this node."""
@@ -268,11 +275,11 @@ class GenericNodeLookupAndCookie(_GenericNodeLock, _NodeLookupAndCookieMixin):
             self._fire_cookie_change()
 
 
-class GenericNodeProperties(_GenericNodeLock, _NodePropertiesInterface):
+class GenericNodeProperties(_GenericNodeLock, _NodePropertiesInterface[ChildNode]):
     def __init__(self, **kwargs: Any) -> None:
         self._display_format: str | None = None
         """Message format to use for creation of the display name.
-        
+
         It permits conversion of text from `system_name` property to the one sent
         to `display_name` property. The format can take one parameter, which will
         be filled by a value from `system_name`.
@@ -293,7 +300,7 @@ class GenericNodeProperties(_GenericNodeLock, _NodePropertiesInterface):
     @Node.system_name.setter  # type: ignore[attr-defined]  # mypy bug #5936
     @override  # Node
     def system_name(self, value: str | None) -> None:
-        super(GenericNodeProperties, type(self)).system_name.fset(self, value)
+        self._super_property_setter(GenericNodeProperties, 'system_name', value)
 
         if (disp_format := self._display_format) is not None:
             # TODO: Review teh whole display format thing to be more user-friendly:
@@ -302,6 +309,9 @@ class GenericNodeProperties(_GenericNodeLock, _NodePropertiesInterface):
             #   or maybe just be a user-controlled callback all by itself
             self.display_name = disp_format.format(value)
         else:
+            # Additional hack, because if no display name is set, then it is taken
+            # from the `system_name` property. That means calling setter of
+            # `system_name` can also change display_name.
             self._fire_own_property_change('display_name', None, None)
 
     @property
@@ -346,7 +356,7 @@ class GenericNodeProperties(_GenericNodeLock, _NodePropertiesInterface):
             return sheet
 
         sheet = self._create_sheet()
-        if sheet is None:
+        if sheet is None:  # pyright: ignore[reportUnnecessaryComparison]
             msg = f'create_sheet returns None in {type(self).__name__}'
             raise RuntimeError(msg)
 
@@ -366,12 +376,12 @@ class GenericNodeProperties(_GenericNodeLock, _NodePropertiesInterface):
             self.__set_sheet_implementation(sheet)
             self._fire_own_property_change('property_sets', None, None)
 
-    # # TODO: Maybe define an iterator in Sheet
-    # # and let caller (eg. the following function) use a list, or a tuple, or whatever.
-    # @property
-    # @override  # Node
-    # def property_sets(self) -> Sequence[PropertySet]:
-    #     return self._sheet.to_list()
+    # TODO: Maybe define an iterator in Sheet
+    # and let caller (eg. the following function) use a list, or a tuple, or whatever.
+    @property
+    @override  # Node
+    def property_sets(self) -> Sequence[PropertySet]:
+        return list(self._sheet.property_sets)
 
     @property
     @override  # Node
@@ -384,7 +394,11 @@ class GenericNodeProperties(_GenericNodeLock, _NodePropertiesInterface):
         return self._sheet
 
 
-class GenericNodeRepresentation(_GenericNodeLock, _NodeRepresentationInterface):
+class GenericNodeRepresentation(
+    _GenericNodeLock,
+    _NodeRepresentationInterface,
+    _NodeBase[ChildNode],
+):
     # TODO: Actually implement the real stuffs. These are just stubs to get a
     # basic default behaviour. That does not even match the docstrings.
     # Would need to figure out:
@@ -513,7 +527,7 @@ class GenericNodeRepresentation(_GenericNodeLock, _NodeRepresentationInterface):
             type: Type of icon.
             ib: Base where to scan in the array.
         """
-        res = self.__icon_base + self.__icons[type + ib] + self.__icon_extension
+        _ = self.__icon_base + self.__icons[type + ib] + self.__icon_extension
         raise NotImplementedError
 
     # TODO: Implement
@@ -532,13 +546,14 @@ class GenericNodeRepresentation(_GenericNodeLock, _NodeRepresentationInterface):
 
 class GenericNode(
     GenericNodeCopy,
-    GenericNodeActions,
+    GenericNodeActions[ChildNode],
     GenericNodeCopyPasteDnD,
-    GenericNodeRepresentation,
-    GenericNodeLookupAndCookie,
-    GenericNodeProperties,
+    GenericNodeRepresentation[ChildNode],
+    GenericNodeLookupAndCookie[ParentNode, ChildNode],
+    GenericNodeProperties[ChildNode],
     _GenericNodeLock,
     Node[ParentNode, ChildNode],
+    Generic[ParentNode, ChildNode],
 ):
     """A basic implementation of a Node.
 
@@ -568,8 +583,11 @@ class GenericNode(
     def __init__(self, children: Children[Self, ChildNode], lookup: Lookup | None = None) -> None:
         super().__init__(children=children, lookup=lookup)
 
-        super(GenericNodeProperties, type(self)).system_name.fset(self, '')
-        # self.system_name = ''  # TODO: Review
+        # Setting the system_name to non-None value for the node to return
+        # "reasonable" system_name and display_name.
+        # Not using self.system_name to set it because subclasses can override
+        # it, and they might assume that it is not called from constructor.
+        self._super_property_setter(GenericNodeProperties, 'system_name', '')
 
     @classmethod
     def with_cookie_set(cls, cookie_set: CookieSet) -> Self:
@@ -596,13 +614,14 @@ class GenericNode(
     # TODO: Define return type
     @property
     @override  # Node
-    def customiser(self):  # type: ignore[no-untyped-def]
+    def customiser(self) -> Any | None:
         return None
 
     @property
     @override  # Node
-    def handle(self) -> NodeHandle[Self]:
-        return DefaultHandle.create_handle(self)
+    def handle(self) -> NodeHandle[Self] | None:
+        raise NotImplementedError
+        # return DefaultHandle.create_handle(self)
 
 
 # TODO: Extends java.beans.PropertyChangeListener
@@ -611,12 +630,12 @@ class GenericNode(
 class _SheetAndCookieListener(Generic[ParentNode, ChildNode]):
     """Listener for changes in the sheet and the cookie set."""
 
-    def __init__(self, node: GenericNode[ParentNode, ChildNode]) -> None:
+    def __init__(self, node: GenericNodeLookupAndCookie[ParentNode, ChildNode]) -> None:
         super().__init__()
 
         self.__node = node
 
-    def property_change(self, event) -> None:  # type: ignore[no-untyped-def]
+    def property_change(self, event: Any) -> None:
         self.__node._fire_own_property_change('property_sets', None, None)
 
     def state_changed(self, kind: CookieSetChangeProtocol.ChangeKind, cookie: object) -> None:

@@ -52,7 +52,7 @@ The objectives of this first refactoring are:
 ### Restructuring and typing
 
 - [x] Node
-  - [ ] GenericNode
+  - [x] GenericNode
   - [ ] FilterNode
 - [x] Children
   - [x] ChildrenArray

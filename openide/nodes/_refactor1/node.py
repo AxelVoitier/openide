@@ -25,6 +25,7 @@ from typing import (
     Self,
     TypeAlias,
     TypeVar,
+    cast,
     final,
 )
 
@@ -45,6 +46,7 @@ NoNode: TypeAlias = 'Node[Any, Any]'
 
 ParentNode = TypeVar('ParentNode', bound='Node[AnyNode, AnyNode]')
 ANode = TypeVar('ANode', bound=AnyNode)
+ANode_co = TypeVar('ANode_co', bound=AnyNode, covariant=True)
 ChildNode = TypeVar('ChildNode', bound='Node[AnyNode, AnyNode]')
 
 if TYPE_CHECKING:
@@ -77,7 +79,7 @@ __all__: Final = (
 _logger = logging.getLogger(__name__)
 
 
-class NodeHandle(ABC, Generic[ANode]):
+class NodeHandle(ABC, Generic[ANode_co]):
     """Serialisable node reference.
 
     The node should not be serialised directly but via this handle. One can obtain
@@ -87,11 +89,11 @@ class NodeHandle(ABC, Generic[ANode]):
     deserialisation use `get_node()` to obtain the original node.
     """
 
-    # Note: That's fore serialisation
+    # Note: That's for serialisation
     # TODO: Check if we could do differently. Smells like Java-specific construct
 
     @abstractmethod
-    def get_node(self) -> ANode:
+    def get_node(self) -> ANode_co:
         """Reconstitutes the node for this handle."""
 
         raise NotImplementedError  # pragma: no cover
@@ -121,12 +123,32 @@ class _NodeBase(FeatureDescriptor, LookupProvider, Generic[ChildNode]):
 
 
 class _NodePropertiesInterface(_NodeBase[ChildNode], FeatureDescriptor, ABC):
+    def _super_property_setter(self, cls: type[Any], name: str, value: Any) -> None:  # noqa: ANN401
+        """Set a property using the setter defined in a super class.
+
+        Useful when you don't want to trigger your descendent, or your own
+        property setter, in case it is overridden.
+
+        Args:
+            cls: The current class level. The property will be searched below it.
+                 This is similar to the first parameter you could give to a super() call.
+            name: The name of the property.
+            value: The value to set on the property.
+        """
+
+        super_cls = cast('type', super(cls, type(self)))
+        prop = cast('property', getattr(super_cls, name))
+        super_setter = prop.fset
+        if super_setter is None:
+            msg = f'The property {name} has no setter'
+            raise TypeError(msg)
+        super_setter(self, value)
+
     def __set_property(self, name: str, value: str | None) -> None:
         old = getattr(super(), name)
 
         if old != value:
-            # getattr(FeatureDescriptor, name).fset(self, value)  # super().name = value
-            getattr(super(_NodePropertiesInterface, type(self)), name).fset(self, value)
+            self._super_property_setter(_NodePropertiesInterface, name, value)
 
             # getattr(self, f'_fire_{name}_change')(old, value)
             self._fire_own_property_change(name, old, value)

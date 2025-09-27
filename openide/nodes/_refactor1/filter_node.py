@@ -17,7 +17,7 @@ from typing import TYPE_CHECKING
 
 # Third-party imports
 # Local imports
-from .node import ChildNode, ParentNode, Node
+from .node import ChildNode, Node, ParentNode
 
 if TYPE_CHECKING:
     from typing import Final
