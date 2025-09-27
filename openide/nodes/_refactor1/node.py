@@ -1189,7 +1189,7 @@ class Node(
     """
 
     # Set in generic_node.py
-    EMPTY: Node = None  # type: ignore[assignment]
+    EMPTY: Node[Any, NoNode]
     """An empty leaf node"""
 
     Handle: TypeAlias = NodeHandle[Self]

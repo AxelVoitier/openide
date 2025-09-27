@@ -14,27 +14,27 @@ from __future__ import annotations
 # System imports
 import logging
 from threading import RLock
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 # Third-party imports
 from typing_extensions import override
 
 # Local imports
 from .children import ANode, ChildNode, Children
-from .node import AnyNode, NoNode
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Sequence
     from typing import Final
 
     from .entry_support import EntrySupport
+    from .node import NoNode
 
 __all__: Final = ()
 
 _logger = logging.getLogger(__name__)
 
 
-class _Empty(Children[ANode, NoNode]):
+class _Empty(Children[Any, Any]):
     """Empty list of children.
 
     Does not allow anybody to insert a node. Treated especially in the _attach_to() method.
@@ -49,7 +49,7 @@ class _Empty(Children[ANode, NoNode]):
         return False
 
 
-Children.LEAF = _Empty[AnyNode]()
+Children.LEAF = _Empty()
 
 
 class _LazyChildren(Children[ANode, ChildNode]):  # pyright: ignore[reportUnusedClass]  # Used in Children.create_lazy(), and Node._update_children()

@@ -33,7 +33,7 @@ if TYPE_CHECKING:
     from .child_factory import ChildFactory
     from .children_implementations import _Empty
     from .entry_support import EntrySupport
-    from .node import AnyNode, _NodeChildrenInterface
+    from .node import _NodeChildrenInterface
 
     T = TypeVar('T')
 
@@ -501,7 +501,7 @@ class Children(
         ChildNode: The type of node those children have.
     """
 
-    LEAF: ClassVar[_Empty[AnyNode]]
+    LEAF: ClassVar[_Empty]
     """The object representing an empty set of children.
 
     Should be used to represent the children of leaf nodes. The same object may
