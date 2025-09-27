@@ -21,11 +21,11 @@ from typing_extensions import override
 
 # Local imports
 from .children import (
+    ANode,
     ChildNode,
     Children,
     ChildrenEntry,
     _ChildrenEntrySupportInterface,
-    ParentNode,
     _ChildrenSubClassInterface,
 )
 
@@ -44,10 +44,10 @@ _logger = logging.getLogger(__name__)
 
 
 # OK, Match
-class _ArrayEntry(ChildrenEntry[ChildNode], Generic[ParentNode, ChildNode]):
+class _ArrayEntry(ChildrenEntry[ChildNode], Generic[ANode, ChildNode]):
     """One entry that holds all the nodes in the collection"""
 
-    def __init__(self, array: _ChildrenArrayBase[ParentNode, ChildNode]) -> None:
+    def __init__(self, array: _ChildrenArrayBase[ANode, ChildNode]) -> None:
         super().__init__()
         self._array = array
 
@@ -61,7 +61,7 @@ class _ArrayEntry(ChildrenEntry[ChildNode], Generic[ParentNode, ChildNode]):
                 return list(collection)
 
 
-class _ChildrenArrayBase(Children[ParentNode, ChildNode]):
+class _ChildrenArrayBase(Children[ANode, ChildNode]):
     _COLLECTION_LOCK = RLock()
 
     # OK, Match
@@ -104,7 +104,7 @@ class _ChildrenArrayBase(Children[ParentNode, ChildNode]):
 
 
 class _ChildrenArrayChildrenSubClassInterface(
-    _ChildrenArrayBase[ParentNode, ChildNode],
+    _ChildrenArrayBase[ANode, ChildNode],
     _ChildrenSubClassInterface[ChildNode],
 ):
     # OK, Match
@@ -145,7 +145,7 @@ class _ChildrenArrayChildrenSubClassInterface(
             return True
 
 
-class _ChildrenArraySubClassInterface(_ChildrenArrayBase[ParentNode, ChildNode]):
+class _ChildrenArraySubClassInterface(_ChildrenArrayBase[ANode, ChildNode]):
     # OK, Match
     @override  # _ChildrenArrayBase
     def _init_collection(self) -> MutableSequence[ChildNode]:
@@ -165,7 +165,7 @@ class _ChildrenArraySubClassInterface(_ChildrenArrayBase[ParentNode, ChildNode])
     def _create_nodes_entry(self) -> ChildrenEntry[ChildNode]:
         """Allows subclasses to provide own version of ChildrenEntry"""
 
-        return _ArrayEntry[ParentNode, ChildNode](self)
+        return _ArrayEntry[ANode, ChildNode](self)
 
     # OK, Match
     # Note: Inlined refreshImpl as it did not seemed to be (locally) subclassed
@@ -197,12 +197,12 @@ class _ChildrenArraySubClassInterface(_ChildrenArrayBase[ParentNode, ChildNode])
 
 
 class _ArrayChildrenEntrySupport(
-    _ChildrenArrayBase[ParentNode, ChildNode],
-    _ChildrenEntrySupportInterface[ParentNode, ChildNode],
+    _ChildrenArrayBase[ANode, ChildNode],
+    _ChildrenEntrySupportInterface[ANode, ChildNode],
 ):
     # OK, Match
     @override  # ChildrenEntrySupport
-    def _post_init_entry_support(self, entry_support: EntrySupport[ParentNode, ChildNode]) -> None:
+    def _post_init_entry_support(self, entry_support: EntrySupport[ANode, ChildNode]) -> None:
         if not self._lazy_support:
             if self._nodes_entry is None:
                 self._nodes_entry = self._create_nodes_entry()
@@ -214,11 +214,11 @@ class _ArrayChildrenEntrySupport(
 
 
 class ChildrenArray(
-    _ChildrenArraySubClassInterface[ParentNode, ChildNode],
-    _ChildrenArrayChildrenSubClassInterface[ParentNode, ChildNode],
-    _ArrayChildrenEntrySupport[ParentNode, ChildNode],
-    _ChildrenArrayBase[ParentNode, ChildNode],
-    Children[ParentNode, ChildNode],
+    _ChildrenArraySubClassInterface[ANode, ChildNode],
+    _ChildrenArrayChildrenSubClassInterface[ANode, ChildNode],
+    _ArrayChildrenEntrySupport[ANode, ChildNode],
+    _ChildrenArrayBase[ANode, ChildNode],
+    Children[ANode, ChildNode],
 ):
     """Implements the storage of node children by an array.
 
@@ -273,10 +273,10 @@ Children.Array = ChildrenArray
 
 
 # OK, Match
-class __SortedArrayEntry(ChildrenEntry[ChildNode], Generic[ParentNode, ChildNode]):
+class __SortedArrayEntry(ChildrenEntry[ChildNode], Generic[ANode, ChildNode]):
     """One entry that holds all the nodes in the collection."""
 
-    def __init__(self, array: SortedChildrenArray[ParentNode, ChildNode]) -> None:
+    def __init__(self, array: SortedChildrenArray[ANode, ChildNode]) -> None:
         super().__init__()
         self._array = array
 
@@ -287,7 +287,7 @@ class __SortedArrayEntry(ChildrenEntry[ChildNode], Generic[ParentNode, ChildNode
         return sorted(collection, key=self._array.key, reverse=self._array.is_reversed)  # pyright: ignore[reportArgumentType, reportUnknownVariableType, reportCallIssue]  # Somehow just because key might be None that trips the type checker... despite None being a valid value (a default value even!)
 
 
-class SortedChildrenArray(ChildrenArray[ParentNode, ChildNode]):
+class SortedChildrenArray(ChildrenArray[ANode, ChildNode]):
     """Maintains a list of children sorted by the provided comparator.
 
     The comparator can change during the lifetime of the children, in which case

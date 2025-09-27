@@ -17,13 +17,13 @@ from abc import ABC, abstractmethod
 # System imports
 from copy import copy
 from threading import RLock
-from typing import TYPE_CHECKING, Generic, TypeVar, final
+from typing import TYPE_CHECKING, Generic, TypeVar, cast, final
 
 # Third-party imports
 from typing_extensions import override
 
 # Local imports
-from .children import ChildNode, Children, ChildrenEntry, ParentNode
+from .children import ANode, ChildNode, Children, ChildrenEntry
 from .children_array import (
     ChildrenArray,
     _ChildrenArrayBase,
@@ -56,7 +56,7 @@ class _KeyEntry(ChildrenEntry[ChildNode], Generic[Key, ChildNode]):
     # OK, Match
     def __init__(
         self,
-        keys: _ChildrenKeysSubClassInterface[Key, ParentNode, ChildNode],
+        keys: _ChildrenKeysSubClassInterface[Key, ANode, ChildNode],
         key: Key | None = None,
     ) -> None:
         """Initialise the __KeyEntry.
@@ -113,7 +113,7 @@ class _KeyEntry(ChildrenEntry[ChildNode], Generic[Key, ChildNode]):
 
         assert self._key is not None
         if isinstance(self._key, _KeyEntry):
-            return self._key.key  # Yo dawg
+            return cast('_KeyEntry[Key, ChildNode]', self._key).key  # pyright: ignore[reportUnknownMemberType]
         else:
             return self._key
 
@@ -127,7 +127,7 @@ class _KeyEntry(ChildrenEntry[ChildNode], Generic[Key, ChildNode]):
         d: Key | _KeyEntry[Key, ChildNode] | None = self
 
         while isinstance(d, _KeyEntry):
-            d = d._key
+            d = cast('_KeyEntry[Key, ChildNode]', d)._key
             counter += 1
 
         return counter
@@ -157,12 +157,14 @@ class _KeyEntry(ChildrenEntry[ChildNode], Generic[Key, ChildNode]):
     @override  # object
     def __eq__(self, other: object) -> bool:
         if isinstance(other, _KeyEntry):
-            return (self.key == other.key) and (self.count == other.count)
+            return (self.key == cast('_KeyEntry[Any, Any]', other).key) and (
+                self.count == other.count
+            )
         else:
             return False
 
 
-class _ChildrenKeysBase(_ChildrenArrayBase[ParentNode, ChildNode]):
+class _ChildrenKeysBase(_ChildrenArrayBase[ANode, ChildNode]):
     _LOCK = RLock()
     __LAST_RUNS: ClassVar[MutableMapping[_ChildrenKeysBase[Any, Any], Callable[[], None]]] = {}
     """The last runnable (created in method _set_keys()) for each children object"""
@@ -184,7 +186,7 @@ class _ChildrenKeysBase(_ChildrenArrayBase[ParentNode, ChildNode]):
     @classmethod
     def __keys_enter(
         cls,
-        children: _ChildrenKeysBase[ParentNode, ChildNode],
+        children: _ChildrenKeysBase[ANode, ChildNode],
         call: Callable[[], None],
     ) -> None:
         """Enter of _set_keys()"""
@@ -196,7 +198,7 @@ class _ChildrenKeysBase(_ChildrenArrayBase[ParentNode, ChildNode]):
     @classmethod
     def __keys_exit(
         cls,
-        children: _ChildrenKeysBase[ParentNode, ChildNode],
+        children: _ChildrenKeysBase[ANode, ChildNode],
         call: Callable[[], None],
     ) -> None:
         """Clears the entry for the children"""
@@ -211,7 +213,7 @@ class _ChildrenKeysBase(_ChildrenArrayBase[ParentNode, ChildNode]):
     @classmethod
     def __keys_check(
         cls,
-        children: _ChildrenKeysBase[ParentNode, ChildNode],
+        children: _ChildrenKeysBase[ANode, ChildNode],
         call: Callable[[], None],
     ) -> bool:
         """Check whether the callable is "the current" for a given children"""
@@ -228,8 +230,8 @@ class _ChildrenKeysBase(_ChildrenArrayBase[ParentNode, ChildNode]):
 
 
 class _ChildrenKeysChildrenSubClassInterface(
-    _ChildrenKeysBase[ParentNode, ChildNode],
-    _ChildrenArrayChildrenSubClassInterface[ParentNode, ChildNode],
+    _ChildrenKeysBase[ANode, ChildNode],
+    _ChildrenArrayChildrenSubClassInterface[ANode, ChildNode],
 ):
     # OK, Match
     # Deprecated
@@ -314,8 +316,8 @@ class _ChildrenKeysChildrenSubClassInterface(
 
 
 class _ChildrenKeysSubClassInterface(
-    _ChildrenKeysBase[ParentNode, ChildNode],
-    Generic[Key, ParentNode, ChildNode],
+    _ChildrenKeysBase[ANode, ChildNode],
+    Generic[Key, ANode, ChildNode],
 ):
     def __init__(self, **kwargs: Any) -> None:
         self.__before = False
@@ -410,12 +412,12 @@ class _ChildrenKeysSubClassInterface(
 
 
 class ChildrenKeys(
-    _ChildrenKeysSubClassInterface[Key, ParentNode, ChildNode],
-    _ChildrenKeysChildrenSubClassInterface[ParentNode, ChildNode],
-    _ChildrenKeysBase[ParentNode, ChildNode],
-    ChildrenArray[ParentNode, ChildNode],
+    _ChildrenKeysSubClassInterface[Key, ANode, ChildNode],
+    _ChildrenKeysChildrenSubClassInterface[ANode, ChildNode],
+    _ChildrenKeysBase[ANode, ChildNode],
+    ChildrenArray[ANode, ChildNode],
     ABC,
-    Generic[Key, ParentNode, ChildNode],
+    Generic[Key, ANode, ChildNode],
 ):
     """Implements an array of child nodes associated nonuniquely with keys and sorted by these keys.
 

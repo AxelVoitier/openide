@@ -21,7 +21,9 @@ from typing import TYPE_CHECKING, Any, ClassVar, Generic, TypeVar, final, overri
 # Local imports
 from openide.utils import Mutex
 
-ParentNode = TypeVar('ParentNode', bound='_NodeChildrenInterface[Any, Any]')
+# Second Any should be our own ChildNode
+ANode = TypeVar('ANode', bound='_NodeChildrenInterface[Any, Any]')
+# First Any should be our own ANode
 ChildNode = TypeVar('ChildNode', bound='_NodeChildrenInterface[Any, Any]')
 
 if TYPE_CHECKING:
@@ -53,7 +55,7 @@ class ChildrenEntry(ABC, Generic[ChildNode]):
         raise NotImplementedError  # pragma: no cover
 
 
-class _ChildrenBase(Generic[ParentNode, ChildNode]):
+class _ChildrenBase(Generic[ANode, ChildNode]):
     MUTEX: ClassVar = Mutex()
     """Lock for access to hierarchy of all node lists.
 
@@ -81,11 +83,11 @@ class _ChildrenBase(Generic[ParentNode, ChildNode]):
     if TYPE_CHECKING:
         # Following methods are defined in _ChildrenEntrySupportInterface
         @property
-        def _entry_support(self) -> EntrySupport[ParentNode, ChildNode]: ...
+        def _entry_support(self) -> EntrySupport[ANode, ChildNode]: ...
         @property
-        def _entry_support_raw(self) -> EntrySupport[ParentNode, ChildNode] | None: ...
+        def _entry_support_raw(self) -> EntrySupport[ANode, ChildNode] | None: ...
         @_entry_support_raw.setter
-        def _entry_support_raw(self, value: EntrySupport[ParentNode, ChildNode] | None) -> None: ...
+        def _entry_support_raw(self, value: EntrySupport[ANode, ChildNode] | None) -> None: ...
 
         # Following methods are defined in _ChildrenSubClassInterface
         def remove(self, nodes: Sequence[ChildNode]) -> bool: ...  # Needed in Node.destroy()
@@ -181,22 +183,22 @@ class _ChildrenSubClassInterface(ABC, Generic[ChildNode]):
         """
 
 
-class _ChildrenParentNodeInterface(_ChildrenBase[ParentNode, ChildNode]):
+class _ChildrenParentNodeInterface(_ChildrenBase[ANode, ChildNode]):
     def __init__(self, **kwargs: Any) -> None:
-        self._parent: ParentNode | None = None
+        self._parent: ANode | None = None
         """Parent node for all nodes in this list"""
 
         super().__init__(**kwargs)
 
     @property
-    def node(self) -> ParentNode | None:
+    def node(self) -> ANode | None:
         """The parent node of these children, or none if they are detached"""
 
         return self._parent
 
     # OK, Match
     @final
-    def _attach_to(self, parent: ParentNode) -> None:
+    def _attach_to(self, parent: ANode) -> None:
         """Setter of parent node for this list of children.
 
         Each children in the list will have this node set as parent. The parent
@@ -212,7 +214,7 @@ class _ChildrenParentNodeInterface(_ChildrenBase[ParentNode, ChildNode]):
         """
 
         # Special treatment for LEAF object
-        if self is Children[ParentNode, ChildNode].LEAF:
+        if self is Children[ANode, ChildNode].LEAF:
             # Do not attach the node because the LEAF cannot have children
             return
 
@@ -249,7 +251,7 @@ class _ChildrenParentNodeInterface(_ChildrenBase[ParentNode, ChildNode]):
         """
 
         # Special treatment for LEAF object
-        if self is Children[ParentNode, ChildNode].LEAF:
+        if self is Children[ANode, ChildNode].LEAF:
             # Nothing to do
             return
 
@@ -318,9 +320,11 @@ class _ChildrenParentNodeInterface(_ChildrenBase[ParentNode, ChildNode]):
             return None
 
 
-class _ChildrenEntrySupportInterface(_ChildrenBase[ParentNode, ChildNode]):
+# Needs to subclass _ChildrenParentNodeInterface because ChildrenStorage pass us
+# around from an EntrySupport to a Node.
+class _ChildrenEntrySupportInterface(_ChildrenParentNodeInterface[ANode, ChildNode]):
     def __init__(self, **kwargs: Any) -> None:
-        self.__entry_support: EntrySupport[ParentNode, ChildNode] | None = None
+        self.__entry_support: EntrySupport[ANode, ChildNode] | None = None
         """Access to entries/nodes"""
 
         super().__init__(**kwargs)
@@ -328,7 +332,7 @@ class _ChildrenEntrySupportInterface(_ChildrenBase[ParentNode, ChildNode]):
     # OK, Match
     @property
     @override
-    def _entry_support(self) -> EntrySupport[ParentNode, ChildNode]:
+    def _entry_support(self) -> EntrySupport[ANode, ChildNode]:
         """Initialises entry support if needed"""
 
         with Children._LOCK:
@@ -351,7 +355,7 @@ class _ChildrenEntrySupportInterface(_ChildrenBase[ParentNode, ChildNode]):
             return entry_support
 
     # OK, Match
-    def _post_init_entry_support(self, entry_support: EntrySupport[ParentNode, ChildNode]) -> None:
+    def _post_init_entry_support(self, entry_support: EntrySupport[ANode, ChildNode]) -> None:
         """Let a subclass do further initialisation of entry support.
 
         It is called just once, under internal lock so subclasses should behave sanely.
@@ -360,14 +364,14 @@ class _ChildrenEntrySupportInterface(_ChildrenBase[ParentNode, ChildNode]):
     # OK, Match
     @property
     @override
-    def _entry_support_raw(self) -> EntrySupport[ParentNode, ChildNode] | None:
+    def _entry_support_raw(self) -> EntrySupport[ANode, ChildNode] | None:
         """The entry support, without attempt to initialise it first"""
         return self.__entry_support
 
     # OK, Match
     @_entry_support_raw.setter
     @final
-    def _entry_support_raw(self, value: EntrySupport[ParentNode, ChildNode] | None) -> None:
+    def _entry_support_raw(self, value: EntrySupport[ANode, ChildNode] | None) -> None:
         assert Children._LOCK._is_owned()  # type: ignore[attr-defined]
         self.__entry_support = value
 
@@ -460,7 +464,7 @@ class _ChildrenEntrySupportInterface(_ChildrenBase[ParentNode, ChildNode]):
         self._remove_notify()
 
 
-class _ChildrenUnknown(Generic[ParentNode, ChildNode]):
+class _ChildrenUnknown(Generic[ANode, ChildNode]):
     # OK, Match
     @final
     def _get_snapshot_indexes(self, snapshot: Sequence[ChildNode]) -> Sequence[int]:
@@ -469,11 +473,11 @@ class _ChildrenUnknown(Generic[ParentNode, ChildNode]):
 
 class Children(
     _ChildrenSubClassInterface[ChildNode],
-    _ChildrenParentNodeInterface[ParentNode, ChildNode],
-    _ChildrenEntrySupportInterface[ParentNode, ChildNode],
-    _ChildrenUnknown[ParentNode, ChildNode],
-    _ChildrenBase[ParentNode, ChildNode],
-    Generic[ParentNode, ChildNode],
+    _ChildrenEntrySupportInterface[ANode, ChildNode],
+    _ChildrenParentNodeInterface[ANode, ChildNode],
+    _ChildrenUnknown[ANode, ChildNode],
+    _ChildrenBase[ANode, ChildNode],
+    Generic[ANode, ChildNode],
 ):
     """Factory for the child Nodes of a Node.
 
@@ -515,7 +519,7 @@ class Children(
         factory: ChildFactory[T, ChildNode],
         *,
         asynchronous: bool,
-    ) -> Children[ParentNode, ChildNode]:
+    ) -> Children[ANode, ChildNode]:
         """Create a Children object using the passed ChildFactory object.
 
         The ChildFactory will be asked to create a list of arbitrary model objects
@@ -540,13 +544,14 @@ class Children(
                           call to this method.
         """
 
-        children: Children[ParentNode, ChildNode]
+        children: Children[ANode, ChildNode]
         if not asynchronous:
             from .sync_children import SyncChildren  # noqa: PLC0415
 
             children = SyncChildren(factory)
 
         else:
+            raise NotImplementedError
             from .async_children import AsyncChildren  # noqa: PLC0415
 
             children = AsyncChildren(factory)
@@ -558,8 +563,8 @@ class Children(
     # OK, Match
     @staticmethod
     def create_lazy(
-        factory_cb: Callable[[], Children[ParentNode, ChildNode]],
-    ) -> Children[ParentNode, ChildNode]:
+        factory_cb: Callable[[], Children[ANode, ChildNode]],
+    ) -> Children[ANode, ChildNode]:
         """Create a lazy children implementation.
 
         Args:
@@ -590,9 +595,11 @@ class Children(
         """
 
         new = Children.__new__(type(self))
-        Children[ParentNode, ChildNode].__init__(new, _lazy=self._lazy_support)
+        Children[ANode, ChildNode].__init__(new, _lazy=self._lazy_support)
 
         return new
 
 
-from . import children_implementations, children_array, children_keys, children_map
+# Needed to let these implementations provision their "scope shortcut" into the main Children class
+# TODO: Just get rid of these shortcuts...
+from . import children_array, children_implementations, children_keys, children_map  # pyright: ignore[reportUnusedImport]  # noqa: E402, F401, I001

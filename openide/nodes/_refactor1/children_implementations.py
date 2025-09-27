@@ -20,7 +20,7 @@ from typing import TYPE_CHECKING
 from typing_extensions import override
 
 # Local imports
-from .children import ChildNode, Children, ParentNode
+from .children import ANode, ChildNode, Children
 from .node import AnyNode, NoNode
 
 if TYPE_CHECKING:
@@ -34,7 +34,7 @@ __all__: Final = ()
 _logger = logging.getLogger(__name__)
 
 
-class _Empty(Children[ParentNode, NoNode]):
+class _Empty(Children[ANode, NoNode]):
     """Empty list of children.
 
     Does not allow anybody to insert a node. Treated especially in the _attach_to() method.
@@ -52,18 +52,18 @@ class _Empty(Children[ParentNode, NoNode]):
 Children.LEAF = _Empty[AnyNode]()
 
 
-class _LazyChildren(Children[ParentNode, ChildNode]):
+class _LazyChildren(Children[ANode, ChildNode]):  # pyright: ignore[reportUnusedClass]  # Used in Children.create_lazy(), and Node._update_children()
     # OK, Match
-    def __init__(self, factory: Callable[[], Children[ParentNode, ChildNode]]) -> None:
+    def __init__(self, factory: Callable[[], Children[ANode, ChildNode]]) -> None:
         super().__init__()
 
         self.__factory = factory
-        self.__original: Children[ParentNode, ChildNode] | None = None
+        self.__original: Children[ANode, ChildNode] | None = None
         self.__original_lock = RLock()
 
     # OK, Match
     @property
-    def _original(self) -> Children[ParentNode, ChildNode]:
+    def _original(self) -> Children[ANode, ChildNode]:
         with self.__original_lock:
             if self.__original is None:
                 self.__original = self.__factory()
@@ -93,7 +93,7 @@ class _LazyChildren(Children[ParentNode, ChildNode]):
     # OK, Match
     @property
     @override  # Children
-    def _entry_support(self) -> EntrySupport[ParentNode, ChildNode]:
+    def _entry_support(self) -> EntrySupport[ANode, ChildNode]:
         return self._original._entry_support
 
     # OK, Match

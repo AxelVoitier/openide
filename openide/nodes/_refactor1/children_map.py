@@ -20,7 +20,7 @@ from typing import TYPE_CHECKING, Generic, TypeVar, final
 from typing_extensions import override
 
 # Local imports
-from .children import ChildNode, Children, ChildrenEntry, ParentNode, _ChildrenSubClassInterface
+from .children import ANode, ChildNode, Children, ChildrenEntry, _ChildrenSubClassInterface
 
 T_Hashable = TypeVar('T_Hashable', bound=Hashable)
 
@@ -63,7 +63,7 @@ class __MapEntry(ChildrenEntry[ChildNode]):
             return False
 
 
-class _ChildrenMapBase(Children[ParentNode, ChildNode], Generic[T_Hashable, ParentNode, ChildNode]):
+class _ChildrenMapBase(Children[ANode, ChildNode], Generic[T_Hashable, ANode, ChildNode]):
     # OK, Match
     def __init__(self, *, _map: MutableMapping[T_Hashable, ChildNode] | None) -> None:
         super().__init__()
@@ -130,7 +130,7 @@ class _ChildrenMapChildrenSubClassInterface(
         return False
 
 
-class _ChildrenMapSubClassInterface(_ChildrenMapBase[T_Hashable, ParentNode, ChildNode]):
+class _ChildrenMapSubClassInterface(_ChildrenMapBase[T_Hashable, ANode, ChildNode]):
     # OK, Match
     @override  # _ChildrenMapBase
     def _init_map(self) -> MutableMapping[T_Hashable, ChildNode]:
@@ -255,10 +255,10 @@ class _ChildrenMapSubClassInterface(_ChildrenMapBase[T_Hashable, ParentNode, Chi
 
 
 class ChildrenMap(
-    _ChildrenMapSubClassInterface[T_Hashable, ParentNode, ChildNode],
+    _ChildrenMapSubClassInterface[T_Hashable, ANode, ChildNode],
     _ChildrenMapChildrenSubClassInterface[ChildNode],
-    _ChildrenMapBase[T_Hashable, ParentNode, ChildNode],
-    Children[ParentNode, ChildNode],
+    _ChildrenMapBase[T_Hashable, ANode, ChildNode],
+    Children[ANode, ChildNode],
 ):
     """Implements the storage of node children in a map.
 

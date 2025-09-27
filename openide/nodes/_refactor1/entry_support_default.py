@@ -24,7 +24,7 @@ from typing_extensions import override
 
 # Local imports
 from . import node_operations
-from .children import ChildNode, Children, ChildrenEntry, ParentNode, _ChildrenEntrySupportInterface
+from .children import ANode, ChildNode, Children, ChildrenEntry, _ChildrenEntrySupportInterface
 from .children_storage import ChildrenStorage
 from .entry_support import EntrySupport
 
@@ -45,7 +45,7 @@ _logger = logging.getLogger(__name__)
 
 
 # OK, Match
-class _DefaultSnapshot(tuple[ChildNode], Generic[ParentNode, ChildNode]):  # noqa: SLOT001
+class _DefaultSnapshot(tuple[ChildNode], Generic[ANode, ChildNode]):  # noqa: SLOT001
     # Sadly, we cannot define a descendent of tuple with a non-empty __slots__.
     # But we need the extra attribute _holder
     # Therefore, we have to stick with a dict instance on that one.
@@ -53,14 +53,14 @@ class _DefaultSnapshot(tuple[ChildNode], Generic[ParentNode, ChildNode]):  # noq
     def __new__(
         cls,
         nodes: Iterable[ChildNode],
-        storage: ChildrenStorage[ParentNode, ChildNode] | None,
+        storage: ChildrenStorage[ANode, ChildNode] | None,
     ) -> Self:
         return super().__new__(cls, nodes)
 
     def __init__(
         self,
         nodes: Iterable[ChildNode],
-        storage: ChildrenStorage[ParentNode, ChildNode] | None,
+        storage: ChildrenStorage[ANode, ChildNode] | None,
     ) -> None:
         super().__init__()  # In that case it seems to go directly to object.__init__()
 
@@ -68,11 +68,11 @@ class _DefaultSnapshot(tuple[ChildNode], Generic[ParentNode, ChildNode]):  # noq
 
 
 # OK, Match
-class _StorageRef(ReferenceType[ChildrenStorage[ParentNode, ChildNode]]):
+class _StorageRef(ReferenceType[ChildrenStorage[ANode, ChildNode]]):
     def __new__(
         cls,
-        entry_support: EntrySupportDefault[ParentNode, ChildNode] | None,
-        reference: ChildrenStorage[ParentNode, ChildNode],
+        entry_support: EntrySupportDefault[ANode, ChildNode] | None,
+        reference: ChildrenStorage[ANode, ChildNode],
         *,
         weak: bool,
     ) -> Self:
@@ -85,8 +85,8 @@ class _StorageRef(ReferenceType[ChildrenStorage[ParentNode, ChildNode]]):
     # OK, Match
     def __init__(
         self,
-        entry_support: EntrySupportDefault[ParentNode, ChildNode] | None,
-        reference: ChildrenStorage[ParentNode, ChildNode],
+        entry_support: EntrySupportDefault[ANode, ChildNode] | None,
+        reference: ChildrenStorage[ANode, ChildNode],
         *,
         weak: bool,
     ) -> None:
@@ -104,7 +104,7 @@ class _StorageRef(ReferenceType[ChildrenStorage[ParentNode, ChildNode]]):
 
     # OK, Match
     @override  # ReferenceType
-    def __call__(self) -> ChildrenStorage[ParentNode, ChildNode] | None:
+    def __call__(self) -> ChildrenStorage[ANode, ChildNode] | None:
         return super().__call__() if self._is_weak else self._hard_ref
 
     # OK, Match
@@ -121,61 +121,62 @@ class _StorageRef(ReferenceType[ChildrenStorage[ParentNode, ChildNode]]):
             self._entry_support._finalised_children_storage(self)
 
 
-class EntrySupportDefault(EntrySupport[ParentNode, ChildNode]):
-    """Default support that just fires changes directly to children and is
-    suitable for simple mappings."""
+# OK, Match
+@final
+class EntrySupportDefaultInfo(Generic[ChildNode]):
+    """Information about an entry.
+
+    Contains number of nodes, position in the array of nodes, etc.
+    """
 
     # OK, Match
-    @final
-    class _Info:
-        """Information about an entry.
+    def __init__(
+        self,
+        entry_support: EntrySupportDefault[ANode, ChildNode],
+        entry: ChildrenEntry[ChildNode],
+    ) -> None:
+        self._entry_support = entry_support
+        self.__entry = entry
+        self._length = 0  # Set by ChildrenStorage
 
-        Contains number of nodes, position in the array of nodes, etc.
-        """
+    # To make that protected attribute read-only
+    @property
+    def _entry(self) -> ChildrenEntry[ChildNode]:
+        return self.__entry
 
-        # OK, Match
-        def __init__(
-            self,
-            entry_support: EntrySupportDefault[ParentNode, ChildNode],
-            entry: ChildrenEntry[ChildNode],
-        ) -> None:
-            self._entry_support = entry_support
-            self.__entry = entry
-            self._length = 0  # Set by ChildrenStorage
+    # OK, Match
+    def nodes(self, *, has_to_exist: bool) -> MutableSequence[ChildNode]:
+        # Force creation of the array
+        assert (not has_to_exist) or (
+            self._entry_support._EntrySupportDefault__storage() is not None
+        ), 'ChildrenStorage is not initialised'
 
-        # To make that protected attribute read-only
-        @property
-        def _entry(self) -> ChildrenEntry[ChildNode]:
-            return self.__entry
+        storage = self._entry_support._EntrySupportDefault__get_storage()
+        return storage.nodes_for(self, has_to_exist=has_to_exist)
 
-        # OK, Match
-        def nodes(self, *, has_to_exist: bool) -> MutableSequence[ChildNode]:
-            # Force creation of the array
-            assert (not has_to_exist) or (
-                self._entry_support._EntrySupportDefault__storage() is not None
-            ), 'ChildrenStorage is not initialised'
+    # OK, Match
+    def use_nodes(self, nodes: MutableSequence[ChildNode]) -> None:
+        # Force creation of the array
+        storage = self._entry_support._EntrySupportDefault__get_storage()
+        storage.use_nodes(self, nodes)
 
-            storage = self._entry_support._EntrySupportDefault__get_storage()
-            return storage.nodes_for(self, has_to_exist=has_to_exist)
+        children = self._entry_support.children
+        # Assign all their nodes the new children
+        for node in nodes:
+            node._assign_to(children, -1)
+            # print(f'EntrySupportDefault._Info.use_nodes: fire parentNode on {node=}')
+            node._fire_own_property_change('parentNode', None, children._parent)
 
-        # OK, Match
-        def use_nodes(self, nodes: MutableSequence[ChildNode]) -> None:
-            # Force creation of the array
-            storage = self._entry_support._EntrySupportDefault__get_storage()
-            storage.use_nodes(self, nodes)
 
-            children = self._entry_support.children
-            # Assign all their nodes the new children
-            for node in nodes:
-                node._assign_to(children, -1)
-                # print(f'EntrySupportDefault._Info.use_nodes: fire parentNode on {node=}')
-                node._fire_own_property_change('parentNode', None, children._parent)
+class EntrySupportDefault(EntrySupport[ANode, ChildNode]):
+    """Default support that just fires changes directly to children and is
+    suitable for simple mappings."""
 
     # This storage gets deleted immediately, effectively making it a dead ref
     # TODO: Review
     __EMPTY: ClassVar = _StorageRef(
         None,
-        ChildrenStorage[ParentNode, ChildNode](_fake=True),
+        ChildrenStorage[ANode, ChildNode](_fake=True),
         weak=True,
     )
 
@@ -184,14 +185,14 @@ class EntrySupportDefault(EntrySupport[ParentNode, ChildNode]):
     # OK, Match
     # Note: map is already initialised to avoid having it Optional
     # (original does not actually check it everytime it tries to use it!).
-    def __init__(self, children: _ChildrenEntrySupportInterface[ParentNode, ChildNode]) -> None:
+    def __init__(self, children: _ChildrenEntrySupportInterface[ANode, ChildNode]) -> None:
         # print('starting to instantiate an entry support default', time.monotonic(), self, children)
         super().__init__(children)
 
         self.__entries: MutableSequence[ChildrenEntry[ChildNode]] = []
-        self.__storage: _StorageRef[ParentNode, ChildNode] = self.__EMPTY
+        self.__storage: _StorageRef[ANode, ChildNode] = self.__EMPTY
         """Storage of children references"""
-        self.__map = dict[ChildrenEntry[ChildNode], EntrySupportDefault._Info]()
+        self.__map = dict[ChildrenEntry[ChildNode], EntrySupportDefaultInfo[ChildNode]]()
         """Mapping from entries to info about them."""
         self.__map_lock = RLock()
         self.__init_thread: Thread | None = None
@@ -217,14 +218,14 @@ class EntrySupportDefault(EntrySupport[ParentNode, ChildNode]):
 
     # OK, Match
     @override  # EntrySupport
-    def _snapshot(self) -> _DefaultSnapshot[ParentNode, ChildNode]:
+    def _snapshot(self) -> _DefaultSnapshot[ANode, ChildNode]:
         self.get_nodes()  # As in original. Maybe to create them outside of the mutex?
         with Children.MUTEX.read_access():
             return self._create_snapshot()
 
     # OK, Match
     # Note: Do not inline, it can be subclassed and/or used independently of _snapshot
-    def _create_snapshot(self) -> _DefaultSnapshot[ParentNode, ChildNode]:
+    def _create_snapshot(self) -> _DefaultSnapshot[ANode, ChildNode]:
         return _DefaultSnapshot(self.get_nodes(), self.__storage())
 
     # OK, Match
@@ -304,12 +305,12 @@ class EntrySupportDefault(EntrySupport[ParentNode, ChildNode]):
         return nodes
 
     # OK, Match
-    def __find_info(self, entry: ChildrenEntry[ChildNode]) -> EntrySupportDefault._Info:
+    def __find_info(self, entry: ChildrenEntry[ChildNode]) -> EntrySupportDefaultInfo[ChildNode]:
         """Finds info for given entry, or registers it, if not registered yet."""
 
         with self.__map_lock:
             if (info := self.__map.get(entry)) is None:
-                info = EntrySupportDefault._Info(self, entry)
+                info = EntrySupportDefaultInfo(self, entry)
                 self.__map[entry] = info
 
             return info
@@ -384,10 +385,10 @@ class EntrySupportDefault(EntrySupport[ParentNode, ChildNode]):
     # OK, Match
     def __check_info(
         self,
-        info: EntrySupportDefault._Info | None,
+        info: EntrySupportDefaultInfo[ChildNode] | None,
         entry: ChildrenEntry[ChildNode],
         entries: Iterable[ChildrenEntry[ChildNode]],
-        map: Mapping[ChildrenEntry[ChildNode], EntrySupportDefault._Info],
+        map: Mapping[ChildrenEntry[ChildNode], EntrySupportDefaultInfo[ChildNode]],
     ) -> None:
         if info is None:
             raise RuntimeError(
@@ -438,7 +439,7 @@ class EntrySupportDefault(EntrySupport[ParentNode, ChildNode]):
         self,
         current: Sized,
         new_entries: Iterable[ChildrenEntry[ChildNode]],
-    ) -> list[EntrySupportDefault._Info]:
+    ) -> list[EntrySupportDefaultInfo[ChildNode]]:
         """Updates the order of entries.
 
         Args:
@@ -452,7 +453,7 @@ class EntrySupportDefault(EntrySupport[ParentNode, ChildNode]):
         assert Children.MUTEX.is_write_access
 
         # That assigns entries their beginning position in the array of nodes
-        offsets = dict[EntrySupportDefault._Info, int]()
+        offsets = dict[EntrySupportDefaultInfo[ChildNode], int]()
         previous_pos = 0
         with self.__map_lock:
             for entry in self.__entries:
@@ -463,7 +464,7 @@ class EntrySupportDefault(EntrySupport[ParentNode, ChildNode]):
                 offsets[info] = previous_pos
                 previous_pos += info._length
 
-        to_add = list[EntrySupportDefault._Info]()
+        to_add = list[EntrySupportDefaultInfo[ChildNode]]()
         perm = [0] * len(current)
         current_pos = 0
         perm_size = 0
@@ -474,7 +475,7 @@ class EntrySupportDefault(EntrySupport[ParentNode, ChildNode]):
 
                 if info is None:
                     # This info has to be added
-                    info = EntrySupportDefault._Info(self, entry)
+                    info = EntrySupportDefaultInfo(self, entry)
                     to_add.append(info)
                 else:
                     reordered_entries.append(entry)
@@ -510,7 +511,7 @@ class EntrySupportDefault(EntrySupport[ParentNode, ChildNode]):
     # OK, Match
     def __update_add(
         self,
-        infos: Iterable[EntrySupportDefault._Info],
+        infos: Iterable[EntrySupportDefaultInfo[ChildNode]],
         entries: MutableSequence[ChildrenEntry[ChildNode]],
     ) -> None:
         """Update the state of children by adding given Infos.
@@ -603,7 +604,7 @@ class EntrySupportDefault(EntrySupport[ParentNode, ChildNode]):
         to_add = list[ChildNode]()
         old_nodes_set = set(old_nodes)
         to_process = set(old_nodes_set)
-        perm_array: MutableSequence[ChildNode] = []
+        perm_array: list[ChildNode] = []
 
         for node in new_nodes:
             if node in old_nodes_set:
@@ -701,7 +702,7 @@ class EntrySupportDefault(EntrySupport[ParentNode, ChildNode]):
     def __get_storage(
         self,
         cannot_work_better: MutableSequence[bool] | None = None,
-    ) -> ChildrenStorage[ParentNode, ChildNode]:
+    ) -> ChildrenStorage[ANode, ChildNode]:
         """Obtains reference to storage.
 
         If it does not exist, it is created.
@@ -717,7 +718,7 @@ class EntrySupportDefault(EntrySupport[ParentNode, ChildNode]):
 
         with EntrySupportDefault.__LOCK:
             if (storage := self.__storage()) is None:
-                storage = ChildrenStorage[ParentNode, ChildNode]()
+                storage = ChildrenStorage[ANode, ChildNode]()
                 # Register the storage with the children
                 self._register_children_storage(storage, weak=False)
                 do_initialise = True
@@ -781,7 +782,7 @@ class EntrySupportDefault(EntrySupport[ParentNode, ChildNode]):
     @final
     def _register_children_storage(
         self,
-        storage: ChildrenStorage[ParentNode, ChildNode],
+        storage: ChildrenStorage[ANode, ChildNode],
         *,
         weak: bool,
     ) -> None:
@@ -806,7 +807,7 @@ class EntrySupportDefault(EntrySupport[ParentNode, ChildNode]):
     @final
     def _finalised_children_storage(
         self,
-        caller: ReferenceType[ChildrenStorage[ParentNode, ChildNode]],
+        caller: ReferenceType[ChildrenStorage[ANode, ChildNode]],
     ) -> None:
         """_StorageRef has a finaliser, that ends up calling this method for itself"""
         assert caller() is None
@@ -816,10 +817,10 @@ class EntrySupportDefault(EntrySupport[ParentNode, ChildNode]):
                 if (self.__storage is caller) and (self.children._entry_support_raw is self):
                     # Really finalised and not reconstructed
                     self.__must_notify_set_entries = False
-                    self.__storage = EntrySupportDefault[ParentNode, ChildNode].__EMPTY
+                    self.__storage = EntrySupportDefault[ANode, ChildNode].__EMPTY
                     self.__inited = False
                     self.children._call_remove_notify()
-                    assert self.__storage is EntrySupportDefault[ParentNode, ChildNode].__EMPTY
+                    assert self.__storage is EntrySupportDefault[ANode, ChildNode].__EMPTY
 
         # Usually in _remove_notify() _set_keys() is called => better require write access
         try:

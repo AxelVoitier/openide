@@ -20,7 +20,7 @@ from typing_extensions import override
 
 # Local imports
 from .child_factory import ChildFactoryObserver
-from .children import ChildNode, ParentNode
+from .children import ANode, ChildNode
 from .children_keys import ChildrenKeys, Key
 
 if TYPE_CHECKING:
@@ -34,7 +34,7 @@ __all__: Final = ('SyncChildren',)
 _logger = logging.getLogger(__name__)
 
 
-class SyncChildren(ChildrenKeys[Key, ParentNode, ChildNode], ChildFactoryObserver):
+class SyncChildren(ChildrenKeys[Key, ANode, ChildNode], ChildFactoryObserver):
     """Synchronous children implementation that takes a ChildFactory."""
 
     # OK, Match

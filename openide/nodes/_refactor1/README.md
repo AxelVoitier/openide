@@ -61,12 +61,12 @@ The objectives of this first refactoring are:
   - [x] SyncChildren
   - [ ] AsyncChildren
 - [x] ChildFactory
-- [ ] EntrySupport
+- [x] EntrySupport
 - [ ] EntrySupportDefault
 - [ ] EntrySupportLazy
-- [ ] ChildrenStorage
-- [ ] NodeListener & Co
-- [ ] NodeLookup
+- [x] ChildrenStorage
+- [x] NodeListener & Co
+- [x] NodeLookup
 - [x] node_operations
 
 

@@ -101,7 +101,7 @@ class NodeHandle(ABC, Generic[ANode]):
 #     value: set[ANode] | None = None
 
 
-class _NodeBase(LookupProvider, Generic[ChildNode]):
+class _NodeBase(FeatureDescriptor, LookupProvider, Generic[ChildNode]):
     if TYPE_CHECKING:
         # Following methods are defined in _NodeListenersMixins
         def _fire_sub_nodes_change_idx(
@@ -882,6 +882,7 @@ class _NodeListenersMixins(_NodePropertiesInterface[ChildNode], Generic[ChildNod
     # OK, Match, but
     # TODO: Dormant stuffs
     @final
+    @override
     def _fire_node_destroyed(self) -> None:
         """Fires node destroyed notifications."""
 

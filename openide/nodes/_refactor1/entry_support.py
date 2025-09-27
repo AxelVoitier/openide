@@ -18,7 +18,7 @@ from typing import TYPE_CHECKING, Generic
 
 # Third-party imports
 # Local imports
-from .node import ChildNode, ParentNode
+from .children import ANode, ChildNode
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, MutableSequence, Sequence
@@ -31,9 +31,9 @@ __all__: Final = ('EntrySupport',)
 _logger = logging.getLogger(__name__)
 
 
-class EntrySupport(ABC, Generic[ParentNode, ChildNode]):
+class EntrySupport(ABC, Generic[ANode, ChildNode]):
     # OK, Match
-    def __init__(self, children: _ChildrenEntrySupportInterface[ParentNode, ChildNode]) -> None:
+    def __init__(self, children: _ChildrenEntrySupportInterface[ANode, ChildNode]) -> None:
         super().__init__()
 
         self.__children = children
@@ -41,7 +41,7 @@ class EntrySupport(ABC, Generic[ParentNode, ChildNode]):
 
     # Note: This is to keep children as a RO public attribute
     @property
-    def children(self) -> _ChildrenEntrySupportInterface[ParentNode, ChildNode]:
+    def children(self) -> _ChildrenEntrySupportInterface[ANode, ChildNode]:
         """Children we are attached to"""
 
         return self.__children

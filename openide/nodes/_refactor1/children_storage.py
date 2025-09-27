@@ -14,22 +14,23 @@ from __future__ import annotations
 # System imports
 import logging
 from threading import RLock
-from typing import TYPE_CHECKING, final
+from typing import TYPE_CHECKING, Generic, final
 from weakref import WeakKeyDictionary
 
 # Third-party imports
 from typing_extensions import override
 
 # Local imports
-from .children import ChildNode, ParentNode
+from .children import ANode, ChildNode
+from .node import AnyNode
 from .node_listener import NodeListener
 
 if TYPE_CHECKING:
     from collections.abc import MutableMapping, MutableSequence
     from typing import Any, Final
 
-    from .children import Children
-    from .entry_support_default import EntrySupportDefault
+    from .children import _ChildrenParentNodeInterface as Children
+    from .entry_support_default import EntrySupportDefault, EntrySupportDefaultInfo
     from .node_listener import (
         NodeEvent,
         NodeMemberEvent,
@@ -41,8 +42,12 @@ __all__: Final = ('ChildrenStorage',)
 _logger = logging.getLogger(__name__)
 
 
+# Normally, the AnyNode to NodeListener is actually the same than our own ANode.
+# But since we split up things into classes that have separate concerns, the ANode
+# parameter of NodeListener is a _NodeListenersMixins, whereas our own ANode is
+# a _NodeChildrenInterface. In practice, they both end up being an actual Node.
 @final
-class ChildrenStorage(NodeListener[ParentNode, ChildNode]):
+class ChildrenStorage(NodeListener[AnyNode, ChildNode], Generic[ANode, ChildNode]):
     """Holder of nodes for a children object.
 
     Communicates with children to notify when created/finalised.
@@ -56,13 +61,13 @@ class ChildrenStorage(NodeListener[ParentNode, ChildNode]):
         super().__init__()
 
         self._lock = RLock()
-        self.entry_support: EntrySupportDefault[ParentNode, ChildNode] | None = None
+        self.entry_support: EntrySupportDefault[ANode, ChildNode] | None = None
         """Children's EntrySupport"""
         self.__nodes: list[ChildNode] | None = None
         """Associated nodes"""
-        self.__map: MutableMapping[EntrySupportDefault._Info, MutableSequence[ChildNode]] | None = (
-            None
-        )
+        self.__map: (
+            MutableMapping[EntrySupportDefaultInfo[ChildNode], MutableSequence[ChildNode]] | None
+        ) = None
 
         # print('instantiated a children storage', time.monotonic(), self)
 
@@ -74,7 +79,7 @@ class ChildrenStorage(NodeListener[ParentNode, ChildNode]):
     # OK, Match
 
     @property
-    def children(self) -> Children[ParentNode, ChildNode] | None:
+    def children(self) -> Children[ANode, ChildNode] | None:
         if (entry_support := self.entry_support) is not None:
             return entry_support.children
         else:
@@ -116,7 +121,7 @@ class ChildrenStorage(NodeListener[ParentNode, ChildNode]):
                 self.entry_support._register_children_storage(self, weak=False)
 
     # OK, Match
-    def _remove(self, info: EntrySupportDefault._Info) -> None:
+    def _remove(self, info: EntrySupportDefaultInfo[ChildNode]) -> None:
         if ((map := self.__map) is not None) and (info in map):
             del map[info]
 
@@ -132,7 +137,7 @@ class ChildrenStorage(NodeListener[ParentNode, ChildNode]):
     # OK, Match
     def nodes_for(
         self,
-        info: EntrySupportDefault._Info,
+        info: EntrySupportDefaultInfo[ChildNode],
         *,
         has_to_exist: bool,
     ) -> MutableSequence[ChildNode]:
@@ -148,22 +153,27 @@ class ChildrenStorage(NodeListener[ParentNode, ChildNode]):
                 assert not has_to_exist, f'Cannot find nodes for {info} in {map}'
 
                 try:
-                    nodes = info._entry.nodes(None)
+                    new_nodes = info._entry.nodes(None)
                 except RuntimeError:
                     _logger.exception('Error during node processing')
-                    nodes = []
+                    new_nodes: MutableSequence[ChildNode] = []
+                else:
+                    if new_nodes is None:  # pyright: ignore[reportUnnecessaryComparison]
+                        _logger.warning('None returned by %s', info._entry)
+                        new_nodes: MutableSequence[ChildNode] = []
 
-                if nodes is None:
-                    _logger.warning('None returned by %s', info._entry)
-                    nodes = []
-
-                info._length = len(nodes)
-                map[info] = nodes
+                info._length = len(new_nodes)
+                map[info] = new_nodes
+                nodes = new_nodes  # Somehow, typing is getting real weird if we keep reusing nodes
 
             return nodes
 
     # OK, Match
-    def use_nodes(self, info: EntrySupportDefault._Info, nodes: MutableSequence[ChildNode]) -> None:
+    def use_nodes(
+        self,
+        info: EntrySupportDefaultInfo[ChildNode],
+        nodes: MutableSequence[ChildNode],
+    ) -> None:
         """Refreshes the nodes for given info."""
 
         with self._lock:
@@ -177,25 +187,25 @@ class ChildrenStorage(NodeListener[ParentNode, ChildNode]):
 
     # OK, Match
     @override  # NodeListener
-    def property_change(self, node: ParentNode, name: str, old: Any, new: Any) -> None:
+    def property_change(self, node: AnyNode, name: str, old: Any, new: Any) -> None:
         pass
 
     # OK, Match
     @override  # NodeListener
-    def children_added(self, event: NodeMemberEvent[ParentNode, ChildNode]) -> None:
+    def children_added(self, event: NodeMemberEvent[AnyNode, ChildNode]) -> None:
         pass
 
     # OK, Match
     @override  # NodeListener
-    def children_removed(self, event: NodeMemberEvent[ParentNode, ChildNode]) -> None:
+    def children_removed(self, event: NodeMemberEvent[AnyNode, ChildNode]) -> None:
         pass
 
     # OK, Match
     @override  # NodeListener
-    def children_reordered(self, event: NodeReorderEvent[ParentNode, ChildNode]) -> None:
+    def children_reordered(self, event: NodeReorderEvent[AnyNode, ChildNode]) -> None:
         pass
 
     # OK, Match
     @override  # NodeListener
-    def node_destroyed(self, event: NodeEvent[ParentNode]) -> None:
+    def node_destroyed(self, event: NodeEvent[AnyNode]) -> None:
         pass
