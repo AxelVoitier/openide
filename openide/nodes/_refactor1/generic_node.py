@@ -14,20 +14,20 @@ from __future__ import annotations
 # System imports
 import logging
 from threading import RLock
-from typing import TYPE_CHECKING, Any, Generic, Self, TypeAlias, final
+from typing import TYPE_CHECKING, Any, ClassVar, Generic, Iterable, Self, TypeAlias, final
 
 # Third-party imports
 from typing_extensions import override
 
-from openide.lookup.cookie_set import CookieSet
+from openide.lookup.cookie_set import CookieSet, CookieSetChangeProtocol
 
 # Local imports
 from .children import Children
 from .node import (
-    ChildNode,
-    ParentNode,
     AnyNode,
+    ChildNode,
     Node,
+    ParentNode,
     _NodeActionsInterface,
     _NodeCopyMixin,
     _NodeCopyPasteDnDInterface,
@@ -47,7 +47,17 @@ if TYPE_CHECKING:
     from openide.lookup.cookie_set import Ck
     from openide.nodes.properties import Sheet
 
-__all__: Final = ('GenericNode',)
+    from .node import NodeHandle
+
+__all__: Final = (
+    'GenericNode',
+    'GenericNodeActions',
+    'GenericNodeCopy',
+    'GenericNodeCopyPasteDnD',
+    'GenericNodeLookupAndCookie',
+    'GenericNodeProperties',
+    'GenericNodeRepresentation',
+)
 
 _logger = logging.getLogger(__name__)
 
@@ -62,10 +72,15 @@ class _GenericNodeLock:
 class GenericNodeActions(_NodeActionsInterface):
     def __init__(self, **kwargs: Any) -> None:
         # TODO:
-        # self.__preferred_action: Optional[Action] = None
+        self.__preferred_action: QAction | None = None
         # self._system_actions: Optional[Sequence[SystemAction]] = None  # deprecated
 
         super().__init__(**kwargs)
+
+    # # TODO: Implement
+    # def __overrides_a_method(self, name: str, arguments: Iterable[type[Any]]) -> bool:
+    #     '''Checks whether subclass overrides a method.'''
+    #     raise NotImplementedError
 
     # # TODO: Implement
     # # TODO: Define return type
@@ -142,9 +157,30 @@ class GenericNodeCopyPasteDnD(_NodeCopyPasteDnDInterface):
     @property
     @override  # _NodeCopyPasteDnDInterface
     def drag(self) -> Any:
+        """This implementation only calls `clipboard_copy()`, supposing that copy
+        to clipboard and copy by DnD are similar."""
+
         return self.clipboard_copy()
 
-    # TODO: createPasteTypes (protected)
+    def _create_paste_types(self, transferable: Any, types: list[Any]) -> None:
+        """Accumulate the paste types that this node can handle for a given transferable.
+
+        The default implementation simply tests whether the transferable supports
+        intelligent pasting via `NodeTransfer.find_paste()`, and if so, it obtains
+        the paste types from the NodeTransfer.Paste transfer data, and inserts
+        them into the set.
+
+        Subclass implementations should typically call super (first or last), so
+        that they add to, rather tha replace, a superclass' available paste types.
+        Especially as the default implementation in GenericNode is generally
+        desirable to retain.
+
+        Args:
+            transferable: A transferable containing clipboard data.
+            types: A list of PastTypes that will have added to it all types valid
+                   for this node (ordered as they will be presented to the user).
+        """
+        raise NotImplementedError
 
     @override  # _NodeCopyPasteDnDInterface
     def get_paste_types(self, transferable: Any) -> Any:
@@ -163,6 +199,7 @@ class GenericNodeCopyPasteDnD(_NodeCopyPasteDnDInterface):
 class GenericNodeLookupAndCookie(_GenericNodeLock, _NodeLookupAndCookieMixin):
     def __init__(self, **kwargs: Any) -> None:
         self.__cookie_set: CookieSet | None = None
+        """Array of cookies for this node."""
         self.__sheet_cookie_listener: _SheetAndCookieListener[ParentNode, ChildNode] | None = None
 
         super().__init__(**kwargs)
@@ -182,6 +219,12 @@ class GenericNodeLookupAndCookie(_GenericNodeLock, _NodeLookupAndCookieMixin):
     @property
     @override  # _NodeLookupAndCookieMixin
     def _cookie_set(self) -> CookieSet:
+        """The cookie set.
+
+        Returns:
+            The cookie set set with the setter, or an empty set (never None).
+        """
+
         if self._internal_lookup is not None:
             msg = 'CookieSet cannot be used when lookup is associated with a node'
             raise RuntimeError(msg)
@@ -201,6 +244,13 @@ class GenericNodeLookupAndCookie(_GenericNodeLock, _NodeLookupAndCookieMixin):
     @_cookie_set.setter
     @override  # _NodeLookupAndCookieMixin
     def _cookie_set(self, value: CookieSet) -> None:
+        """Set the cookie set.
+
+        A listener is attached to the provided cookie set, and any change of the
+        sheet is propagated to the node by firing PROP_COOKIE change events.
+
+        Note: Deprecated. You might as well do `node._cookie_set.add()` instead.
+        """
         with self._lock:
             if self._internal_lookup is not None:
                 msg = 'CookieSet cannot be used when lookup is associated with a node'
@@ -221,7 +271,22 @@ class GenericNodeLookupAndCookie(_GenericNodeLock, _NodeLookupAndCookieMixin):
 class GenericNodeProperties(_GenericNodeLock, _NodePropertiesInterface):
     def __init__(self, **kwargs: Any) -> None:
         self._display_format: str | None = None
+        """Message format to use for creation of the display name.
+        
+        It permits conversion of text from `system_name` property to the one sent
+        to `display_name` property. The format can take one parameter, which will
+        be filled by a value from `system_name`.
+
+        The default format just uses the simple `system_name`. Subclasses may
+        change it, though it will not take effect until the next time `system_name`
+        property setter is called.
+
+        Can be set to None. The there is no connection between the system name and
+        display name; they may be independently modified.
+        """
+
         self.__sheet: Sheet | None = None
+        """Set of properties to use."""
 
         super().__init__(**kwargs)
 
@@ -239,7 +304,25 @@ class GenericNodeProperties(_GenericNodeLock, _NodePropertiesInterface):
         else:
             self._fire_own_property_change('display_name', None, None)
 
+    @property
+    @override  # Node
+    def can_rename(self) -> bool:
+        return False
+
     def _create_sheet(self) -> Sheet:
+        """Initialise a default property sheet.
+
+        Commonly overridden. If `sheet` property is called, and there is not yet
+        a sheet, this method is called to allow a subclass to specify its properties.
+
+        WARNING: Do not call `sheet` property getter in this method.
+
+        The default implementation returns an empty sheet.
+
+        Returns:
+            The sheet with initialised values (and should never return None).
+        """
+
         from openide.nodes import SheetSupport  # noqa: PLC0415
 
         return SheetSupport()
@@ -273,6 +356,12 @@ class GenericNodeProperties(_GenericNodeLock, _NodePropertiesInterface):
 
     @_sheet.setter
     def _sheet(self, sheet: Sheet) -> None:
+        """Sets the set of properties.
+
+        A listener is attached to the provided sheet, and any change of the sheet
+        is propagated to the node by firing a PROP_PROPERTY_SETS change event.
+        """
+
         with self._lock:
             self.__set_sheet_implementation(sheet)
             self._fire_own_property_change('property_sets', None, None)
@@ -296,9 +385,42 @@ class GenericNodeProperties(_GenericNodeLock, _NodePropertiesInterface):
 
 
 class GenericNodeRepresentation(_GenericNodeLock, _NodeRepresentationInterface):
+    # TODO: Actually implement the real stuffs. These are just stubs to get a
+    # basic default behaviour. That does not even match the docstrings.
+    # Would need to figure out:
+    # - How Qt can handle the various cases of icons: user provided, as well as
+    #   the default packs it can access itself using specific mnemonics.
+    # - How to properly load user provided ones as either importlib.resources
+    #   ones, or Qt own resource system.
+    # - How all of that would play with application packagers (Nuitka, pyinstaller).
+    # - Qt embedded the notion of various flavours of icons directly in QIcon itself
+    #   using "State". This can replace the weird array (here a tuple) used as a
+    #   map with int indices. This would at least be an enum with proper member
+    #   names. And at best replace with something that can map to Qt's icon states.
+
+    # __DEFAULT_ICON_BASE: ClassVar = 'openide.nodes.default_node'
+    __DEFAULT_ICON_BASE: ClassVar = ''
+    __DEFAULT_ICON_EXTENSION: ClassVar = '.gif'
+    __DEFAULT_ICON: ClassVar = f'{__DEFAULT_ICON_BASE}.png'
+
+    __icons: ClassVar = (
+        '',  # Color 16x16
+        '32',  # Color 32x32
+        '',  # Mono 16x16
+        '32',  # Mono 32x32
+        'Open',  # Opened color 16x16
+        'Open32',  # Opened color 32x32
+        'Open',  # Opened mono 16x16
+        'Open32',  # Opened mono 32x32
+    )
+    __ICON_BASE: ClassVar = -1
+    __OPENED_ICON_BASE: ClassVar = 3
+
     def __init__(self, **kwargs: Any) -> None:
-        # self.__icon_base = GenericNode.__DEFAULT_ICON_BASE
+        self.__icon_base = self.__DEFAULT_ICON_BASE
+        """Resource base for icons (without suffix denoting right icon)."""
         self.__icon_extension = '.png'
+        """Resource extension for icons."""
 
         super().__init__(**kwargs)
 
@@ -311,6 +433,24 @@ class GenericNodeRepresentation(_GenericNodeLock, _NodeRepresentationInterface):
         base: str,
         extension: str | None = None,
     ) -> None:
+        """Change the icon.
+
+        One need only specify the base resource name without extension. The real
+        name of the icon is obtained by inserting proper infixes into the resource
+        name.
+
+        For example, for the base "foo.resource.MyIcon.png", the following images
+        may be used according to the icon state:
+        - "foo.resource.MyIcon.png"
+        - "foo.resource.MyIconOpen.png"
+        - "foo.resource.MyIcon32.png"
+        - "foo.resource.MyIconOpen32.png"
+
+        This method may be used to dynamically switch between different sets of
+        icons for different configurations. If the set is changed, an icon property
+        change event is fired.
+        """
+
         if extension is None:
             try:
                 last_dot = base.rindex('.')
@@ -351,29 +491,42 @@ class GenericNodeRepresentation(_GenericNodeLock, _NodeRepresentationInterface):
         return icon
         # return self.__find_icon(GenericNode.ICON_BASE)
 
+    def get_icon(self, type: int) -> QIcon | QPixmap | QColor:
+        return self.__find_icon(type, self.__ICON_BASE)
+
     # TODO: Input type parameter
     @property
     @override  # Node
     def opened_icon(self) -> QIcon | QPixmap | QColor:
-        return self.__find_icon(GenericNode.OPENED_ICON_BASE)
+        raise NotImplementedError
+
+    def get_opened_icon(self, type: int) -> QIcon | QPixmap | QColor:
+        return self.__find_icon(type, self.__OPENED_ICON_BASE)
 
     # TODO: Input type parameter
     # TODO: Type of input ib parameter
     # TODO: Implement
-    def __find_icon(self, type, ib) -> QIcon | QPixmap | QColor:
+    def __find_icon(self, type: int, ib: int) -> QIcon | QPixmap | QColor:
+        """Tries to find the right icon for the iconbase.
+
+        Args:
+            type: Type of icon.
+            ib: Base where to scan in the array.
+        """
+        res = self.__icon_base + self.__icons[type + ib] + self.__icon_extension
         raise NotImplementedError
 
     # TODO: Implement
     # TODO: Define return type
     @property
-    def _default_icon(self):  # type: ignore[no-untyped-def]
+    def _default_icon(self) -> QIcon | QPixmap | QColor:
         raise NotImplementedError
 
     # TODO: Implement
     # TODO: Define return type
     @property
     @override  # Node
-    def help_context(self):  # type: ignore[no-untyped-def]
+    def help_context(self) -> Any:
         raise NotImplementedError
 
 
@@ -387,6 +540,18 @@ class GenericNode(
     _GenericNodeLock,
     Node[ParentNode, ChildNode],
 ):
+    """A basic implementation of a Node.
+
+    It simplifies creation of the display name, based on a message format and the
+    system name. It also simplifies working with icons: one need only specify the
+    base name and all icons will be loaded when needed. Other common requirements
+    are handled as well.
+
+    Args:
+        ParentNode: The type of this node parent node.
+        ChildNode: The type of child nodes this node have.
+    """
+
     # TODO: private static final
     # - icons
     # - ICON_BASE
@@ -408,15 +573,15 @@ class GenericNode(
 
     @classmethod
     def with_cookie_set(cls, cookie_set: CookieSet) -> Self:
+        """Initialise a node using the given CookieSet.
+
+        The default hierarchy is Children.LEAF.
+        """
+
         node = cls(Children.LEAF)
         node.__cookie_set = cookie_set
 
         return node
-
-    @property
-    @override  # Node
-    def can_rename(self) -> bool:
-        return False
 
     @property
     @override  # Node
@@ -436,7 +601,7 @@ class GenericNode(
 
     @property
     @override  # Node
-    def handle(self) -> Node.Handle:
+    def handle(self) -> NodeHandle[Self]:
         return DefaultHandle.create_handle(self)
 
 
@@ -444,6 +609,8 @@ class GenericNode(
 # TODO: Extends javax.swing.event.ChangeListener
 @final
 class _SheetAndCookieListener(Generic[ParentNode, ChildNode]):
+    """Listener for changes in the sheet and the cookie set."""
+
     def __init__(self, node: GenericNode[ParentNode, ChildNode]) -> None:
         super().__init__()
 

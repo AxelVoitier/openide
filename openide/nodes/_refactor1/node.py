@@ -70,13 +70,14 @@ __all__: Final = (
     'ChildNode',
     'NoNode',
     'Node',
+    'NodeHandle',
     'ParentNode',
 )
 
 _logger = logging.getLogger(__name__)
 
 
-class _Handle(ABC, Generic[ANode]):
+class NodeHandle(ABC, Generic[ANode]):
     """Serialisable node reference.
 
     The node should not be serialised directly but via this handle. One can obtain
@@ -1058,7 +1059,11 @@ class _NodeRepresentationInterface(ABC):
     @property
     @abstractmethod
     def opened_icon(self) -> QIcon | QPixmap | QColor:
-        """Find an icon fo this node in the open state."""
+        """Find an icon fo this node in the open state.
+
+        This icon should represent the node only when it is opened (when it can
+        have children).
+        """
 
         # Actually useless thanks to Qt who can embed that info directly in a QIcon (On state)
         raise NotImplementedError  # pragma: no cover
@@ -1066,7 +1071,7 @@ class _NodeRepresentationInterface(ABC):
     # TODO: Define return type
     @property
     @abstractmethod
-    def help_context(self):  # type: ignore[no-untyped-def]
+    def help_context(self) -> Any:
         """Get the context help associated with this node."""
 
         raise NotImplementedError  # pragma: no cover
@@ -1149,7 +1154,7 @@ class _NodeUnknown:
     # OK, Match
     @property
     @abstractmethod
-    def handle(self) -> _Handle | None:
+    def handle(self) -> NodeHandle | None:
         """An handle for this node (for serialisation).
 
         The handle can be serialised and `Handle.get_node()` used after
@@ -1208,7 +1213,7 @@ class Node(
     EMPTY: Node = None  # type: ignore[assignment]
     """An empty leaf node"""
 
-    Handle: TypeAlias = _Handle
+    Handle: TypeAlias = NodeHandle[Self]
 
     def __init__(self, children: Children[Self, ChildNode], lookup: Lookup | None = None) -> None:
         """Initialises a new Node with a given hierarchy, and optionally a lookup.

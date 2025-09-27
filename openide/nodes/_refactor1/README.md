@@ -24,13 +24,15 @@ The objectives of this first refactoring are:
   - [ ] Listeners
 - [ ] Support asynchronous/lazy mode
 - [ ] FilterNode
+- [ ] Icons support
+- [ ] Extensive actions support
 
 ## Done
 
 ### Documenting
 
 - [X] Node
-  - [ ] GenericNode
+  - [X] GenericNode
   - [ ] FilterNode
 - [x] Children
   - [x] ChildrenArray
