@@ -106,6 +106,12 @@ class NodeHandle(ABC, Generic[ANode_co]):
 class _NodeBase(FeatureDescriptor, LookupProvider, Generic[ChildNode]):
     if TYPE_CHECKING:
         # Following methods are defined in _NodeListenersMixins
+        def _fire_sub_nodes_change(
+            self,
+            add_action: bool,  # noqa: FBT001
+            nodes_delta: Collection[ChildNode],
+            nodes_from: Sequence[ChildNode] | None,
+        ) -> None: ...  # Used in EntrySupportDefault._notify_remove()
         def _fire_sub_nodes_change_idx(
             self,
             added: bool,  # noqa: FBT001
@@ -114,6 +120,10 @@ class _NodeBase(FeatureDescriptor, LookupProvider, Generic[ChildNode]):
             current: Sequence[ChildNode],
             previous: Sequence[ChildNode],
         ) -> None: ...
+        def _fire_reorder_change(
+            self,
+            indices: Sequence[int],
+        ) -> None: ...  # Used by EntrySupportDefault.__update_order()
         def _fire_node_destroyed(self) -> None: ...  # Used by ChildrenKeys._destroy_nodes()
         def _fire_cookie_change(self) -> None: ...
         def _fire_own_property_change(self, name: str, old: Any, new: Any) -> None: ...  # noqa: ANN401
@@ -124,7 +134,7 @@ class _NodeBase(FeatureDescriptor, LookupProvider, Generic[ChildNode]):
 
 class _NodePropertiesInterface(_NodeBase[ChildNode], FeatureDescriptor, ABC):
     def _super_property_setter(self, cls: type[Any], name: str, value: Any) -> None:  # noqa: ANN401
-        """Set a property using the setter defined in a super class.
+        """Sets a property using the setter defined in a super class.
 
         Useful when you don't want to trigger your descendent, or your own
         property setter, in case it is overridden.
@@ -811,6 +821,7 @@ class _NodeListenersMixins(_NodePropertiesInterface[ChildNode], Generic[ChildNod
     # OK, Match, but
     # TODO: Dormant stuffs
     @final
+    @override
     def _fire_sub_nodes_change(
         self,
         add_action: bool,  # noqa: FBT001
@@ -886,6 +897,7 @@ class _NodeListenersMixins(_NodePropertiesInterface[ChildNode], Generic[ChildNod
     # OK, Match, but
     # TODO: Dormant stuffs
     @final
+    @override
     def _fire_reorder_change(self, indices: Sequence[int]) -> None:
         """Fires info about reordering of some children.
 

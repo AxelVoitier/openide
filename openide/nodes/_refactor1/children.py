@@ -93,6 +93,10 @@ class _ChildrenBase(Generic[ANode, ChildNode]):
         def remove(self, nodes: Sequence[ChildNode]) -> bool: ...  # Needed in Node.destroy()
         def _check_support(self) -> None: ...
         def _add_notify(self) -> None: ...
+        def _destroy_nodes(
+            self,
+            nodes: Iterable[ChildNode],
+        ) -> None: ...  # used in EntrySupportDefault._notify_remove()
         def _remove_notify(self) -> None: ...
 
 

@@ -5,7 +5,7 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # spell-checker:enableCompoundWords
-# spell-checker:words finaliser
+# spell-checker:words finaliser deserialisation
 # spell-checker:ignore
 """"""
 
@@ -95,7 +95,7 @@ class _StorageRef(ReferenceType[ChildrenStorage[ANode, ChildNode]]):
         self._hard_ref = reference if not weak else None
         self._entry_support = entry_support
 
-        # print('instantiated a _StorageRef', time.monotonic(), self, entry_support, reference, weak)
+        # print('instantiated _StorageRef', time.monotonic(), self, entry_support, reference, weak)
 
     # def __del__(self):
     #     print('_StorageRef.__del__', self, self._entry_support)
@@ -146,19 +146,12 @@ class EntrySupportDefaultInfo(Generic[ChildNode]):
 
     # OK, Match
     def nodes(self, *, has_to_exist: bool) -> MutableSequence[ChildNode]:
-        # Force creation of the array
-        assert (not has_to_exist) or (
-            self._entry_support._EntrySupportDefault__storage() is not None
-        ), 'ChildrenStorage is not initialised'
-
-        storage = self._entry_support._EntrySupportDefault__get_storage()
-        return storage.nodes_for(self, has_to_exist=has_to_exist)
+        return self._entry_support._nodes_for_info(self, has_to_exist=has_to_exist)
 
     # OK, Match
     def use_nodes(self, nodes: MutableSequence[ChildNode]) -> None:
         # Force creation of the array
-        storage = self._entry_support._EntrySupportDefault__get_storage()
-        storage.use_nodes(self, nodes)
+        self._entry_support._info_use_nodes(self, nodes)
 
         children = self._entry_support.children
         # Assign all their nodes the new children
@@ -186,7 +179,7 @@ class EntrySupportDefault(EntrySupport[ANode, ChildNode]):
     # Note: map is already initialised to avoid having it Optional
     # (original does not actually check it everytime it tries to use it!).
     def __init__(self, children: _ChildrenEntrySupportInterface[ANode, ChildNode]) -> None:
-        # print('starting to instantiate an entry support default', time.monotonic(), self, children)
+        # print('instantiating an entry support default', time.monotonic(), self, children)
         super().__init__(children)
 
         self.__entries: MutableSequence[ChildrenEntry[ChildNode]] = []
@@ -235,8 +228,8 @@ class EntrySupportDefault(EntrySupport[ANode, ChildNode]):
     def get_nodes(self, *, optimal_result: bool = False) -> list[ChildNode]:
         # print(f'get_nodes, {optimal_result=}')
         if optimal_result:
-            hold = self.__get_storage()  # noqa: F841
-            find = self.children.find_child(None)  # noqa: F841
+            hold = self.__get_storage()  # pyright: ignore[reportUnusedVariable] # noqa: F841
+            find = self.children.find_child(None)  # pyright: ignore[reportUnusedVariable] # noqa: F841
 
         results = [False, False]
         while True:
@@ -293,7 +286,7 @@ class EntrySupportDefault(EntrySupport[ANode, ChildNode]):
 
         # Initialises parent nodes
         for i, node in enumerate(nodes):
-            if node is None:
+            if node is None:  # pyright: ignore[reportUnnecessaryComparison]
                 _logger.warning('None node among children! index=%d ; nodes=%s', i, nodes)
                 msg = f'Node {i} is None'
                 raise RuntimeError(msg)
@@ -770,6 +763,31 @@ class EntrySupportDefault(EntrySupport[ANode, ChildNode]):
 
         return storage
 
+    def _get_raw_storage(self) -> ChildrenStorage[ANode, ChildNode]:
+        return self.__get_storage()
+
+    def _nodes_for_info(
+        self,
+        info: EntrySupportDefaultInfo[ChildNode],
+        *,
+        has_to_exist: bool,
+    ) -> MutableSequence[ChildNode]:
+        # Force creation of the array
+        assert (not has_to_exist) or (self.__storage() is not None), (
+            'ChildrenStorage is not initialised'
+        )
+
+        storage = self.__get_storage()
+        return storage.nodes_for(info, has_to_exist=has_to_exist)
+
+    def _info_use_nodes(
+        self,
+        info: EntrySupportDefaultInfo[ChildNode],
+        nodes: MutableSequence[ChildNode],
+    ) -> None:
+        storage = self.__get_storage()
+        storage.use_nodes(info, nodes)
+
     # OK, Match
     def __clear_nodes(self) -> None:
         """Clear the nodes"""
@@ -794,11 +812,7 @@ class EntrySupportDefault(EntrySupport[ANode, ChildNode]):
         """
 
         with EntrySupportDefault.__LOCK:
-            if (
-                (self.__storage is not None)
-                and (self.__storage() is storage)
-                and (self.__storage._is_weak is weak)
-            ):
+            if (self.__storage() is storage) and (self.__storage._is_weak is weak):
                 return
 
             self.__storage = _StorageRef(self, storage, weak=weak)

@@ -31,7 +31,8 @@ if TYPE_CHECKING:
 
     from .node import _NodeActionsInterface
 
-    ANode = TypeVar('ANode', bound=_NodeActionsInterface[Any])
+    ANodeAction = TypeVar('ANodeAction', bound=_NodeActionsInterface[Any])
+    N = TypeVar('N')
 
 __all__: Final = ()
 
@@ -43,7 +44,7 @@ def get_default_actions() -> Iterable[QAction | str | None]:
     return ()
 
 
-def find_context_menu(nodes: Iterable[ANode]) -> QMenu | None:
+def find_context_menu(nodes: Iterable[ANodeAction]) -> QMenu | None:
     """Computes a common context menu for the specified nodes.
 
     Provides only those actions supplied by all nodes in the list.
@@ -61,7 +62,7 @@ def find_context_menu(nodes: Iterable[ANode]) -> QMenu | None:
     return actions_to_context_menu(actions, proxy_lookup)
 
 
-def find_common_actions(nodes: Iterable[ANode]) -> Iterator[QAction | str | None]:
+def find_common_actions(nodes: Iterable[ANodeAction]) -> Iterator[QAction | str | None]:
     """Asks the provided nodes for their actions, and returns those that are common to all of them.
 
     nodes: Iterable of nodes to compose actions for
@@ -69,7 +70,7 @@ def find_common_actions(nodes: Iterable[ANode]) -> Iterator[QAction | str | None
     Returns an iterator of actions (and separators) for the nodes.
     """
     action_counters: dict[QAction, int] = defaultdict(int)
-    actions_by_node: dict[ANode, Iterable[QAction | str | None]] = {}
+    actions_by_node: dict[ANodeAction, Iterable[QAction | str | None]] = {}
 
     n_nodes = 0
     for node in nodes:
@@ -101,7 +102,7 @@ def find_common_actions(nodes: Iterable[ANode]) -> Iterator[QAction | str | None
             yield action
 
 
-def compute_permutation(nodes1: Collection[ANode], nodes2: Collection[ANode]) -> list[int] | None:
+def compute_permutation(nodes1: Collection[N], nodes2: Collection[N]) -> list[int] | None:
     if len(nodes1) != len(nodes2):
         msg = (
             'Cannot compute permutations between two collections of Node '
