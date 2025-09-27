@@ -5,17 +5,17 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # spell-checker:enableCompoundWords
-# spell-checker:words
-# spell-checker:ignore
+# spell-checker:words deserialisation
+# spell-checker:ignore pset
 """"""
 
 from __future__ import annotations
 
 # System imports
 import logging
-import threading
 import warnings
 from abc import ABC, abstractmethod
+from copy import deepcopy
 from threading import RLock
 from typing import (
     TYPE_CHECKING,
@@ -29,13 +29,12 @@ from typing import (
 )
 
 # Third-party imports
-from listeners import KeyedListeners, KeyedObservable, Listeners
-from lookups import Lookup, LookupProvider
+from lookups import Lookup, LookupProvider, Result
 from typing_extensions import override
 
 # Local imports
 from openide.lookup.cookie_set import Cookie
-from openide.nodes.properties import FeatureDescriptor, PropertyListener
+from openide.nodes.properties import FeatureDescriptor
 
 # from .node_listener import NodeEvent, NodeListenersProtocol
 
@@ -44,9 +43,9 @@ E = TypeVar('E')
 AnyNode: TypeAlias = 'Node[Any, Any]'
 NoNode: TypeAlias = 'Node[Any, Any]'
 
-ParentNode = TypeVar('ParentNode', bound='Node[Any, Any]')
+ParentNode = TypeVar('ParentNode', bound='Node[AnyNode, AnyNode]')
 ANode = TypeVar('ANode', bound=AnyNode)
-ChildNode = TypeVar('ChildNode', bound='Node[Any, Any]')
+ChildNode = TypeVar('ChildNode', bound='Node[AnyNode, AnyNode]')
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Collection, Iterable, MutableSequence, Sequence
@@ -56,13 +55,14 @@ if TYPE_CHECKING:
     from PySide6.QtWidgets import QMenu
 
     from openide.lookup import Ck, CookieSet
+    from openide.nodes import PropertySet
     from openide.nodes.properties import Sheet
 
     from .children import ChildrenEntry
     from .children import _ChildrenParentNodeInterface as Children
     from .children_storage import ChildrenStorage
-    from .node import NodeLookup
     from .node_listener import NodeListener
+    from .node_lookup import NodeLookup
 
 __all__: Final = (
     'ANode',
@@ -97,11 +97,127 @@ class NodeHandle(ABC, Generic[ANode]):
         raise NotImplementedError  # pragma: no cover
 
 
-class __BlockEvents(threading.local, Generic[ANode]):
-    value: set[ANode] | None = None
+# class __BlockEvents(threading.local, Generic[ANode]):
+#     value: set[ANode] | None = None
 
 
-class _NodeActionsInterface:
+class _NodeBase(LookupProvider, Generic[ChildNode]):
+    if TYPE_CHECKING:
+        # Following methods are defined in _NodeListenersMixins
+        def _fire_sub_nodes_change_idx(
+            self,
+            added: bool,  # noqa: FBT001
+            indexes: Sequence[int],
+            source_entry: ChildrenEntry[ChildNode] | None,
+            current: Sequence[ChildNode],
+            previous: Sequence[ChildNode],
+        ) -> None: ...
+        def _fire_node_destroyed(self) -> None: ...  # Used by ChildrenKeys._destroy_nodes()
+        def _fire_cookie_change(self) -> None: ...
+        def _fire_own_property_change(self, name: str, old: Any, new: Any) -> None: ...  # noqa: ANN401
+
+        # Following method is defined in _NodeLookupAndCookieMixin
+        def _find_delegating_lookup(self) -> Lookup | None: ...
+
+
+class _NodePropertiesInterface(_NodeBase[ChildNode], FeatureDescriptor, ABC):
+    def __set_property(self, name: str, value: str | None) -> None:
+        old = getattr(super(), name)
+
+        if old != value:
+            # getattr(FeatureDescriptor, name).fset(self, value)  # super().name = value
+            getattr(super(_NodePropertiesInterface, type(self)), name).fset(self, value)
+
+            # getattr(self, f'_fire_{name}_change')(old, value)
+            self._fire_own_property_change(name, old, value)
+
+    # OK, Match
+    @FeatureDescriptor.system_name.setter  # type: ignore[attr-defined]  # mypy bug #5936
+    @override  # FeatureDescriptor
+    def system_name(self, value: str | None) -> None:
+        self.__set_property('system_name', value)
+
+    # OK, Match
+    @property
+    @abstractmethod
+    def can_rename(self) -> bool:
+        """Test whether this node can be renamed.
+
+        If True, one can use `system_name` property to obtain the current name,
+        and use its setter to change it.
+        """
+
+        raise NotImplementedError  # pragma: no cover
+
+    # OK, Match
+    @FeatureDescriptor.display_name.setter  # type: ignore[attr-defined]  # mypy bug #5936
+    @override  # FeatureDescriptor
+    def display_name(self, value: str | None) -> None:
+        self.__set_property('display_name', value)
+
+    # OK, Match
+    @FeatureDescriptor.short_description.setter  # type: ignore[attr-defined]  # mypy bug #5936
+    @override  # FeatureDescriptor
+    def short_description(self, value: str | None) -> None:
+        self.__set_property('short_description', value)
+
+    # OK, Match
+    @FeatureDescriptor.is_hidden.setter  # type: ignore[attr-defined]  # mypy bug #5936
+    @override  # FeatureDescriptor
+    def is_hidden(self, value: bool) -> None:
+        warnings.warn(
+            RuntimeWarning(
+                'Setting Node.is_hidden does not do what you think it does. '
+                'To hide a node you should remove it from the children of its parent. '
+                'For instance, with Children.Keys._set_keys(keys_set) and a smaller keys_set.',
+            ),
+            stacklevel=2,
+        )
+        super(Node, type(self)).is_hidden.fset(self, value)  # type: ignore[attr-defined]  # bug5936
+
+    # TODO: Should be observable
+    @property
+    @abstractmethod
+    def property_sets(self) -> Sequence[PropertySet]:
+        """The list of property sets for this node.
+
+        Eg. typically there may be one for normal properties, one for expert properties,
+        and one for hidden properties.
+        """
+
+        raise NotImplementedError  # pragma: no cover
+
+    # OK, Match
+    # TODO: See if still needed in case fire-event names are replaced by an enum?
+    @property
+    def _property_sets_are_known(self) -> bool:
+        """If True, property sets have definitely been computed, and it is fine
+        to call `property_sets` property without fear of killing laziness.
+
+        Used from `_fire_property_change()` to only check for bad properties if
+        the set of properties has already been computed. Otherwise, don't bother.
+
+        Subclasses may override; GenericNode does.
+        """
+        return False
+
+    # Temp. addition not in Netbeans to directly access the Sheet, because this "public should
+    # only access a list of PropertySet and not the Sheet itself" just seems like
+    # some whatever Java-trust-issue madness...
+    # TODO: Should be observable
+    @property
+    @abstractmethod
+    def sheet(self) -> Sheet:
+        """The sheet of properties (ie. multiple property sets) for this node.
+
+        Eg. typically there may be one for normal properties, one for expert properties,
+        and one for hidden properties.
+        """
+
+        raise NotImplementedError  # pragma: no cover
+
+
+class _NodeActionsInterface(_NodeBase[ChildNode]):
     # TODO: getActions(boolean context)
 
     # TODO: NodeOp
@@ -175,7 +291,7 @@ class _NodeActionsInterface:
         return menu
 
 
-class _NodeChildrenInterface(Generic[ParentNode, ChildNode]):
+class _NodeChildrenInterface(_NodeBase[ChildNode], Generic[ParentNode, ChildNode]):
     # TODO: INIT_LOCK?
     _LOCK: ClassVar = RLock()
 
@@ -362,12 +478,12 @@ class _NodeCopyMixin:
         an instance. And then call their own SubClass.__init__(instance, ...)
         (or do the initialisation in __deepcopy__ as they see fit).
         """
-        raise NotImplementedError()  # pragma: no cover
+        raise NotImplementedError
         new = Node.__new__(type(self))
         memo[id(self)] = new
-        new_hiearchy = deepcopy(self._hiearchy, memo)
+        new_hierarchy = deepcopy(self._hierarchy, memo)
 
-        Node.__init__(new, new_hiearchy, self._internal_lookup)
+        Node.__init__(new, new_hierarchy, self._internal_lookup)
 
         return new
 
@@ -505,7 +621,7 @@ class _NodeCopyPasteDnDInterface(ABC):
         raise NotImplementedError
 
 
-class _NodeListenersMixins:
+class _NodeListenersMixins(_NodePropertiesInterface[ChildNode], Generic[ChildNode]):
     # listeners: KeyedListeners[NodeEvent, NodeListenersProtocol]
     # properties_listeners: Listeners[PropertyListener[Self, Any]]
 
@@ -524,7 +640,7 @@ class _NodeListenersMixins:
         # Note: We seems to be adding only 2 kinds of listener classes: NodeListener,
         # and PropertyChangeListener. Though, it seems as it is right now we just splitted
         # the "listeners" into one for NodeListener, and one for PropertyChangeListener:
-        self._property_listeners: MutableSequence[Callable[[Self, str, Any, Any], None]] = []
+        self._property_listeners: MutableSequence[Callable[[Self, str | None, Any, Any], None]] = []
 
         # self.__block_events = __BlockEvents[AnyNode]()
 
@@ -571,7 +687,10 @@ class _NodeListenersMixins:
     # TODO: Review the listeners thingies
     # TODO: More proper definition of a PropertyChangeListener?
     @final
-    def add_property_change_listener(self, listener: Callable[[Self, str, Any, Any], None]) -> None:
+    def add_property_change_listener(
+        self,
+        listener: Callable[[Self, str | None, Any, Any], None],
+    ) -> None:
         """Adds a listener to the node's computed properties."""
 
         self._property_listeners.append(listener)
@@ -608,7 +727,7 @@ class _NodeListenersMixins:
     @final
     def remove_property_change_listener(
         self,
-        listener: Callable[[Self, str, Any, Any], None],
+        listener: Callable[[Self, str | None, Any, Any], None],
     ) -> None:
         """Removes a property change listener."""
 
@@ -709,9 +828,10 @@ class _NodeListenersMixins:
     # OK, Match, but
     # TODO: Dormant stuffs
     @final
+    @override
     def _fire_sub_nodes_change_idx(
         self,
-        added: bool,  # noqa: FBT001
+        added: bool,
         indexes: Sequence[int],
         source_entry: ChildrenEntry[ChildNode] | None,
         current: Sequence[ChildNode],
@@ -775,6 +895,7 @@ class _NodeListenersMixins:
             listener.node_destroyed(event)
 
     @final
+    @override
     def _fire_cookie_change(self) -> None:
         """Fires a change event for PROP_COOKIE.
 
@@ -783,7 +904,7 @@ class _NodeListenersMixins:
 
         from .node_lookup import NodeLookup  # noqa: PLC0415
 
-        lookup = self.__delegating_lookup
+        lookup = self._find_delegating_lookup()
 
         if isinstance(lookup, NodeLookup):  # and self.__update_now(self):
             # with self._block_events():
@@ -837,7 +958,8 @@ class _NodeListenersMixins:
     # firePropertySetsChange, calling this own, using a static string class member.
     # Like for _fire_property_change, use an enum?
     @final
-    def _fire_own_property_change(self, name: str, old: Any, new: Any) -> None:  # noqa: ANN401
+    @override
+    def _fire_own_property_change(self, name: str, old: Any, new: Any) -> None:
         """Fires info about change of own property."""
 
         if old == new:
@@ -849,7 +971,7 @@ class _NodeListenersMixins:
     # TODO: removeDormant (private)
 
 
-class _NodeLookupAndCookieMixin(LookupProvider):
+class _NodeLookupAndCookieMixin(_NodeBase[ChildNode], LookupProvider):
     def __init__(self, *, lookup: Lookup | None, **kwargs: Any) -> None:
         self.__delegating_lookup: NodeLookup[Self] | None = None
 
@@ -937,111 +1059,20 @@ class _NodeLookupAndCookieMixin(LookupProvider):
             return lookup
 
         if (lookup := self.__delegating_lookup) is None:
-            from . import NodeLookup  # noqa: PLC0415
+            from .node_lookup import NodeLookup  # noqa: PLC0415
 
             lookup = self.__delegating_lookup = NodeLookup(self)
 
         return lookup
 
     # Not doing: registerDelegatingLookup (final)
+
     # Not doing: findDelegatingLookup (final)
-
-
-class _NodePropertiesInterface(FeatureDescriptor, ABC):
-    def __set_property(self, name: str, value: str | None) -> None:
-        old = getattr(super(), name)
-
-        if old != value:
-            # getattr(FeatureDescriptor, name).fset(self, value)  # super().name = value
-            getattr(super(_NodePropertiesInterface, type(self)), name).fset(self, value)
-
-            # getattr(self, f'_fire_{name}_change')(old, value)
-            self._fire_own_property_change(name, old, value)
-
-    # OK, Match
-    @FeatureDescriptor.system_name.setter  # type: ignore[attr-defined]  # mypy bug #5936
-    @override  # FeatureDescriptor
-    def system_name(self, value: str | None) -> None:
-        self.__set_property('system_name', value)
-
-    # OK, Match
-    @property
-    @abstractmethod
-    def can_rename(self) -> bool:
-        """Test whether this node can be renamed.
-
-        If True, one can use `system_name` property to obtain the current name,
-        and use its setter to change it.
-        """
-
-        raise NotImplementedError  # pragma: no cover
-
-    # OK, Match
-    @FeatureDescriptor.display_name.setter  # type: ignore[attr-defined]  # mypy bug #5936
-    @override  # FeatureDescriptor
-    def display_name(self, value: str | None) -> None:
-        self.__set_property('display_name', value)
-
-    # OK, Match
-    @FeatureDescriptor.short_description.setter  # type: ignore[attr-defined]  # mypy bug #5936
-    @override  # FeatureDescriptor
-    def short_description(self, value: str | None) -> None:
-        self.__set_property('short_description', value)
-
-    # OK, Match
-    @FeatureDescriptor.is_hidden.setter  # type: ignore[attr-defined]  # mypy bug #5936
-    @override  # FeatureDescriptor
-    def is_hidden(self, value: bool) -> None:
-        warnings.warn(
-            RuntimeWarning(
-                'Setting Node.is_hidden does not do what you think it does. '
-                'To hide a node you should remove it from the children of its parent. '
-                'For instance, with Children.Keys._set_keys(keys_set) and a smaller keys_set.',
-            ),
-            stacklevel=2,
-        )
-        super(Node, type(self)).is_hidden.fset(self, value)  # type: ignore[attr-defined]  # bug5936
-
-    # TODO: Should be observable
-    # @property
-    # @abstractmethod
-    # def property_sets(self) -> Sequence[PropertySet]:
-    #     '''The list of property sets for this node.
-
-    #     Eg. typically there may be one for normal properties, one for expert properties,
-    #     and one for hidden properties.
-    #     '''
-
-    #     raise NotImplementedError  # pragma: no cover
-
-    # OK, Match
-    # TODO: See if still needed in case fire-event names are replaced by an enum?
-    @property
-    def _property_sets_are_known(self) -> bool:
-        """If True, property sets have definitely been computed, and it is fine
-        to call `property_sets` property without fear of killing laziness.
-
-        Used from `_fire_property_change()` to only check for bad properties if
-        the set of properties has already been computed. Otherwise, don't bother.
-
-        Subclasses may override; GenericNode does.
-        """
-        return False
-
-    # Temp. addition not in Netbeans to directly access the Sheet, because this "public should
-    # only access a list of PropertySet and not the Sheet itself" just seems like
-    # some whatever Java-trust-issue madness...
-    # TODO: Should be observable
-    @property
-    @abstractmethod
-    def sheet(self) -> Sheet:
-        """The sheet of properties (ie. multiple property sets) for this node.
-
-        Eg. typically there may be one for normal properties, one for expert properties,
-        and one for hidden properties.
-        """
-
-        raise NotImplementedError  # pragma: no cover
+    # But actually, _fire_cookie_change() needs to access it, and otherwise
+    # we have it as a __ private...
+    @override
+    def _find_delegating_lookup(self) -> Lookup | None:
+        return self.__delegating_lookup
 
 
 class _NodeRepresentationInterface(ABC):
@@ -1096,45 +1127,6 @@ class _NodeUnknown:
     # OK, Match
     @property
     @abstractmethod
-    def can_destroy(self) -> bool:
-        """Test whether this node can be deleted."""
-
-        raise NotImplementedError  # pragma: no cover
-
-    # OK, Match
-    def destroy(self) -> None:
-        """Called when a node is deleted.
-
-        Generally you would never call this method yourself (only override it).
-        You should perform modifications on the underlying model itself instead.
-
-        The default implementation obtains write access to `Children.MUTEX`, and
-        removes the node from its parent (if any). Also fires a property change.
-
-        Subclasses which return True from `can_destroy` property should override
-        this method to remove the associated model object from its parent. There
-        is no need to call the super method in this case.
-
-        There is no guarantee that after this method has been called, other methods
-        such as the `icon` property will not also be called for a little while.
-        """
-
-        from .children import Children  # noqa: PLC0415
-
-        def implementation() -> None:
-            p_children = self._parent_children
-            if p_children is not None:
-                # Remove itself from parent
-                p_children.remove((self,))
-
-            # Sets the valid flag to false and fires prop. change.
-            self._fire_node_destroyed()
-
-        Children.MUTEX.post_write_request(implementation)
-
-    # OK, Match
-    @property
-    @abstractmethod
     def has_customiser(self) -> bool:
         """Test whether there is a customiser for this node.
 
@@ -1151,32 +1143,18 @@ class _NodeUnknown:
 
         raise NotImplementedError  # pragma: no cover
 
-    # OK, Match
-    @property
-    @abstractmethod
-    def handle(self) -> NodeHandle | None:
-        """An handle for this node (for serialisation).
-
-        The handle can be serialised and `Handle.get_node()` used after
-        deserialisation to obtain the original node.
-
-        Returns:
-            The handle, or None if this node is not persistable.
-        """
-
-        raise NotImplementedError  # pragma: no cover
-
 
 class Node(
     _NodeUnknown,
-    _NodeActionsInterface,
+    _NodeActionsInterface[ChildNode],
     _NodeCopyPasteDnDInterface,
     _NodeRepresentationInterface,
-    _NodeListenersMixins,
+    _NodeListenersMixins[ChildNode],
     _NodeChildrenInterface[ParentNode, ChildNode],
-    _NodeLookupAndCookieMixin,
-    _NodePropertiesInterface,
+    _NodeLookupAndCookieMixin[ChildNode],
+    _NodePropertiesInterface[ChildNode],
     _NodeCopyMixin,
+    _NodeBase[ChildNode],
     Generic[ParentNode, ChildNode],
 ):
     """A node represents one element in a hierarchy of object.
@@ -1232,3 +1210,57 @@ class Node(
     # Note: __hash__ relies on super()/FeatureDescriptor __hash__
     # Note: __str__ relies on super()/FeatureDescriptor __str__ (originally only showing
     # system_name and display name)
+
+    # OK, Match
+    @property
+    @abstractmethod
+    def handle(self) -> NodeHandle[Self] | None:
+        """An handle for this node (for serialisation).
+
+        The handle can be serialised and `Handle.get_node()` used after
+        deserialisation to obtain the original node.
+
+        Returns:
+            The handle, or None if this node is not persistable.
+        """
+
+        raise NotImplementedError  # pragma: no cover
+
+    # OK, Match
+    @property
+    @abstractmethod
+    def can_destroy(self) -> bool:
+        """Test whether this node can be deleted."""
+
+        raise NotImplementedError  # pragma: no cover
+
+    # OK, Match
+    def destroy(self) -> None:
+        """Called when a node is deleted.
+
+        Generally you would never call this method yourself (only override it).
+        You should perform modifications on the underlying model itself instead.
+
+        The default implementation obtains write access to `Children.MUTEX`, and
+        removes the node from its parent (if any). Also fires a property change.
+
+        Subclasses which return True from `can_destroy` property should override
+        this method to remove the associated model object from its parent. There
+        is no need to call the super method in this case.
+
+        There is no guarantee that after this method has been called, other methods
+        such as the `icon` property will not also be called for a little while.
+        """
+
+        from .children import Children  # noqa: PLC0415
+
+        def implementation() -> None:
+            p_children = self._parent_children
+            if p_children is not None:
+                # Remove itself from parent
+                p_children.remove((self,))
+
+            # Sets the valid flag to false and fires prop. change.
+            self._fire_node_destroyed()
+
+        Children.MUTEX.post_write_request(implementation)

@@ -87,7 +87,8 @@ class _ChildrenBase(Generic[ParentNode, ChildNode]):
         @_entry_support_raw.setter
         def _entry_support_raw(self, value: EntrySupport[ParentNode, ChildNode] | None) -> None: ...
 
-        # Following method is defined in _ChildrenSubClassInterface
+        # Following methods are defined in _ChildrenSubClassInterface
+        def remove(self, nodes: Sequence[ChildNode]) -> bool: ...  # Needed in Node.destroy()
         def _check_support(self) -> None: ...
         def _add_notify(self) -> None: ...
         def _remove_notify(self) -> None: ...
@@ -358,6 +359,7 @@ class _ChildrenEntrySupportInterface(_ChildrenBase[ParentNode, ChildNode]):
 
     # OK, Match
     @property
+    @override
     def _entry_support_raw(self) -> EntrySupport[ParentNode, ChildNode] | None:
         """The entry support, without attempt to initialise it first"""
         return self.__entry_support

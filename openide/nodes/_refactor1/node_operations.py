@@ -14,7 +14,7 @@ from __future__ import annotations
 # System imports
 import logging
 from collections import defaultdict
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, TypeVar
 
 # Third-party imports
 from lookups import ProxyLookup
@@ -24,12 +24,14 @@ from openide.actions.utils import actions_to_context_menu
 
 if TYPE_CHECKING:
     from collections.abc import Collection, Iterable, Iterator
-    from typing import Final
+    from typing import Any, Final
 
     from PySide6.QtGui import QAction
     from PySide6.QtWidgets import QMenu
 
-    from .node import ANode
+    from .node import _NodeActionsInterface
+
+    ANode = TypeVar('ANode', bound=_NodeActionsInterface[Any])
 
 __all__: Final = ()
 

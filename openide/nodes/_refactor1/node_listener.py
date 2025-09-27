@@ -15,17 +15,22 @@ from __future__ import annotations
 import logging
 from abc import ABC, abstractmethod
 from threading import RLock
-from typing import TYPE_CHECKING, Generic, cast, final
+from typing import TYPE_CHECKING, Any, Generic, TypeVar, cast, final
 
 # Third-party imports
 from typing_extensions import override
 
 # Local imports
-from .node import ANode, ChildNode
+from .node import AnyNode, _NodeChildrenInterface, _NodeListenersMixins
+
+# If you use AnyNode instead of Any, it messes up typing of Self in _NodeListenersMixins...
+ANode = TypeVar('ANode', bound=_NodeListenersMixins[Any])
+ChildNode = TypeVar('ChildNode', bound=_NodeChildrenInterface[AnyNode, AnyNode])
+
 
 if TYPE_CHECKING:
     from collections.abc import Collection, Iterable, Iterator, Sequence
-    from typing import Any, Final
+    from typing import Final
 
     from .children import ChildrenEntry
     from .node import Node
@@ -122,7 +127,7 @@ class NodeMemberEvent(NodeEvent[ANode], Generic[ANode, ChildNode]):
         if delta is not None:
             self.__delta = delta
             self.__prev_snapshot = from_
-            self.__curr_snapshot = cast('Node[Any, ChildNode]', node)._children.snapshot()
+            self.__curr_snapshot = cast('Node[Any, Any]', node)._children.snapshot()
             self.__indices = None
         else:
             assert indices is not None
@@ -216,7 +221,7 @@ class NodeReorderEvent(NodeEvent[ANode], Generic[ANode, ChildNode]):
 
         self.__new_indices = new_indices
         """List of new nodes indexes on the original positions"""
-        self.__curr_snapshot = cast('Node[Any, ChildNode]', node)._children.snapshot()
+        self.__curr_snapshot = cast('Node[Any, Any]', node)._children.snapshot()
         """Current snapshot"""
 
     @property

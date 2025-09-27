@@ -31,8 +31,8 @@ The objectives of this first refactoring are:
 
 ### Documenting
 
-- [X] Node
-  - [X] GenericNode
+- [x] Node
+  - [x] GenericNode
   - [ ] FilterNode
 - [x] Children
   - [x] ChildrenArray
@@ -44,21 +44,21 @@ The objectives of this first refactoring are:
 - [x] EntrySupport
 - [x] EntrySupportDefault
 - [ ] EntrySupportLazy
-- [X] ChildrenStorage
-- [X] NodeListener & Co
+- [x] ChildrenStorage
+- [x] NodeListener & Co
 - [ ] NodeLookup
 - [ ] node_operations
 
 ### Restructuring and typing
 
-- [ ] Node
+- [x] Node
   - [ ] GenericNode
   - [ ] FilterNode
 - [x] Children
   - [x] ChildrenArray
   - [x] ChildrenMap
   - [x] ChildrenKeys
-  - [ ] SyncChildren
+  - [x] SyncChildren
   - [ ] AsyncChildren
 - [x] ChildFactory
 - [ ] EntrySupport
@@ -67,7 +67,7 @@ The objectives of this first refactoring are:
 - [ ] ChildrenStorage
 - [ ] NodeListener & Co
 - [ ] NodeLookup
-- [ ] node_operations
+- [x] node_operations
 
 
 ### Tests
