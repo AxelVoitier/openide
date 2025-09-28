@@ -204,7 +204,7 @@ class _NodePropertiesInterface(_NodeBase[ChildNode], FeatureDescriptor, ABC):
             ),
             stacklevel=2,
         )
-        super(Node, type(self)).is_hidden.fset(self, value)  # type: ignore[attr-defined]  # bug5936
+        self._super_property_setter(_NodePropertiesInterface, 'is_hidden', value)
 
     # TODO: Should be observable
     @property
