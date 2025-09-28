@@ -510,14 +510,14 @@ class EntrySupportDefault(EntrySupport[PN, N]):  # , Debug(f'{__name__}.EntrySup
         to_process = set(old_nodes_set)
         perm_array: MutableSequence[N] = []
 
-        for node in new_nodes:
+        for i, node in enumerate(new_nodes):
             if node in old_nodes_set:
                 old_nodes_set.remove(node)
                 perm_array.append(node)
             elif node not in to_process:
                 to_add.append(node)
             else:
-                new_nodes.remove(node)
+                new_nodes.pop(i)
 
         perm = node_operations.compute_permutation(old_nodes, perm_array)
         if perm:
