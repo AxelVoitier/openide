@@ -14,7 +14,7 @@ from __future__ import annotations
 # System imports
 import logging
 from threading import RLock
-from typing import TYPE_CHECKING, Any, ClassVar, Generic, Self, TypeAlias, final
+from typing import TYPE_CHECKING, Generic, final
 
 # Third-party imports
 from typing_extensions import override
@@ -24,7 +24,6 @@ from openide.lookup.cookie_set import CookieSet, CookieSetChangeProtocol
 # Local imports
 from .children import Children
 from .node import (
-    AnyNode,
     ChildNode,
     Node,
     ParentNode,
@@ -37,14 +36,13 @@ from .node import (
     _NodeRepresentationInterface,
 )
 
-AnyGenericNode: TypeAlias = 'GenericNode[AnyNode, AnyNode]'
-
 if TYPE_CHECKING:
     from collections.abc import Sequence
-    from typing import Final
+    from typing import Any, ClassVar, Final
 
     from lookups import Lookup
     from PySide6.QtGui import QAction, QColor, QIcon, QPixmap
+    from typing_extensions import Self
 
     from openide.lookup.cookie_set import Ck
     from openide.nodes import PropertySet
@@ -568,14 +566,8 @@ class GenericNode(
     """
 
     # TODO: private static final
-    # - icons
-    # - ICON_BASE
-    # - OPENED_ICON_BASE
     # - NO_PASTE_TYPES
     # - NO_NEW_TYPES
-    # - DEFAULT_ICON_BASE
-    # - DEFAULT_ICON_EXTENSION
-    # - DEFAULT_ICON
     # - overridesGetDefaultAction
 
     # TODO: Cloning stuff

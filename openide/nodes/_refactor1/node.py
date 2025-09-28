@@ -22,7 +22,6 @@ from typing import (
     Any,
     ClassVar,
     Generic,
-    Self,
     TypeAlias,
     TypeVar,
     cast,
@@ -31,7 +30,7 @@ from typing import (
 
 # Third-party imports
 from lookups import Lookup, LookupProvider, Result
-from typing_extensions import override
+from typing_extensions import Self, override
 
 # Local imports
 from openide.lookup.cookie_set import Cookie

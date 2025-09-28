@@ -20,17 +20,15 @@ from typing import (
     TYPE_CHECKING,
     Generic,
     Protocol,
-    Self,
     TypeVar,
     cast,
     overload,
-    override,
     runtime_checkable,
 )
 
 # Third-party imports
 from listeners import ObservablePropertySupport, observable_property
-from typing_extensions import Never
+from typing_extensions import Never, Self, override
 
 # Local imports
 from openide.nodes._like_netbeans.properties import (

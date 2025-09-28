@@ -34,7 +34,9 @@ Key = TypeVar('Key')
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterable, MutableMapping, MutableSequence, Sequence
-    from typing import Any, ClassVar, Final, Self
+    from typing import Any, ClassVar, Final
+
+    from typing_extensions import Self
 
 __all__: Final = ('ChildrenKeys',)
 

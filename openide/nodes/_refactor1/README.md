@@ -62,7 +62,7 @@ The objectives of this first refactoring are:
   - [ ] AsyncChildren
 - [x] ChildFactory
 - [x] EntrySupport
-- [ ] EntrySupportDefault
+- [x] EntrySupportDefault
 - [ ] EntrySupportLazy
 - [x] ChildrenStorage
 - [x] NodeListener & Co

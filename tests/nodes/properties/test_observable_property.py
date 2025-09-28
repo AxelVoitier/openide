@@ -12,7 +12,7 @@ from __future__ import annotations
 
 # System imports
 from copy import copy
-from typing import Any, Literal, Self
+from typing import Any, Literal
 
 # Third-party imports
 from listeners import Listeners, PropertyListener, observable_property

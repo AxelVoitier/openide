@@ -17,11 +17,12 @@ from collections.abc import MutableMapping
 from copy import copy
 from enum import Enum, auto
 from functools import partial
-from typing import TYPE_CHECKING, Any, Generic, Protocol, Self, TypeVar, cast, override
+from typing import TYPE_CHECKING, Any, Generic, Protocol, TypeVar, cast
 from weakref import ReferenceType
 
 # Third-party imports
 from listeners import Listeners, PropertyListener, observable_property
+from typing_extensions import Self, override
 
 # Local imports
 

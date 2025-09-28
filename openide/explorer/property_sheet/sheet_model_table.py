@@ -13,10 +13,11 @@ from __future__ import annotations
 # System imports
 import logging
 from contextlib import ExitStack, contextmanager
-from typing import TYPE_CHECKING, cast, override
+from typing import TYPE_CHECKING, cast
 
 # Third-party imports
 from PySide6.QtCore import QAbstractTableModel, QModelIndex, QPersistentModelIndex, Qt, Signal
+from typing_extensions import override
 
 # Local imports
 from openide.explorer.property_sheet import PropertySetModelChangeType

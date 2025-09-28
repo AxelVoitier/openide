@@ -14,10 +14,12 @@ from __future__ import annotations
 # System imports
 import logging
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, Any, Generic, TypeVar, final, override
+from typing import TYPE_CHECKING, Any, Generic, TypeVar, final
 from weakref import ReferenceType
 
 # Third-party imports
+from typing_extensions import override
+
 # Local imports
 from .children import ChildNode, Children
 from .filter_node import FilterNode

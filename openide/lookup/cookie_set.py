@@ -16,7 +16,7 @@ import enum
 import logging
 import threading
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, Any, Generic, Literal, Protocol, Self, TypeVar, overload
+from typing import TYPE_CHECKING, Any, Generic, Literal, Protocol, TypeVar, overload
 from weakref import ReferenceType, ref
 
 # Third-party imports
@@ -24,7 +24,7 @@ from listeners import Listeners, Observable
 from lookups import GenericLookup, InstanceContent, Lookup, LookupProvider
 from lookups.generic_lookup import Pair
 from lookups.instance_content import Convertor, SimpleItem
-from typing_extensions import override
+from typing_extensions import Self, override
 
 # Local imports
 from openide.utils import SingletonABCMeta

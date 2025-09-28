@@ -17,7 +17,9 @@ from typing import TYPE_CHECKING
 from PySide6.QtCore import QObject
 
 if TYPE_CHECKING:
-    from typing import Any, Final, Self
+    from typing import Any, Final
+
+    from typing_extensions import Self
 
 __all__: Final = ('QABC',)
 

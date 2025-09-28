@@ -15,9 +15,11 @@ from __future__ import annotations
 import logging
 from abc import ABC, abstractmethod
 from threading import RLock
-from typing import TYPE_CHECKING, Any, ClassVar, Generic, TypeVar, final, override
+from typing import TYPE_CHECKING, Generic, TypeVar, final
 
 # Third-party imports
+from typing_extensions import override
+
 # Local imports
 from openide.utils import Mutex
 
@@ -28,7 +30,9 @@ ChildNode = TypeVar('ChildNode', bound='_NodeChildrenInterface[Any, Any]')
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterable, MutableSequence, Sequence
-    from typing import Final, Self
+    from typing import Any, ClassVar, Final
+
+    from typing_extensions import Self
 
     from .child_factory import ChildFactory
     from .children_implementations import _Empty

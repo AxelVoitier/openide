@@ -21,17 +21,15 @@ from typing import (
     Any,
     Generic,
     Protocol,
-    Self,
     TypeVar,
     cast,
     overload,
-    override,
     runtime_checkable,
 )
 
 # Third-party imports
 from listeners import ObservablePropertySupport, observable_property
-from typing_extensions import Never
+from typing_extensions import Never, Self, override
 
 # Local imports
 from .properties import IT, KT, VT, IndexedProperty, Property, PropertyListener, _NodeProperty

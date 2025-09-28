@@ -13,11 +13,11 @@ import logging
 import threading
 import time
 from threading import Condition, RLock, Thread
-from typing import TYPE_CHECKING, Any, Generic, Self, TypeVar, final
+from typing import TYPE_CHECKING, Any, Generic, TypeVar, final
 from weakref import ReferenceType
 
 # Third-party imports
-from typing_extensions import override
+from typing_extensions import Self, override
 
 # Local imports
 from openide.nodes._like_netbeans import node_operations

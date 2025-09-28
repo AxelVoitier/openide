@@ -16,11 +16,12 @@ import logging
 # System imports
 from enum import Enum
 from types import NoneType, UnionType
-from typing import TYPE_CHECKING, TypedDict, cast, override
+from typing import TYPE_CHECKING, TypedDict, cast
 
 # Third-party imports
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QComboBox, QStyledItemDelegate
+from typing_extensions import override
 
 # Local imports
 

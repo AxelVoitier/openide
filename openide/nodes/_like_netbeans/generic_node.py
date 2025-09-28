@@ -10,10 +10,10 @@ from __future__ import annotations
 
 # System imports
 from threading import RLock
-from typing import TYPE_CHECKING, Any, Generic, Self, TypeAlias, TypeVar, final
+from typing import TYPE_CHECKING, Any, Generic, TypeAlias, TypeVar, final
 
 # Third-party imports
-from typing_extensions import override
+from typing_extensions import Self, override
 
 # Local imports
 from openide.lookup.cookie_set import Cookie, CookieSet

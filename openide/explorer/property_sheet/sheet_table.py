@@ -12,10 +12,11 @@ from __future__ import annotations
 
 # System imports
 import logging
-from typing import TYPE_CHECKING, Any, cast, override
+from typing import TYPE_CHECKING, Any, cast
 
 # Third-party imports
 from PySide6.QtWidgets import QAbstractItemView, QHeaderView, QTreeView
+from typing_extensions import override
 
 # Local imports
 from openide.explorer.property_sheet.editor_support import PropertyValueDelegate

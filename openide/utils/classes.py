@@ -16,11 +16,12 @@ import logging
 import time
 from abc import ABCMeta
 from contextlib import contextmanager
-from typing import TYPE_CHECKING, ClassVar, ParamSpec, Self, TypeVar
+from typing import TYPE_CHECKING, ClassVar, ParamSpec, TypeVar
 from weakref import ReferenceType
 
 # Third-party imports
 from lookups import Lookup
+from typing_extensions import Self
 
 # Local imports
 

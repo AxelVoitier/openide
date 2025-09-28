@@ -14,10 +14,10 @@ from abc import ABC, abstractmethod
 from collections.abc import Hashable
 from copy import copy
 from threading import RLock
-from typing import TYPE_CHECKING, Any, ClassVar, Generic, Self, TypeVar, final
+from typing import TYPE_CHECKING, Any, ClassVar, Generic, TypeVar, final
 
 # Third-party imports
-from typing_extensions import override
+from typing_extensions import Self, override
 
 # Local imports
 from openide.utils import Mutex

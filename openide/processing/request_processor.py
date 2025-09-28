@@ -14,6 +14,7 @@ from __future__ import annotations
 # System imports
 import enum
 import logging
+import sys
 from collections.abc import Callable, Iterator
 from concurrent.futures import Executor, Future, ThreadPoolExecutor, wait
 from concurrent.futures.thread import BrokenThreadPool, _global_shutdown_lock, _shutdown
@@ -27,13 +28,12 @@ from typing import (
     Literal,
     NamedTuple,
     ParamSpec,
-    Self,
     TypeVar,
 )
 
 # Third-party imports
 from listeners import KeyedListeners, KeyedObservable, VetoError
-from typing_extensions import override
+from typing_extensions import Self, override
 
 # Local imports
 
@@ -134,15 +134,29 @@ class Task(Generic[P, R_co]):
         return 'RequestProcessor.Task [ ]'
 
 
-class WorkItem(NamedTuple, Generic[P, R_co]):
-    priority: int
-    counter: int
-    # delay: float
-    task: Task[P, R_co]
-    future: Future[R_co]
+if sys.version_info < (3, 11):
 
-    def run(self) -> None:
-        self.task.run(self.future)
+    class WorkItem(NamedTuple):
+        priority: int
+        counter: int
+        # delay: float
+        task: Task
+        future: Future
+
+        def run(self) -> None:
+            self.task.run(self.future)
+
+else:
+
+    class WorkItem(NamedTuple, Generic[P, R_co]):
+        priority: int
+        counter: int
+        # delay: float
+        task: Task[P, R_co]
+        future: Future[R_co]
+
+        def run(self) -> None:
+            self.task.run(self.future)
 
 
 class ThreadPoolProcessor(ThreadPoolExecutor):

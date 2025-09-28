@@ -18,14 +18,13 @@ from typing import (
     TYPE_CHECKING,
     ClassVar,
     Literal,
-    NotRequired,
     TypeAlias,
     TypedDict,
     cast,
 )
 
 # Third-party imports
-from typing_extensions import override
+from typing_extensions import NotRequired, override
 
 # Local imports
 from openide.config import Config

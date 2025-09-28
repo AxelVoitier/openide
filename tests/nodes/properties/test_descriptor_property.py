@@ -12,10 +12,11 @@ from __future__ import annotations
 # System imports
 from collections.abc import Mapping
 from copy import copy, deepcopy
-from typing import Any, Protocol, Self, TypeVar
+from typing import Any, Protocol, TypeVar
 
 # Third-party imports
 import pytest
+from typing_extensions import Self
 
 # Local imports
 from openide.nodes import (

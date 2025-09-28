@@ -12,7 +12,6 @@ from __future__ import annotations
 # System imports
 import logging
 import warnings
-from enum import StrEnum, auto
 from typing import TYPE_CHECKING, TypedDict
 
 # Third-party imports
@@ -46,16 +45,10 @@ if TYPE_CHECKING:
 
 __all__: Final = (
     'ComponentConfig',
-    'Location',
     'TopComponent',
 )
 
 _logger = logging.getLogger(__name__)
-
-
-class Location(StrEnum):
-    Central = auto()
-    Explorer = auto()
 
 
 class ComponentConfigDescription(TypedDict):
@@ -311,7 +304,7 @@ class TopComponent(LookupProvider, QABC, QWidget):
             return QIcon.fromTheme(self.ICON_BASE)
 
     @property
-    def location(self) -> Location:
+    def location(self) -> str:
         return self.LOCATION
 
     @property

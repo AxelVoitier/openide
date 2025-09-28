@@ -7,9 +7,10 @@ from __future__ import annotations
 
 # System imports
 from collections.abc import Mapping
-from typing import TYPE_CHECKING, Any, Self
+from typing import TYPE_CHECKING, Any
 
 # Third-party imports
+from typing_extensions import Self
 
 # Local imports
 

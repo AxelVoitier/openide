@@ -3,9 +3,10 @@ from __future__ import annotations
 from collections.abc import Iterator
 from contextlib import contextmanager
 from threading import RLock
-from typing import TYPE_CHECKING, Any, Self, override
+from typing import TYPE_CHECKING, Any
 
 from listeners import Observable
+from typing_extensions import Self, override
 
 from openide.nodes._like_netbeans.properties import Property, PropertyChangeProtocol, PropertySet
 

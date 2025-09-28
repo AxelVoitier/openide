@@ -32,7 +32,7 @@ PN = TypeVar('PN', bound='Node[Any, Any]')
 N = TypeVar('N', bound='Node[Any, Any]')
 
 
-class AsyncChildren(Keys[T, PN, N], ChildFactory.Observer, Generic[T]):
+class AsyncChildren(Keys[T, PN, N], ChildFactory.Observer, Generic[T, PN, N]):
     def __init__(self, factory: ChildFactory[T, N]) -> None:
         super().__init__()
 

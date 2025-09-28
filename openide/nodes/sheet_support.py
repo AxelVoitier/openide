@@ -13,10 +13,11 @@ from __future__ import annotations
 
 # System imports
 from threading import RLock
-from typing import TYPE_CHECKING, Any, Self, override
+from typing import TYPE_CHECKING, Any
 
 # Third-party imports
 from listeners import Listeners, Observable
+from typing_extensions import Self, override
 
 # Local imports
 from .properties import (

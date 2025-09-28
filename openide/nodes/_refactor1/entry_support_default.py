@@ -16,7 +16,7 @@ import logging
 import threading
 import time
 from threading import Condition, RLock, Thread
-from typing import TYPE_CHECKING, Any, ClassVar, Generic, Self, final
+from typing import TYPE_CHECKING, Generic, final
 from weakref import ReferenceType
 
 # Third-party imports
@@ -37,7 +37,9 @@ if TYPE_CHECKING:
         Sequence,
         Sized,
     )
-    from typing import Final
+    from typing import Any, ClassVar, Final
+
+    from typing_extensions import Self
 
 __all__: Final = ('EntrySupportDefault',)
 

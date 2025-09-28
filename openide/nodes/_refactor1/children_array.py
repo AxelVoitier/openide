@@ -31,7 +31,9 @@ from .children import (
 
 if TYPE_CHECKING:
     from collections.abc import Callable, MutableSequence, Sequence
-    from typing import Any, Final, Self
+    from typing import Any, Final
+
+    from typing_extensions import Self
 
     from .entry_support import EntrySupport
 

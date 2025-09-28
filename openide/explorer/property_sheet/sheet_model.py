@@ -15,16 +15,15 @@ from __future__ import annotations
 import logging
 from contextlib import contextmanager
 from enum import Enum
-from typing import TYPE_CHECKING, cast, override
+from typing import TYPE_CHECKING, cast
 
 # Third-party imports
 from PySide6.QtCore import QModelIndex, QPersistentModelIndex, Qt, Signal
 from PySide6.QtGui import QStandardItem, QStandardItemModel
-
-from openide.nodes import AbstractSheetUser
+from typing_extensions import override
 
 # Local imports
-
+from openide.nodes import AbstractSheetUser
 
 if TYPE_CHECKING:
     from collections.abc import Iterator

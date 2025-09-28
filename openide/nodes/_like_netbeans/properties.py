@@ -14,11 +14,12 @@ from __future__ import annotations
 # System imports
 from abc import ABC, abstractmethod
 from copy import copy
-from typing import TYPE_CHECKING, Generic, Protocol, Self, TypeAlias, TypeVar, cast, override
+from typing import TYPE_CHECKING, Generic, Protocol, TypeAlias, TypeVar, cast
 from weakref import ReferenceType
 
 # Third-party imports
 from listeners import Observable, PropertyListener, observable_property
+from typing_extensions import Self, override
 
 # Local imports
 

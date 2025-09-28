@@ -20,12 +20,12 @@ from abc import ABC, abstractmethod
 from contextlib import contextmanager
 from copy import deepcopy
 from threading import RLock
-from typing import TYPE_CHECKING, Generic, Self, TypeVar, final
+from typing import TYPE_CHECKING, Generic, TypeVar, final
 from weakref import ReferenceType, ref
 
 # Third-party imports
 from lookups import LookupProvider
-from typing_extensions import override
+from typing_extensions import Self, override
 
 # from observable import Observable
 # Local imports

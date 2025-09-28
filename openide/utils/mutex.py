@@ -31,7 +31,9 @@ from openide.utils.classes import Debug
 if TYPE_CHECKING:
     from collections.abc import Callable, Generator, MutableMapping, MutableSequence
     from types import TracebackType
-    from typing import Any, ClassVar, Final, Self
+    from typing import Any, ClassVar, Final
+
+    from typing_extensions import Self
 
 __all__: Final = (
     'Mutex',
