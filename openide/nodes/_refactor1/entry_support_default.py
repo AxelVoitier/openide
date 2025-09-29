@@ -601,7 +601,7 @@ class EntrySupportDefault(EntrySupport[ANode, ChildNode]):
         to_process = set(old_nodes_set)
         perm_array: list[ChildNode] = []
 
-        for i, node in enumerate(new_nodes):
+        for i, node in enumerate(new_nodes[:]):
             if node in old_nodes_set:
                 # If the node is in the old set, test it for permutation
                 old_nodes_set.remove(node)
