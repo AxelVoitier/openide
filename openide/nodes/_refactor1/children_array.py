@@ -9,6 +9,20 @@
 # spell-checker:ignore
 """"""
 
+# DEV NOTES:
+# - Even if Netbeans consider it deprecated, or legacy, consider keeping it for it simplicity.
+# - Bloating features to probably remove:
+#   - Passing an instance of the backing collection in the constuctor:
+#       In theory it shouldn't even contain any node (but seems to work when prepopulated).
+#       If a user has specific need for the type of the backing collection they should
+#       subclass instead.
+#       Can't even use a tuple for a static list of child nodes, or a set,
+#       because it wants a mutable sequence specifically.
+#       => Would their actually be a need to make a tuple or set backed Children?
+# - Could try to support a way to do reordering without removing first, somehow
+# - NB BUG #1 affects ChildrenArray: https://github.com/AxelVoitier/openide/issues/1
+# - NB BUG #2: https://github.com/AxelVoitier/openide/issues/2
+
 from __future__ import annotations
 
 # System imports
@@ -29,7 +43,7 @@ from .children import (
     _ChildrenSubClassInterface,
 )
 
-if TYPE_CHECKING:
+if TYPE_CHECKING:  # pragma: no cover
     from collections.abc import Callable, MutableSequence, Sequence
     from typing import Any, Final
 
@@ -80,7 +94,7 @@ class _ChildrenArrayBase(Children[ANode, ChildNode]):
         if not _lazy:
             self._nodes_entry = self._create_nodes_entry()
 
-        self._nodes = _nodes
+        self._nodes = _nodes  # TODO: Aim at making it __ private
         """Collection of added children"""
 
     # OK, Match
@@ -98,7 +112,7 @@ class _ChildrenArrayBase(Children[ANode, ChildNode]):
 
         return nodes
 
-    if TYPE_CHECKING:
+    if TYPE_CHECKING:  # pragma: no cover
         # Following methods are defined in _ChildrenArraySubClassInterface
         def _init_collection(self) -> MutableSequence[ChildNode]: ...
         def _create_nodes_entry(self) -> ChildrenEntry[ChildNode]: ...
@@ -130,17 +144,23 @@ class _ChildrenArrayChildrenSubClassInterface(
     def remove(self, nodes: Sequence[ChildNode]) -> bool:
         with ChildrenArray._COLLECTION_LOCK:
             collection = self._collection
-            len_before = len(collection)
 
             if collection == nodes:
                 collection.clear()
             else:
+                changed = False
                 for node in nodes:
-                    collection.remove(node)
-            len_after = len(collection)
+                    try:
+                        collection.remove(node)
+                    except ValueError:  # noqa: PERF203
+                        continue
+                    else:
+                        changed = True
+                if not changed:
+                    return False
 
-        changed = len_after - len_before
-        if not changed:
+        if not nodes:
+            # If we are empty, and nodes is an empty list, avoid the refresh
             return False
         else:
             self._refresh()
@@ -198,7 +218,7 @@ class _ChildrenArraySubClassInterface(_ChildrenArrayBase[ANode, ChildNode]):
         Children.MUTEX.post_write_request(_implementation)
 
 
-class _ArrayChildrenEntrySupport(
+class _ChildrenArrayEntrySupport(
     _ChildrenArrayBase[ANode, ChildNode],
     _ChildrenEntrySupportInterface[ANode, ChildNode],
 ):
@@ -206,8 +226,9 @@ class _ArrayChildrenEntrySupport(
     @override  # ChildrenEntrySupport
     def _post_init_entry_support(self, entry_support: EntrySupport[ANode, ChildNode]) -> None:
         if not self._lazy_support:
-            if self._nodes_entry is None:
-                self._nodes_entry = self._create_nodes_entry()
+            assert self._nodes_entry is not None  # Because it can be None only if lazy. For mypy.
+            # if self._nodes_entry is None:
+            #     self._nodes_entry = self._create_nodes_entry()
 
             entry_support._set_entries((self._nodes_entry,), no_check=True)
 
@@ -218,7 +239,7 @@ class _ArrayChildrenEntrySupport(
 class ChildrenArray(
     _ChildrenArraySubClassInterface[ANode, ChildNode],
     _ChildrenArrayChildrenSubClassInterface[ANode, ChildNode],
-    _ArrayChildrenEntrySupport[ANode, ChildNode],
+    _ChildrenArrayEntrySupport[ANode, ChildNode],
     _ChildrenArrayBase[ANode, ChildNode],
     Children[ANode, ChildNode],
 ):

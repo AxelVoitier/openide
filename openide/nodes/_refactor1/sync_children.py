@@ -23,7 +23,7 @@ from .child_factory import ChildFactoryObserver
 from .children import ANode, ChildNode
 from .children_keys import ChildrenKeys, Key
 
-if TYPE_CHECKING:
+if TYPE_CHECKING:  # pragma: no cover
     from collections.abc import Iterable, MutableSequence
     from typing import Final
 

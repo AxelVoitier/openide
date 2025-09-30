@@ -19,7 +19,7 @@ from typing import TYPE_CHECKING
 # Local imports
 from .node import ChildNode, Node, ParentNode
 
-if TYPE_CHECKING:
+if TYPE_CHECKING:  # pragma: no cover
     from typing import Final
 
 __all__: Final = ('FilterNode',)

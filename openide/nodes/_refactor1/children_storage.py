@@ -25,7 +25,7 @@ from .children import ANode, ChildNode
 from .node import AnyNode
 from .node_listener import NodeListener
 
-if TYPE_CHECKING:
+if TYPE_CHECKING:  # pragma: no cover
     from collections.abc import MutableMapping, MutableSequence
     from typing import Any, Final
 

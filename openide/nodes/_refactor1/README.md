@@ -76,7 +76,7 @@ The objectives of this first refactoring are:
   - [ ] GenericNode
   - [ ] FilterNode
 - [ ] Children
-  - [ ] ChildrenArray
+  - [x] ChildrenArray
   - [ ] ChildrenMap
   - [ ] ChildrenKeys
   - [ ] SyncChildren

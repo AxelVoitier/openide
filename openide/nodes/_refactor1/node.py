@@ -40,7 +40,7 @@ from openide.nodes.properties import FeatureDescriptor
 
 T = TypeVar('T')
 E = TypeVar('E')
-AnyNode: TypeAlias = 'Node[Any, Any]'
+AnyNode: TypeAlias = 'Node[AnyNode, AnyNode]'
 NoNode: TypeAlias = 'Node[Any, Any]'
 
 ParentNode = TypeVar('ParentNode', bound='Node[AnyNode, AnyNode]')
@@ -48,7 +48,7 @@ ANode = TypeVar('ANode', bound=AnyNode)
 ANode_co = TypeVar('ANode_co', bound=AnyNode, covariant=True)
 ChildNode = TypeVar('ChildNode', bound='Node[AnyNode, AnyNode]')
 
-if TYPE_CHECKING:
+if TYPE_CHECKING:  # pragma: no cover
     from collections.abc import Callable, Collection, Iterable, MutableSequence, Sequence
     from typing import Final
 
@@ -103,7 +103,7 @@ class NodeHandle(ABC, Generic[ANode_co]):
 
 
 class _NodeBase(FeatureDescriptor, LookupProvider, Generic[ChildNode]):
-    if TYPE_CHECKING:
+    if TYPE_CHECKING:  # pragma: no cover
         # Following methods are defined in _NodeListenersMixins
         def _fire_sub_nodes_change(
             self,
@@ -379,6 +379,7 @@ class _NodeChildrenInterface(_NodeBase[ChildNode], Generic[ParentNode, ChildNode
             from .children_storage import ChildrenStorage  # noqa: PLC0415
 
             if not isinstance(self._parent, ChildrenStorage):
+                # Note: Confusing... We check _parent_children but assign to _parent.
                 self._parent = parent
 
     # OK, Match

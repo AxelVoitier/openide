@@ -9,6 +9,12 @@
 # spell-checker:ignore
 """"""
 
+# DEV NOTES:
+# - NB BUG #1: https://github.com/AxelVoitier/openide/issues/1
+# - NB BUG #3: https://github.com/AxelVoitier/openide/issues/3
+# - NB BUG #4: https://github.com/AxelVoitier/openide/issues/4
+# - NB BUG #5: https://github.com/AxelVoitier/openide/issues/5
+
 from __future__ import annotations
 
 # System imports
@@ -28,7 +34,7 @@ from .children import ANode, ChildNode, Children, ChildrenEntry, _ChildrenEntryS
 from .children_storage import ChildrenStorage
 from .entry_support import EntrySupport
 
-if TYPE_CHECKING:
+if TYPE_CHECKING:  # pragma: no cover
     from collections.abc import (
         Collection,
         Iterable,

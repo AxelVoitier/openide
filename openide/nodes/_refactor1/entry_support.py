@@ -20,7 +20,7 @@ from typing import TYPE_CHECKING, Generic
 # Local imports
 from .children import ANode, ChildNode
 
-if TYPE_CHECKING:
+if TYPE_CHECKING:  # pragma: no cover
     from collections.abc import Iterable, MutableSequence, Sequence
     from typing import Final
 

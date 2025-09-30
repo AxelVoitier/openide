@@ -28,7 +28,7 @@ ANode = TypeVar('ANode', bound='_NodeChildrenInterface[Any, Any]')
 # First Any should be our own ANode
 ChildNode = TypeVar('ChildNode', bound='_NodeChildrenInterface[Any, Any]')
 
-if TYPE_CHECKING:
+if TYPE_CHECKING:  # pragma: no cover
     from collections.abc import Callable, Iterable, MutableSequence, Sequence
     from typing import Any, ClassVar, Final
 
@@ -84,7 +84,7 @@ class _ChildrenBase(Generic[ANode, ChildNode]):
     def _is_lazy(self) -> bool:
         return self._lazy_support
 
-    if TYPE_CHECKING:
+    if TYPE_CHECKING:  # pragma: no cover
         # Following methods are defined in _ChildrenEntrySupportInterface
         @property
         def _entry_support(self) -> EntrySupport[ANode, ChildNode]: ...
@@ -132,7 +132,7 @@ class _ChildrenSubClassInterface(ABC, Generic[ChildNode]):
             bool: True if successfully added. False otherwise.
         """
 
-        raise NotImplementedError
+        raise NotImplementedError  # pragma: no cover
 
     @abstractmethod
     def remove(self, nodes: Sequence[ChildNode]) -> bool:
@@ -147,7 +147,7 @@ class _ChildrenSubClassInterface(ABC, Generic[ChildNode]):
             bool: True if the nodes could be removed. False otherwise.
         """
 
-        raise NotImplementedError
+        raise NotImplementedError  # pragma: no cover
 
     # Theory: ChildrenKeys._check_support() implementation kind-of point us toward the idea that
     # this is part of ensuring compatibility with a legacy ChildrenArray interface.
@@ -252,7 +252,7 @@ class _ChildrenParentNodeInterface(_ChildrenBase[ANode, ChildNode]):
     # OK, Match
     @final
     def _detach_from(self) -> None:
-        """Called when node changes it's children to different nodes.
+        """Called when node changes its children to different nodes.
 
         Raises:
             RuntimeError: If the children were already detached.

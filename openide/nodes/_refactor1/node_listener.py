@@ -28,7 +28,7 @@ ANode = TypeVar('ANode', bound=_NodeListenersMixins[Any])
 ChildNode = TypeVar('ChildNode', bound=_NodeChildrenInterface[AnyNode, AnyNode])
 
 
-if TYPE_CHECKING:
+if TYPE_CHECKING:  # pragma: no cover
     from collections.abc import Collection, Iterable, Iterator, Sequence
     from typing import Final
 

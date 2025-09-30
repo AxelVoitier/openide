@@ -22,7 +22,7 @@ from lookups import ProxyLookup
 # Local imports
 from openide.actions.utils import actions_to_context_menu
 
-if TYPE_CHECKING:
+if TYPE_CHECKING:  # pragma: no cover
     from collections.abc import Collection, Iterable, Iterator
     from typing import Any, Final
 
@@ -69,6 +69,7 @@ def find_common_actions(nodes: Iterable[ANodeAction]) -> Iterator[QAction | str 
 
     Returns an iterator of actions (and separators) for the nodes.
     """
+
     action_counters: dict[QAction, int] = defaultdict(int)
     actions_by_node: dict[ANodeAction, Iterable[QAction | str | None]] = {}
 
