@@ -56,9 +56,9 @@ def test_initialisation_empty(*, lazy: bool) -> None:
 @pytest.mark.parametrize('lazy', [False, True])
 def test_initialisation_populated(*, lazy: bool) -> None:
     backed: list[MinimalNode[NoNode, NoNode]] = [
-        MinimalNode[NoNode, NoNode](Children.LEAF),
-        MinimalNode[NoNode, NoNode](Children.LEAF),
-        MinimalNode[NoNode, NoNode](Children.LEAF),
+        MinimalNode[NoNode, NoNode](Children.LEAF, name='node1'),
+        MinimalNode[NoNode, NoNode](Children.LEAF, name='node2'),
+        MinimalNode[NoNode, NoNode](Children.LEAF, name='node3'),
     ]
     children = ChildrenArray[NoNode, MinimalNode[NoNode, NoNode]](_nodes=backed, _lazy=lazy)
     assert children.node is None
@@ -117,7 +117,7 @@ def check_children_added_event(
     prev_snapshot = list(snapshot)
     for idx in reversed(indices):
         prev_snapshot.pop(idx)
-    print(f'>>!>> {snapshot=}, {added_nodes=}, {indices=}, {event.prev_snapshot=}')
+
     with pytest.raises(AssertionError):  # BUG #5
         assert event.prev_snapshot == prev_snapshot
 
@@ -240,17 +240,13 @@ def test_add(parent_node: Node[NoNode, AnyNode] | None, *, lazy: bool) -> None:
         parent_node.system_name = 'parent_node'
         parent_node.add_node_listener(listener_parent)
 
-    node1 = MinimalNode[Node[NoNode, AnyNode], NoNode](Children.LEAF)
-    node1.display_name = 'node1'
+    node1 = MinimalNode[Node[NoNode, AnyNode], NoNode](Children.LEAF, name='node1')
     node1.add_node_listener(listener_child)
-    node2 = MinimalNode[Node[NoNode, AnyNode], NoNode](Children.LEAF)
-    node2.display_name = 'node2'
+    node2 = MinimalNode[Node[NoNode, AnyNode], NoNode](Children.LEAF, name='node2')
     node2.add_node_listener(listener_child)
-    node3 = MinimalNode[Node[NoNode, AnyNode], NoNode](Children.LEAF)
-    node3.display_name = 'node3'
+    node3 = MinimalNode[Node[NoNode, AnyNode], NoNode](Children.LEAF, name='node3')
     node3.add_node_listener(listener_child)
-    node4 = MinimalNode[Node[NoNode, AnyNode], NoNode](Children.LEAF)
-    node4.display_name = 'node4'
+    node4 = MinimalNode[Node[NoNode, AnyNode], NoNode](Children.LEAF, name='node4')
     node4.add_node_listener(listener_child)
 
     # Test single add
@@ -304,43 +300,10 @@ def check_children_removed_event(
         pytest.param(MinimalNode(Children.LEAF), True, marks=(pytest.mark.lazy, pytest.mark.xfail)),
     ],
 )
-def test_remove(parent_node: Node[NoNode, AnyNode] | None, *, lazy: bool) -> None:
-    # Setup
-    first_run = True
-    listener_parent = Listener[Node[NoNode, AnyNode], AnyNode]()
-    listener_child = Listener[AnyNode, NoNode]()
-    children = ChildrenArray[Node[NoNode, AnyNode], AnyNode](_lazy=lazy)
-
-    if parent_node is not None:
-        parent_node._children = children
-        parent_node.system_name = 'parent_node'
-        parent_node.add_node_listener(listener_parent)
-
-    node1 = MinimalNode[Node[NoNode, AnyNode], NoNode](Children.LEAF)
-    node1.display_name = 'node1'
-    node1.add_node_listener(listener_child)
-    node2 = MinimalNode[Node[NoNode, AnyNode], NoNode](Children.LEAF)
-    node2.display_name = 'node2'
-    node2.add_node_listener(listener_child)
-    node3 = MinimalNode[Node[NoNode, AnyNode], NoNode](Children.LEAF)
-    node3.display_name = 'node3'
-    node3.add_node_listener(listener_child)
-    node4 = MinimalNode[Node[NoNode, AnyNode], NoNode](Children.LEAF)
-    node4.display_name = 'node4'
-    node4.add_node_listener(listener_child)
-    node5 = MinimalNode[Node[NoNode, AnyNode], NoNode](Children.LEAF)
-    node5.display_name = 'node5'
-    node5.add_node_listener(listener_child)
-    node6 = MinimalNode[Node[NoNode, AnyNode], NoNode](Children.LEAF)  # Not adding it
-    node6.display_name = 'node6'
-    node6.add_node_listener(listener_child)
-
-    children.add((node1, node2, node3, node4, node5))
-    listener_parent.called.clear()
-    listener_child.called.clear()
-
+def test_remove(parent_node: Node[NoNode, AnyNode] | None, *, lazy: bool) -> None:  # noqa: C901
     def check(
-        nodes_to_remove: tuple[MinimalNode[Node[NoNode, AnyNode], NoNode], ...],
+        nodes_to_remove: tuple[MinimalNode[Node[NoNode, AnyNode], NoNode], ...]
+        | list[MinimalNode[Node[NoNode, AnyNode], NoNode]],
         all_nodes: list[MinimalNode[Node[NoNode, AnyNode], NoNode]],
         removed_nodes_indices: list[int],
         *,
@@ -389,7 +352,6 @@ def test_remove(parent_node: Node[NoNode, AnyNode] | None, *, lazy: bool) -> Non
         if parent_node:
             #
             # Check parent listener
-            print(listener_parent.called)
             if not first_run and removed_nodes_indices:
                 # Listener not called on first add because entry support was not created yet (...)
                 check_children_removed_event(
@@ -437,76 +399,48 @@ def test_remove(parent_node: Node[NoNode, AnyNode] | None, *, lazy: bool) -> Non
 
         first_run = False
 
-    #
+    # Setup
+    first_run = True
+    listener_parent = Listener[Node[NoNode, AnyNode], AnyNode]()
+    listener_child = Listener[AnyNode, NoNode]()
+    children = ChildrenArray[Node[NoNode, AnyNode], AnyNode](_lazy=lazy)
+
+    if parent_node is not None:
+        parent_node._children = children
+        parent_node.system_name = 'parent_node'
+        parent_node.add_node_listener(listener_parent)
+
+    node1 = MinimalNode[Node[NoNode, AnyNode], NoNode](Children.LEAF, name='node1')
+    node1.add_node_listener(listener_child)
+    node2 = MinimalNode[Node[NoNode, AnyNode], NoNode](Children.LEAF, name='node2')
+    node2.add_node_listener(listener_child)
+    node3 = MinimalNode[Node[NoNode, AnyNode], NoNode](Children.LEAF, name='node3')
+    node3.add_node_listener(listener_child)
+    node4 = MinimalNode[Node[NoNode, AnyNode], NoNode](Children.LEAF, name='node4')
+    node4.add_node_listener(listener_child)
+    node5 = MinimalNode[Node[NoNode, AnyNode], NoNode](Children.LEAF, name='node5')
+    node5.add_node_listener(listener_child)
+    node6 = MinimalNode[Node[NoNode, AnyNode], NoNode](Children.LEAF, name='node6')  # Not adding it
+    node6.add_node_listener(listener_child)
+
+    children.add((node1, node2, node3, node4, node5))
+    listener_parent.called.clear()
+    listener_child.called.clear()
+
     # Test remove one
     check((node2,), [node1, node3, node4, node5], [1])
-    # assert children.remove((node2,)), 'Children.remove() did not remove'
-    # # Check node has its parent cleared
-    # with pytest.raises(AssertionError):  # BUG #2
-    #     assert node2._parent_children is None
-    # # Check children still see the right set of nodes
-    # assert children._is_initialised is False, 'Children has initialised entry support too early'
-    # assert children.get_nodes() == [node1, node3, node4, node5], children.get_nodes()
-    # assert children._is_initialised is True, 'Children did not initialised entry support'
-    # # Check listener
-    # assert not listener_child.called
 
-    #
     # Test remove multiple
     check((node3, node4), [node1, node5], [1, 2])
-    # assert children.remove((node3, node4)), 'Children.remove() did not remove'
-    # # Check node have their parent cleared
-    # with pytest.raises(AssertionError):  # BUG #1
-    #     assert node3._parent_children is None
-    # with pytest.raises(AssertionError):  # BUG #1
-    #     assert node4._parent_children is None
-    # # Check children still see the right set of nodes
-    # assert children.get_nodes() == [node1, node5], children.get_nodes()
-    # assert children._is_initialised is True, 'Children resetted entry support'
-    # # Check listener
-    # assert not listener_child.called
 
-    #
     # Test remove none
     check((), [node1, node5], [])
-    # assert not children.remove(()), 'Children.remove() removed from nothing'
-    # # Check children still see the same nodes
-    # assert children.get_nodes() == [node1, node5], children.get_nodes()
-    # assert children._is_initialised is True, 'Children resetted entry support'
-    # # Check listener
-    # assert not listener_child.called
 
-    #
     # Test remove not present
     check((node6,), [node1, node5], [])
-    # assert not children.remove((node6,)), 'Children.remove() removed despite node not being present'
-    # # Check children still see the same nodes
-    # assert children.get_nodes() == [node1, node5], children.get_nodes()
-    # assert children._is_initialised is True, 'Children resetted entry support'
-    # # Check listener
-    # assert not listener_child.called
 
-    #
     # Test remove all (needs to be a list and not a tuple to pass equality test)
     check([node1, node5], [], [0, 1])
-    # assert children.remove([node1, node5]), 'Children.remove() did not remove'
-    # # Check node have their parent cleared
-    # with pytest.raises(AssertionError):  # BUG #1
-    #     assert node1._parent_children is None
-    # with pytest.raises(AssertionError):  # BUG #1
-    #     assert node5._parent_children is None
-    # # Check children is now empty
-    # assert children.get_nodes() == [], children.get_nodes()
-    # assert children._is_initialised is True, 'Children resetted entry support'
-    # # Check listener
-    # assert not listener_child.called
 
-    #
     # Test remove not present on empty
     check((node6,), [], [])
-    # assert not children.remove((node6,)), 'Children.remove() removed despite node not being present'
-    # # Check children still see the same nodes
-    # assert children.get_nodes() == [], children.get_nodes()
-    # assert children._is_initialised is True, 'Children resetted entry support'
-    # # Check listener
-    # assert not listener_child.called

@@ -15,10 +15,11 @@ from collections.abc import Sequence
 from typing import TYPE_CHECKING, Any
 
 # Third-party imports
+from lookups import Lookup
 from typing_extensions import Self, override
 
 # Local imports
-from openide.nodes._refactor1 import ChildNode, Node, NodeHandle, ParentNode
+from openide.nodes._refactor1 import ChildNode, Children, Node, NodeHandle, ParentNode
 
 if TYPE_CHECKING:
     from PySide6.QtGui import QAction, QColor, QIcon, QPixmap
@@ -27,6 +28,18 @@ if TYPE_CHECKING:
 
 
 class MinimalNode(Node[ParentNode, ChildNode]):
+    def __init__(
+        self,
+        children: Children[Self, ChildNode],
+        lookup: Lookup | None = None,
+        *,
+        name: str | None = None,
+    ) -> None:
+        super().__init__(children=children, lookup=lookup)
+
+        if name is not None:
+            self.display_name = name
+
     @override
     def clone(self) -> Self:
         raise NotImplementedError

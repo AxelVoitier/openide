@@ -24,7 +24,7 @@ from .children import ANode, ChildNode, Children, ChildrenEntry, _ChildrenSubCla
 
 T_Hashable = TypeVar('T_Hashable', bound=Hashable)
 
-if TYPE_CHECKING:
+if TYPE_CHECKING:  # pragma: no cover
     from collections.abc import MutableMapping, MutableSequence, Sequence
     from typing import Any, Final
 
@@ -35,7 +35,7 @@ _logger = logging.getLogger(__name__)
 
 # OK, Match
 # TODO: For some reasons, original does not have this one private?!
-class __MapEntry(ChildrenEntry[ChildNode]):
+class _MapEntry(ChildrenEntry[ChildNode]):
     """Entry mapping one key to a node"""
 
     def __init__(self, key: Hashable, node: ChildNode) -> None:
@@ -57,7 +57,7 @@ class __MapEntry(ChildrenEntry[ChildNode]):
     # OK, Match
     @override  # object
     def __eq__(self, other: object) -> bool:
-        if isinstance(other, __MapEntry):
+        if isinstance(other, _MapEntry):
             return self.key == (other.key)
         else:
             return False
@@ -95,12 +95,13 @@ class _ChildrenMapBase(Children[ANode, ChildNode], Generic[T_Hashable, ANode, Ch
         self._entry_support._set_entries(self._create_entries(self._map), no_check=True)
         super()._call_add_notify()
 
-    # Following methods are defined in _ChildrenMapSubClassInterface
-    def _init_map(self) -> MutableMapping[T_Hashable, ChildNode]: ...
-    def _create_entries(
-        self,
-        map: MutableMapping[T_Hashable, ChildNode],
-    ) -> Sequence[ChildrenEntry[ChildNode]]: ...
+    if TYPE_CHECKING:  # pragma: no cover
+        # Following methods are defined in _ChildrenMapSubClassInterface
+        def _init_map(self) -> MutableMapping[T_Hashable, ChildNode]: ...
+        def _create_entries(
+            self,
+            map: MutableMapping[T_Hashable, ChildNode],
+        ) -> Sequence[ChildrenEntry[ChildNode]]: ...
 
 
 class _ChildrenMapChildrenSubClassInterface(
@@ -153,7 +154,7 @@ class _ChildrenMapSubClassInterface(_ChildrenMapBase[T_Hashable, ANode, ChildNod
     ) -> Sequence[ChildrenEntry[ChildNode]]:
         """Allows subclasses to redefine order of entries"""
 
-        return [__MapEntry(k, v) for k, v in map.items()]
+        return [_MapEntry(k, v) for k, v in map.items()]
 
     # OK, Match
     # Note: Inlined refreshImpl as it did not seemed to be (locally) subclassed
@@ -182,7 +183,7 @@ class _ChildrenMapSubClassInterface(_ChildrenMapBase[T_Hashable, ANode, ChildNod
         """
 
         with Children.MUTEX.write_access():
-            self._entry_support._refresh_entry(__MapEntry[ChildNode](key, None))
+            self._entry_support._refresh_entry(_MapEntry[ChildNode](key, None))
 
     # OK, Match
     # Note: Calling the mutex-wrapped refresh methods as we inlined the implementation ones
@@ -259,6 +260,7 @@ class ChildrenMap(
     _ChildrenMapChildrenSubClassInterface[ChildNode],
     _ChildrenMapBase[T_Hashable, ANode, ChildNode],
     Children[ANode, ChildNode],
+    Generic[T_Hashable, ANode, ChildNode],
 ):
     """Implements the storage of node children in a map.
 

@@ -49,6 +49,12 @@ dependencies = [
 [project.scripts]
 openide-debug = "openide.startup.debug_cli:cmd"
 
+[project.optional-dependencies]
+cli = [
+  "rich",
+  "typer",
+]
+
 [project.entry-points.hatch]
 openide_integrations = "openide.integrations.hatch_hook"
 

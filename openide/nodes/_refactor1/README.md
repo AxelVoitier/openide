@@ -2,13 +2,13 @@
 
 The objectives of this first refactoring are:
 
-- [ ] Internal reorganisation to clarify how things are structured
+- [x] Internal reorganisation to clarify how things are structured
   - Splits up classes into various block/interfaces
   - If possible, makes typing more precise by narrowing it to one of those interface class instead of "the big class names"
-- [ ] Improve typing here and there
+- [x] Improve typing here and there
 - [ ] Come-up with baseline tests
 - [ ] Remove very useless fragments left-over from Netbeans
-- [ ] Bring in some docstrings to have a clearer idea of what methods are actually meant for
+- [x] Bring in some docstrings to have a clearer idea of what methods are actually meant for
 
 ## Non-goals
 
@@ -19,6 +19,7 @@ The objectives of this first refactoring are:
 
 ## Optional goals
 
+- [ ] NB bug fixes
 - [ ] Transform some of the external API into something more usable/Pythonic
   - [ ] Iterator in the ChildFactory
   - [ ] Listeners
@@ -77,7 +78,7 @@ The objectives of this first refactoring are:
   - [ ] FilterNode
 - [ ] Children
   - [x] ChildrenArray
-  - [ ] ChildrenMap
+  - [x] ChildrenMap
   - [ ] ChildrenKeys
   - [ ] SyncChildren
   - [ ] AsyncChildren
