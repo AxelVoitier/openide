@@ -210,6 +210,7 @@ ignore = [
   "TC003",  # Move standard library import `...` into a type-checking block
   "PLR0912",  # Too many branches
   "PLR0915",  # Too many statements
+  "G004",  # Logging statement uses f-string
 ]
 
 [tool.ruff.lint.flake8-comprehensions]

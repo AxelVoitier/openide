@@ -79,7 +79,7 @@ The objectives of this first refactoring are:
 - [ ] Children
   - [x] ChildrenArray
   - [x] ChildrenMap
-  - [ ] ChildrenKeys
+  - [x] ChildrenKeys
   - [ ] SyncChildren
   - [ ] AsyncChildren
 - [ ] ChildFactory

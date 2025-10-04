@@ -32,7 +32,7 @@ from .children_array import (
 
 Key = TypeVar('Key')
 
-if TYPE_CHECKING:
+if TYPE_CHECKING:  # pragma: no cover
     from collections.abc import Callable, Iterable, MutableMapping, MutableSequence, Sequence
     from typing import Any, ClassVar, Final
 
@@ -165,6 +165,11 @@ class _KeyEntry(ChildrenEntry[ChildNode], Generic[Key, ChildNode]):
         else:
             return False
 
+    def __str__(self) -> str:
+        return f'_KeyEntry(key={self._key})'
+
+    __repr__ = __str__
+
 
 class _ChildrenKeysBase(_ChildrenArrayBase[ANode, ChildNode]):
     _LOCK = RLock()
@@ -178,6 +183,8 @@ class _ChildrenKeysBase(_ChildrenArrayBase[ANode, ChildNode]):
             if not self.__keys_check(self, implementation):
                 return
 
+            _logger.debug('new_keys=%s', new_keys)
+            _logger.debug('self._entry_support=%s', self._entry_support)
             self._entry_support._set_entries(new_keys)
             self.__keys_exit(self, implementation)
 
@@ -223,7 +230,7 @@ class _ChildrenKeysBase(_ChildrenArrayBase[ANode, ChildNode]):
         with cls._LOCK:
             return call == cls.__LAST_RUNS.get(children)
 
-    if TYPE_CHECKING:
+    if TYPE_CHECKING:  # pragma: no cover
         # Following methods are defined in _ChildrenKeysSubClassInterface
         @property
         def _before(self) -> bool: ...
@@ -355,6 +362,7 @@ class _ChildrenKeysSubClassInterface(
             keys_set: The keys for the nodes (collection of any objects)
         """
 
+        _logger.debug('keys_set=%s', keys_set)
         new_keys: list[ChildrenEntry[ChildNode]] = []
         updator = _KeyEntry[Key, ChildNode](self)
         if self._lazy_support:
@@ -368,6 +376,7 @@ class _ChildrenKeysSubClassInterface(
             if not self._before and (self._nodes_entry is not None):
                 new_keys.append(self._nodes_entry)
 
+        _logger.debug('new_keys=%s', new_keys)
         self._apply_keys(new_keys)
 
     # OK, Match

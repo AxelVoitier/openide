@@ -335,16 +335,18 @@ class EntrySupportDefault(EntrySupport[ANode, ChildNode]):
         *,
         no_check: bool = False,
     ) -> None:
-        # print('EntrySupportDefault._set_entries', time.monotonic(), self, no_check)
+        _logger.debug('entries=%s, no_check=%s', entries, no_check)
         assert no_check or Children.MUTEX.is_write_access
 
         holder = self.__storage()
         current = holder.nodes if holder is not None else None
 
-        # print(
-        #     'EntrySupportDefault._set_entries: '
-        #     f'{holder=}, {current=}, {self.__must_notify_set_entries=}',
-        # )
+        _logger.debug(
+            'holder=%s, current=%s, __must_notify_set_entries=%s',
+            holder,
+            current,
+            self.__must_notify_set_entries,
+        )
         if self.__must_notify_set_entries:
             if holder is None:
                 holder = self.__get_storage()
@@ -357,19 +359,24 @@ class EntrySupportDefault(EntrySupport[ANode, ChildNode]):
             self.__must_notify_set_entries = False
 
         elif (holder is None) or (current is None):
-            # print(f'EntrySupportDefault._set_entries: setting entries {entries}')
             self.__entries = list(entries)
             with self.__map_lock:
                 self.__map = {k: v for k, v in self.__map.items() if k in entries}
+            _logger.debug(
+                'Setting entries %s ; self.__entries=%s, self.__map=%s',
+                entries,
+                self.__entries,
+                self.__map,
+            )
             return
 
         self.__check_consistency()
 
-        # print(f'EntrySupportDefault._set_entries: {self.__entries=}, {entries=}')
+        _logger.debug('self.__entries=%s, entries=%s', self.__entries, entries)
 
         # What should be removed
         to_remove = set(self.__entries) - set(entries)
-        # print(f'EntrySupportDefault._set_entries: {to_remove=}')
+        _logger.debug('to_remove=%s', to_remove)
         if to_remove:
             # Notify removing. The set must be ready  for callbacks with questions.
             self.__update_remove(current, to_remove)
@@ -378,7 +385,7 @@ class EntrySupportDefault(EntrySupport[ANode, ChildNode]):
 
         # Change the order of entries. Notifies it and again brings children to up-to-date state.
         to_add = self.__update_order(current, entries)
-        # print(f'EntrySupportDefault._set_entries: {to_add=}')
+        _logger.debug('to_add=%s', to_add)
         if to_add:
             # to_add contains Info objects that should be added
             self.__update_add(to_add, list(entries))
@@ -489,6 +496,7 @@ class EntrySupportDefault(EntrySupport[ANode, ChildNode]):
 
                 current_pos += info._length
 
+        _logger.debug('to_add=%s', to_add)
         if perm_size > 0:
             # Now the perm array contains numbers 1 to ... and 0 one places where
             # no permutation occurs => Decrease numbers, replace zeros.
@@ -562,6 +570,7 @@ class EntrySupportDefault(EntrySupport[ANode, ChildNode]):
         old_nodes = info.nodes(has_to_exist=False)
         # Warning, entry.nodes() could return None, from Children.Map._refresh_key
         new_nodes = info._entry.nodes(None)
+        _logger.debug('entry=%s, old_nodes=%s, new_nodes=%s', entry, old_nodes, new_nodes)
         if old_nodes == new_nodes:
             # Nodes are the same
             return
