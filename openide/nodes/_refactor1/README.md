@@ -76,20 +76,20 @@ The objectives of this first refactoring are:
 - [ ] Node
   - [ ] GenericNode
   - [ ] FilterNode
-- [ ] Children
+- [x] Children
   - [x] ChildrenArray
   - [x] ChildrenMap
   - [x] ChildrenKeys
-  - [ ] SyncChildren
+  - [x] SyncChildren
   - [ ] AsyncChildren
-- [ ] ChildFactory
-- [ ] EntrySupport
-- [ ] EntrySupportDefault
+- [x] ChildFactory
+- [x] EntrySupport
+- [x] EntrySupportDefault
 - [ ] EntrySupportLazy
-- [ ] ChildrenStorage
-- [ ] NodeListener & Co
+- [x] ChildrenStorage
+- [x] NodeListener & Co
 - [ ] NodeLookup
-- [ ] node_operations
+- [x] node_operations
 
 
 ### Template
