@@ -73,7 +73,7 @@ The objectives of this first refactoring are:
 
 ### Tests
 
-- [ ] Node
+- [x] Node
   - [ ] GenericNode
   - [ ] FilterNode
 - [x] Children

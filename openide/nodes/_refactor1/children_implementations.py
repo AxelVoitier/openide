@@ -34,7 +34,7 @@ __all__: Final = ()
 _logger = logging.getLogger(__name__)
 
 
-class _Empty(Children[Any, Any]):
+class _EmptyChildren(Children[Any, Any]):
     """Empty list of children.
 
     Does not allow anybody to insert a node. Treated especially in the _attach_to() method.
@@ -49,7 +49,7 @@ class _Empty(Children[Any, Any]):
         return False
 
 
-Children.LEAF = _Empty()
+Children.LEAF = _EmptyChildren()
 
 
 class _LazyChildren(Children[ANode, ChildNode]):  # pyright: ignore[reportUnusedClass]  # Used in Children.create_lazy(), and Node._update_children()

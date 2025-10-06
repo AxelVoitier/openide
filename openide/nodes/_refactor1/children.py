@@ -229,7 +229,7 @@ class _ChildrenParentNodeInterface(_ChildrenBase[ANode, ChildNode]):
         with self._lock:
             if self._parent is not None:
                 msg = 'An instance of Children may not be used for more than one parent node'
-                raise RuntimeError(msg)
+                raise ValueError(msg)
 
             self._parent = parent
 

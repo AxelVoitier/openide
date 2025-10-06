@@ -543,7 +543,7 @@ class _NodeCopyPasteDnDInterface(ABC):
     def can_copy(self) -> bool:
         """Test whether this node premits copying"""
 
-        raise NotImplementedError
+        raise NotImplementedError  # pragma: no cover
 
     # TODO: Define return type
     @property
@@ -555,7 +555,7 @@ class _NodeCopyPasteDnDInterface(ABC):
             The transferable object representing the content of the clipboard.
         """
 
-        raise NotImplementedError
+        raise NotImplementedError  # pragma: no cover
 
     #
     # Cut
@@ -566,7 +566,7 @@ class _NodeCopyPasteDnDInterface(ABC):
     def can_cut(self) -> bool:
         """Test whether this node premits cutting"""
 
-        raise NotImplementedError
+        raise NotImplementedError  # pragma: no cover
 
     # TODO: Define return type
     @property
@@ -578,7 +578,7 @@ class _NodeCopyPasteDnDInterface(ABC):
             The transferable object representing the content of the clipboard.
         """
 
-        raise NotImplementedError
+        raise NotImplementedError  # pragma: no cover
 
     #
     # Drag'n'Drop
@@ -597,7 +597,7 @@ class _NodeCopyPasteDnDInterface(ABC):
             The transferable to represent this node during a drag.
         """
 
-        raise NotImplementedError
+        raise NotImplementedError  # pragma: no cover
 
     # TODO: Define types
     @abstractmethod
@@ -615,7 +615,7 @@ class _NodeCopyPasteDnDInterface(ABC):
             Array of operations that are allowed.
         """
 
-        raise NotImplementedError
+        raise NotImplementedError  # pragma: no cover
 
     # TODO: Define return type
     @abstractmethod
@@ -635,7 +635,7 @@ class _NodeCopyPasteDnDInterface(ABC):
             when the drop occurs.
         """
 
-        raise NotImplementedError
+        raise NotImplementedError  # pragma: no cover
 
     # TODO: Define return type
     @property
@@ -650,7 +650,7 @@ class _NodeCopyPasteDnDInterface(ABC):
             Array of new type operations that are allowed.
         """
 
-        raise NotImplementedError
+        raise NotImplementedError  # pragma: no cover
 
 
 class _NodeListenersMixins(_NodePropertiesInterface[ChildNode], Generic[ChildNode]):
