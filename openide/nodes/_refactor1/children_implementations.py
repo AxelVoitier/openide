@@ -22,7 +22,7 @@ from typing_extensions import override
 # Local imports
 from .children import ANode, ChildNode, Children
 
-if TYPE_CHECKING:
+if TYPE_CHECKING:  # pragma: no cover
     from collections.abc import Callable, Sequence
     from typing import Final
 

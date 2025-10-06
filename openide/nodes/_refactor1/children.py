@@ -35,7 +35,7 @@ if TYPE_CHECKING:  # pragma: no cover
     from typing_extensions import Self
 
     from .child_factory import ChildFactory
-    from .children_implementations import _Empty
+    from .children_implementations import _EmptyChildren
     from .entry_support import EntrySupport
     from .node import _NodeChildrenInterface
 
@@ -509,7 +509,7 @@ class Children(
         ChildNode: The type of node those children have.
     """
 
-    LEAF: ClassVar[_Empty]
+    LEAF: ClassVar[_EmptyChildren]
     """The object representing an empty set of children.
 
     Should be used to represent the children of leaf nodes. The same object may

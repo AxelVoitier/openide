@@ -24,9 +24,8 @@ from typing_extensions import override
 
 # Local imports
 from openide.lookup.cookie_set import Cookie, CookieSet, _PairWrap
-from openide.nodes._like_netbeans import Node
 
-from .node import _NodeLookupAndCookieMixin
+from .node import Node, _NodeLookupAndCookieMixin
 
 if TYPE_CHECKING:
     from lookups.generic_lookup import Pair

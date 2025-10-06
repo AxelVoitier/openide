@@ -6,7 +6,7 @@ The objectives of this first refactoring are:
   - Splits up classes into various block/interfaces
   - If possible, makes typing more precise by narrowing it to one of those interface class instead of "the big class names"
 - [x] Improve typing here and there
-- [ ] Come-up with baseline tests
+- [x] Come-up with baseline tests
 - [ ] Remove very useless fragments left-over from Netbeans
 - [x] Bring in some docstrings to have a clearer idea of what methods are actually meant for
 
@@ -74,7 +74,7 @@ The objectives of this first refactoring are:
 ### Tests
 
 - [x] Node
-  - [ ] GenericNode
+  - [x] GenericNode
   - [ ] FilterNode
 - [x] Children
   - [x] ChildrenArray

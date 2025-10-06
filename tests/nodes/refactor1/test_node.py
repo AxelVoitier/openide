@@ -21,8 +21,8 @@ from PySide6.QtGui import QAction
 from typing_extensions import override
 
 # Local imports
-from openide.nodes import ANode
 from openide.nodes._refactor1 import (
+    ANode,
     AnyNode,
     ChildNode,
     Children,
