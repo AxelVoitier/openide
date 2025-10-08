@@ -130,7 +130,6 @@ class NodeMemberEvent(NodeEvent[ANode], Generic[ANode, ChildNode]):
         else:
             assert indices is not None
             assert current is not None
-            assert previous is not None
             self.__indices = sorted(indices)
             self.__curr_snapshot = current
             self.__prev_snapshot = previous
