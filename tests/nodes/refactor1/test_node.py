@@ -13,6 +13,7 @@ from __future__ import annotations
 # System imports
 import logging
 from collections.abc import Callable, Iterable, Sequence
+from pprint import pformat as pf
 from typing import TYPE_CHECKING, Any, ClassVar
 
 # Third-party imports
@@ -316,11 +317,15 @@ def test_swap_children() -> None:
     listener_parent.called.clear()
     listener_child.called.clear()
 
+    # Testing swap of parent/children
+    _logger.info('Swapping parent...')
     parent_node._children = children2
+    _logger.info('Swapping done')
     assert parent_node._children.get_nodes() == [child_node2]
     assert child_node1.parent_node is None
     assert child_node2.parent_node == parent_node
 
+    # Listener parent
     _logger.info('listener_parent.called=%s', listener_parent.called)
     assert len(listener_parent.called['children_removed']) == 1
     removed_event = listener_parent.called['children_removed'][0]['event']
@@ -344,7 +349,8 @@ def test_swap_children() -> None:
 
     assert not listener_parent.called
 
-    _logger.info('listener_child.called=%s', listener_child.called)
+    # Listener child
+    _logger.info('listener_child.called=%s', pf(listener_child.called))
     assert listener_child.called['property_change'] == [
         dict(node=child_node1, name='parentNode', old=parent_node, new=None),
         dict(node=child_node2, name='parentNode', old=None, new=parent_node),

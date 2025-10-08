@@ -246,10 +246,11 @@ def test_set_keys_add(
 
         #
         # Listeners
+        _logger.info('listener_parent.called=%s', pf(listener_parent.called))
+        _logger.info('listener_child.called=%s', pf(listener_child.called))
         if parent_node:
             #
             # Check parent listener
-            _logger.info('listener_parent.called=%s', pf(listener_parent.called))
             if added_nodes_indices:
                 # Listener not called on first add because entry support was not created yet (...)
                 check_children_added_event(
@@ -265,7 +266,6 @@ def test_set_keys_add(
 
             #
             # Check child listener
-            _logger.info('listener_child.called=%s', pf(listener_child.called))
             events = listener_child.called['property_change']
             notified_for_nodes: dict[AnyNode, int] = defaultdict(int)
             for event in events:
@@ -273,25 +273,16 @@ def test_set_keys_add(
                 notified_for_nodes[node] += 1
                 assert event == dict(node=node, name='parentNode', old=None, new=parent_node)
 
-            # BUG #3 handling
             for i in added_nodes_indices:
                 node = all_nodes[i]
                 assert node in notified_for_nodes, f'Node {node} never notified'
-                with pytest.raises(AssertionError):
-                    assert notified_for_nodes[node] == 1, f'Node {node} notified more than once'
+                assert notified_for_nodes[node] == 1, f'Node {node} notified more than once'
                 del notified_for_nodes[node]
 
-            if added_nodes_indices:  # BUG #3 not apparent if no node were given
-                bug_3_context = (  # noqa: E731
-                    lambda: contextlib.nullcontext()
-                    if len(all_nodes) <= n_nodes
-                    else pytest.raises(AssertionError)
-                )
-                with bug_3_context():
-                    assert not notified_for_nodes, (
-                        'More nodes have been called than they should',
-                        notified_for_nodes,
-                    )
+            assert not notified_for_nodes, (
+                'More nodes have been called than they should',
+                notified_for_nodes,
+            )
 
             listener_child.called.clear()
 
@@ -497,26 +488,19 @@ def test_set_keys_remove(  # noqa: C901
             for event in events:
                 node = cast('AnyNode', event['node'])
                 notified_for_nodes[node] += 1
-                try:  # noqa: SIM105
-                    assert event == dict(node=node, name='parentNode', old=parent_node, new=None)
-                except AssertionError:  # BUG #4
-                    pass
+                assert event == dict(node=node, name='parentNode', old=parent_node, new=None)
 
             for node, _ in zip(removed_nodes, removed_nodes_indices, strict=False):
                 assert node in notified_for_nodes, f'Node {node} never notified for property_change'
-                # with bug_3_context():
                 assert notified_for_nodes[node] == 1, (
                     f'Node {node} notified more than once for property_change'
                 )
                 del notified_for_nodes[node]
 
-            # BUG #4 not apparent if no node were removed, or no node remaining
-            if removed_nodes_indices and all_nodes:
-                with pytest.raises(AssertionError):  # BUG #4
-                    assert not notified_for_nodes, (
-                        'More nodes have been called than they should',
-                        notified_for_nodes,
-                    )
+            assert not notified_for_nodes, (
+                'More nodes have been called than they should',
+                notified_for_nodes,
+            )
         else:
             assert not listener_child.called['property_change']
         del listener_child.called['property_change']
@@ -534,9 +518,7 @@ def test_set_keys_remove(  # noqa: C901
             )
             del notified_for_nodes[node]
 
-        # BUG #4 not apparent if no node were removed, or no node remaining
-        if removed_nodes_indices and all_nodes:
-            assert not notified_for_nodes, 'Notified for more nodes than it should have'
+        assert not notified_for_nodes, 'Notified for more nodes than it should have'
 
         del listener_child.called['node_destroyed']
 
@@ -713,11 +695,7 @@ def test_set_keys_reorder(
         #
         # Check child listener
         _logger.info('listener_child.called=%s', listener_child.called)
-        if parent_node and actual_swaps_map:
-            with pytest.raises(AssertionError):  # BUG #3
-                assert not listener_child.called
-        else:
-            assert not listener_child.called
+        assert not listener_child.called
 
     # Setup
     listener_parent = Listener[Node[NoNode, AnyNode], AnyNode]()
@@ -876,7 +854,7 @@ def test_refresh_key(parent_node: Node[NoNode, AnyNode] | None, *, lazy: bool) -
 
         #
         # Check child listener
-        _logger.info('listener_child.called=%s', listener_child.called)
+        _logger.info('listener_child.called=%s', pf(listener_child.called))
         if parent_node:
             events = listener_child.called['property_change']
             notified_for_nodes: dict[AnyNode, int] = defaultdict(int)
@@ -887,12 +865,14 @@ def test_refresh_key(parent_node: Node[NoNode, AnyNode] | None, *, lazy: bool) -
                 if node in added_nodes:
                     assert event == dict(node=node, name='parentNode', old=None, new=parent_node)
                 else:
-                    try:  # noqa: SIM105
-                        assert event == dict(
-                            node=node, name='parentNode', old=parent_node, new=None
-                        )
-                    except AssertionError:  # BUG #4
-                        pass
+                    assert event == dict(node=node, name='parentNode', old=parent_node, new=None)
+
+            for node, _ in zip(added_nodes, added_nodes_indices, strict=False):
+                assert node in notified_for_nodes, f'Node {node} never notified for property_change'
+                assert notified_for_nodes[node] == 1, (
+                    f'Node {node} notified more than once for property_change'
+                )
+                del notified_for_nodes[node]
 
             for node, _ in zip(removed_nodes, removed_nodes_indices, strict=False):
                 assert node in notified_for_nodes, f'Node {node} never notified for property_change'
@@ -901,13 +881,10 @@ def test_refresh_key(parent_node: Node[NoNode, AnyNode] | None, *, lazy: bool) -
                 )
                 del notified_for_nodes[node]
 
-            # BUG #4 not apparent if no node were removed, or no node remaining
-            if removed_nodes_indices and all_nodes:
-                with pytest.raises(AssertionError):  # BUG #4
-                    assert not notified_for_nodes, (
-                        'More nodes have been called than they should',
-                        notified_for_nodes,
-                    )
+            assert not notified_for_nodes, (
+                'More nodes have been called than they should',
+                notified_for_nodes,
+            )
         else:
             assert not listener_child.called['property_change']
 
@@ -927,9 +904,7 @@ def test_refresh_key(parent_node: Node[NoNode, AnyNode] | None, *, lazy: bool) -
                 )
                 del notified_for_nodes[node]
 
-            # BUG #4 not apparent if no node were removed, or no node remaining
-            if removed_nodes_indices and all_nodes:
-                assert not notified_for_nodes, 'Notified for more nodes than it should have'
+            assert not notified_for_nodes, 'Notified for more nodes than it should have'
 
             del listener_child.called['node_destroyed']
 

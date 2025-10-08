@@ -246,8 +246,7 @@ class _ChildrenParentNodeInterface(_ChildrenBase[ANode, ChildNode]):
                 return
 
             for i, node in enumerate(nodes):
-                node._assign_to(self, i)
-                node._fire_own_property_change('parentNode', None, parent)
+                node._assign_to(self, i, new_parent_node=True)
 
     # OK, Match
     @final
@@ -276,8 +275,7 @@ class _ChildrenParentNodeInterface(_ChildrenBase[ANode, ChildNode]):
                 return
 
             for node in nodes:
-                node._deassign_from(self)
-                node._fire_own_property_change('parentNode', old_parent, None)
+                node._deassign_from(self, old_parent)
 
     # OK, Match
     @final

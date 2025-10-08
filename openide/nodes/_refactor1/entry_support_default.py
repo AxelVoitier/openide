@@ -165,8 +165,6 @@ class EntrySupportDefaultInfo(Generic[ChildNode]):
         # Assign all their nodes the new children
         for node in nodes:
             node._assign_to(children, -1)
-            # print(f'EntrySupportDefault._Info.use_nodes: fire parentNode on {node=}')
-            node._fire_own_property_change('parentNode', None, children._parent)
 
 
 class EntrySupportDefault(EntrySupport[ANode, ChildNode]):
@@ -300,8 +298,6 @@ class EntrySupportDefault(EntrySupport[ANode, ChildNode]):
                 raise RuntimeError(msg)
 
             node._assign_to(self.children, i)
-            # print(f'EntrySupportDefault._just_compute_nodes: fire parentNode on {node=}')
-            node._fire_own_property_change('parentNode', None, self.children._parent)
 
         return nodes
 
@@ -669,7 +665,6 @@ class EntrySupportDefault(EntrySupport[ANode, ChildNode]):
             # Fire change of parent
             for node in nodes:
                 node._deassign_from(children)
-                node._fire_own_property_change('parentNode', children._parent, None)
 
         children._destroy_nodes(nodes)
         return nodes
@@ -685,8 +680,6 @@ class EntrySupportDefault(EntrySupport[ANode, ChildNode]):
         # Notifies about parent change
         for node in nodes:
             node._assign_to(self.children, -1)
-            # print(f'EntrySupportDefault._notify_add: fire parentNode on {node=}')
-            node._fire_own_property_change('parentNode', None, self.children._parent)
 
         parent = self.children._parent
         # print(

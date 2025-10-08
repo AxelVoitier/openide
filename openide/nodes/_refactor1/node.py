@@ -354,13 +354,22 @@ class _NodeChildrenInterface(_NodeBase[ChildNode], Generic[ParentNode, ChildNode
 
     # OK, Match
     @final
-    def _assign_to(self, parent: Children[ParentNode, Self], index: int) -> None:
+    def _assign_to(
+        self,
+        parent: Children[ParentNode, Self],
+        index: int,
+        *,
+        new_parent_node: bool = False,
+    ) -> None:
         """Method that allows Children to change the parent children of the node
         when the node is added to a children.
 
         Args:
             parent: The Children that wants to contain this node.
             index: That will be assigned to this node.
+            new_parent_node: Set to true if this is possibly just an update of
+              the parent node associated to parent children. Used to avoid
+              spurious notifications.
 
         Raises:
             ValueError: If this node already belongs to a children.
@@ -381,6 +390,9 @@ class _NodeChildrenInterface(_NodeBase[ChildNode], Generic[ParentNode, ChildNode
             if not isinstance(self._parent, ChildrenStorage):
                 # Note: Confusing... We check _parent_children but assign to _parent.
                 self._parent = parent
+
+            if ((p_children is None) and (parent.node is not None)) or new_parent_node:
+                self._fire_own_property_change('parentNode', None, parent.node)
 
     # OK, Match
     @final
@@ -403,8 +415,18 @@ class _NodeChildrenInterface(_NodeBase[ChildNode], Generic[ParentNode, ChildNode
 
     # OK, Match
     @final
-    def _deassign_from(self, parent: Children[ParentNode, Self]) -> None:
-        """Deassigns the node from a children, when it is removed from a children."""
+    def _deassign_from(
+        self,
+        parent: Children[ParentNode, Self],
+        old_parent_node: ParentNode | None = None,
+    ) -> None:
+        """Deassigns the node from a children, when it is removed from a children.
+
+        Args:
+            parent: The Children that used to contain this node.
+            old_parent_node: If known, this was the parent node associated with
+              this parent children. Used for the notification.
+        """
 
         with Node._LOCK:
             p_children = self._parent_children
@@ -412,7 +434,15 @@ class _NodeChildrenInterface(_NodeBase[ChildNode], Generic[ParentNode, ChildNode
                 msg = f'Deassign from wrong parent: {parent} when it should be {p_children}'
                 raise ValueError(msg)
 
+            if old_parent_node is None:
+                old_parent_node = p_children.node if p_children is not None else None
+
             self._parent = None
+            self._fire_own_property_change(
+                'parentNode',
+                old_parent_node,
+                None,
+            )
 
     # OK, Match
     # TODO: Resolve Children.LazyChildren

@@ -139,8 +139,6 @@ def test_add(parent_node: Node[NoNode, AnyNode] | None, *, lazy: bool) -> None:
         nodes_to_add: tuple[MinimalNode[Node[NoNode, AnyNode], NoNode], ...],
         all_nodes: list[MinimalNode[Node[NoNode, AnyNode], NoNode]],
         added_nodes_indices: list[int],
-        *,
-        no_bug_3: bool = False,
     ) -> None:
         nonlocal first_run
 
@@ -198,23 +196,16 @@ def test_add(parent_node: Node[NoNode, AnyNode] | None, *, lazy: bool) -> None:
                 notified_for_nodes[node] += 1
                 assert event == dict(node=node, name='parentNode', old=None, new=parent_node)
 
-            # BUG #3 handling
-            bug_3_context = (  # noqa: E731
-                lambda: contextlib.nullcontext() if no_bug_3 else pytest.raises(AssertionError)
-            )
             for i in added_nodes_indices:
                 node = all_nodes[i]
                 assert node in notified_for_nodes, f'Node {node} never notified'
-                with bug_3_context():
-                    assert notified_for_nodes[node] == 1, f'Node {node} notified more than once'
+                assert notified_for_nodes[node] == 1, f'Node {node} notified more than once'
                 del notified_for_nodes[node]
 
-            if added_nodes_indices:  # BUG #3 not apparent if no node were given
-                with bug_3_context():
-                    assert not notified_for_nodes, (
-                        'More nodes have been called than they should',
-                        notified_for_nodes,
-                    )
+            assert not notified_for_nodes, (
+                'More nodes have been called than they should',
+                notified_for_nodes,
+            )
 
             listener_child.called.clear()
 
@@ -250,7 +241,7 @@ def test_add(parent_node: Node[NoNode, AnyNode] | None, *, lazy: bool) -> None:
     node4.add_node_listener(listener_child)
 
     # Test single add
-    check((node1,), [node1], [0], no_bug_3=True)
+    check((node1,), [node1], [0])
 
     # Test a second node after entry support has been initialised
     check((node2,), [node1, node2], [1])
@@ -306,8 +297,6 @@ def test_remove(parent_node: Node[NoNode, AnyNode] | None, *, lazy: bool) -> Non
         | list[MinimalNode[Node[NoNode, AnyNode], NoNode]],
         all_nodes: list[MinimalNode[Node[NoNode, AnyNode], NoNode]],
         removed_nodes_indices: list[int],
-        *,
-        no_bug_3: bool = False,
     ) -> None:
         nonlocal first_run
 
@@ -372,25 +361,18 @@ def test_remove(parent_node: Node[NoNode, AnyNode] | None, *, lazy: bool) -> Non
             for event in events:
                 node = cast('AnyNode', event['node'])
                 notified_for_nodes[node] += 1
-                try:  # noqa: SIM105
-                    assert event == dict(node=node, name='parentNode', old=parent_node, new=None)
-                except AssertionError:  # BUG #4
-                    pass
+                assert event == dict(node=node, name='parentNode', old=parent_node, new=None)
 
             if not first_run:  # BUG #2
                 for node, _ in zip(nodes_to_remove, removed_nodes_indices, strict=False):
                     assert node in notified_for_nodes, f'Node {node} never notified'
-                    # with bug_3_context():
                     assert notified_for_nodes[node] == 1, f'Node {node} notified more than once'
                     del notified_for_nodes[node]
 
-            # BUG #4 not apparent if no node were removed, or no node remaining
-            if removed_nodes_indices and all_nodes:
-                with pytest.raises(AssertionError):  # BUG #4
-                    assert not notified_for_nodes, (
-                        'More nodes have been called than they should',
-                        notified_for_nodes,
-                    )
+            assert not notified_for_nodes, (
+                'More nodes have been called than they should',
+                notified_for_nodes,
+            )
 
             listener_child.called.clear()
         else:

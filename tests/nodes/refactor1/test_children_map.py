@@ -109,8 +109,6 @@ def test_put(parent_node: Node[NoNode, AnyNode] | None) -> None:
         node_to_add: MinimalNode[Node[NoNode, AnyNode], NoNode],
         all_nodes: list[MinimalNode[Node[NoNode, AnyNode], NoNode]],
         added_nodes_indices: list[int],
-        *,
-        no_bug_3: bool = False,
     ) -> None:
         nonlocal first_run
 
@@ -161,23 +159,16 @@ def test_put(parent_node: Node[NoNode, AnyNode] | None) -> None:
                 notified_for_nodes[node] += 1
                 assert event == dict(node=node, name='parentNode', old=None, new=parent_node)
 
-            # BUG #3 handling
-            bug_3_context = (  # noqa: E731
-                lambda: contextlib.nullcontext() if no_bug_3 else pytest.raises(AssertionError)
-            )
             for i in added_nodes_indices:
                 node = all_nodes[i]
                 assert node in notified_for_nodes, f'Node {node} never notified'
-                with bug_3_context():
-                    assert notified_for_nodes[node] == 1, f'Node {node} notified more than once'
+                assert notified_for_nodes[node] == 1, f'Node {node} notified more than once'
                 del notified_for_nodes[node]
 
-            if added_nodes_indices:  # BUG #3 not apparent if no node were given
-                with bug_3_context():
-                    assert not notified_for_nodes, (
-                        'More nodes have been called than they should',
-                        notified_for_nodes,
-                    )
+            assert not notified_for_nodes, (
+                'More nodes have been called than they should',
+                notified_for_nodes,
+            )
 
             listener_child.called.clear()
 
@@ -212,7 +203,7 @@ def test_put(parent_node: Node[NoNode, AnyNode] | None) -> None:
     node4.add_node_listener(listener_child)
 
     # Test single add
-    check('node1', node1, [node1], [0], no_bug_3=True)
+    check('node1', node1, [node1], [0])
 
     # Test a second node after entry support has been initialised
     check('node2', node2, [node1, node2], [1])
@@ -235,8 +226,6 @@ def test_put_all(parent_node: Node[NoNode, AnyNode] | None) -> None:
         nodes_to_add: dict[str, MinimalNode[Node[NoNode, AnyNode], NoNode]],
         all_nodes: dict[str, MinimalNode[Node[NoNode, AnyNode], NoNode]],
         added_nodes_indices: list[int],
-        *,
-        no_bug_3: bool = False,
     ) -> None:
         nonlocal first_run
 
@@ -290,23 +279,16 @@ def test_put_all(parent_node: Node[NoNode, AnyNode] | None) -> None:
                 notified_for_nodes[node] += 1
                 assert event == dict(node=node, name='parentNode', old=None, new=parent_node)
 
-            # BUG #3 handling
-            bug_3_context = (  # noqa: E731
-                lambda: contextlib.nullcontext() if no_bug_3 else pytest.raises(AssertionError)
-            )
             for i in added_nodes_indices:
                 node = list(all_nodes.values())[i]
                 assert node in notified_for_nodes, f'Node {node} never notified'
-                with bug_3_context():
-                    assert notified_for_nodes[node] == 1, f'Node {node} notified more than once'
+                assert notified_for_nodes[node] == 1, f'Node {node} notified more than once'
                 del notified_for_nodes[node]
 
-            if added_nodes_indices:  # BUG #3 not apparent if no node were given
-                with bug_3_context():
-                    assert not notified_for_nodes, (
-                        'More nodes have been called than they should',
-                        notified_for_nodes,
-                    )
+            assert not notified_for_nodes, (
+                'More nodes have been called than they should',
+                notified_for_nodes,
+            )
 
             listener_child.called.clear()
 
@@ -343,7 +325,7 @@ def test_put_all(parent_node: Node[NoNode, AnyNode] | None) -> None:
     node5.add_node_listener(listener_child)
 
     # Test single add
-    check(dict(node1=node1), dict(node1=node1), [0], no_bug_3=True)
+    check(dict(node1=node1), dict(node1=node1), [0])
 
     # Test a second node after entry support has been initialised
     check(dict(node2=node2), dict(node1=node1, node2=node2), [1])
@@ -405,14 +387,12 @@ def check_children_removed_event(
 
 
 @pytest.mark.parametrize('parent_node', [None, MinimalNode(Children.LEAF, name='parent_node')])
-def test_remove_key(parent_node: Node[NoNode, AnyNode] | None) -> None:  # noqa: C901
+def test_remove_key(parent_node: Node[NoNode, AnyNode] | None) -> None:
     def check(
         key_to_remove: str,
         corresponding_node: MinimalNode[Node[NoNode, AnyNode], NoNode],
         all_nodes: list[MinimalNode[Node[NoNode, AnyNode], NoNode]],
         removed_nodes_indices: list[int],
-        *,
-        no_bug_3: bool = False,
     ) -> None:
         children._remove_key(key_to_remove)
 
@@ -458,10 +438,7 @@ def test_remove_key(parent_node: Node[NoNode, AnyNode] | None) -> None:  # noqa:
             for event in events:
                 node = cast('AnyNode', event['node'])
                 notified_for_nodes[node] += 1
-                try:  # noqa: SIM105
-                    assert event == dict(node=node, name='parentNode', old=parent_node, new=None)
-                except AssertionError:  # BUG #4
-                    pass
+                assert event == dict(node=node, name='parentNode', old=parent_node, new=None)
 
             if removed_nodes_indices:
                 assert corresponding_node in notified_for_nodes, (
@@ -474,13 +451,10 @@ def test_remove_key(parent_node: Node[NoNode, AnyNode] | None) -> None:  # noqa:
             else:
                 assert not listener_parent.called
 
-            # BUG #4 not apparent if no node were removed, or no node remaining
-            if removed_nodes_indices and all_nodes:
-                with pytest.raises(AssertionError):  # BUG #4
-                    assert not notified_for_nodes, (
-                        'More nodes have been called than they should',
-                        notified_for_nodes,
-                    )
+            assert not notified_for_nodes, (
+                'More nodes have been called than they should',
+                notified_for_nodes,
+            )
 
             listener_child.called.clear()
         else:
@@ -526,14 +500,12 @@ def test_remove_key(parent_node: Node[NoNode, AnyNode] | None) -> None:  # noqa:
 
 
 @pytest.mark.parametrize('parent_node', [None, MinimalNode(Children.LEAF, name='parent_node')])
-def test_remove_all(parent_node: Node[NoNode, AnyNode] | None) -> None:  # noqa: C901
+def test_remove_all(parent_node: Node[NoNode, AnyNode] | None) -> None:
     def check(
         keys_to_remove: list[str],
         corresponding_nodes: list[MinimalNode[Node[NoNode, AnyNode], NoNode]],
         all_nodes: list[MinimalNode[Node[NoNode, AnyNode], NoNode]],
         removed_nodes_indices: list[int],
-        *,
-        no_bug_3: bool = False,
     ) -> None:
         children._remove_all(keys_to_remove)
 
@@ -584,24 +556,17 @@ def test_remove_all(parent_node: Node[NoNode, AnyNode] | None) -> None:  # noqa:
             for event in events:
                 node = cast('AnyNode', event['node'])
                 notified_for_nodes[node] += 1
-                try:  # noqa: SIM105
-                    assert event == dict(node=node, name='parentNode', old=parent_node, new=None)
-                except AssertionError:  # BUG #4
-                    pass
+                assert event == dict(node=node, name='parentNode', old=parent_node, new=None)
 
             for node, _ in zip(corresponding_nodes, removed_nodes_indices, strict=False):
                 assert node in notified_for_nodes, f'Node {node} never notified'
-                # with bug_3_context():
                 assert notified_for_nodes[node] == 1, f'Node {node} notified more than once'
                 del notified_for_nodes[node]
 
-            # BUG #4 not apparent if no node were removed, or no node remaining
-            if removed_nodes_indices and all_nodes:
-                with pytest.raises(AssertionError):  # BUG #4
-                    assert not notified_for_nodes, (
-                        'More nodes have been called than they should',
-                        notified_for_nodes,
-                    )
+            assert not notified_for_nodes, (
+                'More nodes have been called than they should',
+                notified_for_nodes,
+            )
 
             listener_child.called.clear()
         else:
