@@ -20,8 +20,6 @@
 #       because it wants a mutable sequence specifically.
 #       => Would their actually be a need to make a tuple or set backed Children?
 # - Could try to support a way to do reordering without removing first, somehow
-# - NB BUG #1 affects ChildrenArray: https://github.com/AxelVoitier/openide/issues/1
-# - NB BUG #2: https://github.com/AxelVoitier/openide/issues/2
 
 from __future__ import annotations
 

@@ -9,12 +9,6 @@
 # spell-checker:ignore
 """"""
 
-# DEV NOTES:
-# - NB BUG #1: https://github.com/AxelVoitier/openide/issues/1
-# - NB BUG #3: https://github.com/AxelVoitier/openide/issues/3
-# - NB BUG #4: https://github.com/AxelVoitier/openide/issues/4
-# - NB BUG #5: https://github.com/AxelVoitier/openide/issues/5
-
 from __future__ import annotations
 
 # System imports
@@ -384,7 +378,7 @@ class EntrySupportDefault(EntrySupport[ANode, ChildNode]):
         _logger.debug('to_add=%s', to_add)
         if to_add:
             # to_add contains Info objects that should be added
-            self.__update_add(to_add, list(entries))
+            self.__update_add(to_add, list(entries), current)
 
     # OK, Match
     def __check_info(
@@ -408,7 +402,7 @@ class EntrySupportDefault(EntrySupport[ANode, ChildNode]):
     # OK, Match
     def __update_remove(
         self,
-        current: Sequence[ChildNode],
+        previous: Sequence[ChildNode],
         to_remove: Iterable[ChildrenEntry[ChildNode]],
     ) -> None:
         """Removes the objects from the children"""
@@ -436,7 +430,7 @@ class EntrySupportDefault(EntrySupport[ANode, ChildNode]):
         # Empty the list of nodes so iit has to be recreated again
         if nodes:
             self.__clear_nodes()
-            self._notify_remove(nodes, current)
+            self._notify_remove(nodes, previous)
 
     # OK, Match
     def __update_order(
@@ -518,6 +512,7 @@ class EntrySupportDefault(EntrySupport[ANode, ChildNode]):
         self,
         infos: Iterable[EntrySupportDefaultInfo[ChildNode]],
         entries: MutableSequence[ChildrenEntry[ChildNode]],
+        previous: Sequence[ChildNode],
     ) -> None:
         """Update the state of children by adding given Infos.
 
@@ -540,7 +535,7 @@ class EntrySupportDefault(EntrySupport[ANode, ChildNode]):
         # print(f'EntrySupportDefault.__update_add: {nodes=}')
         if nodes:
             self.__clear_nodes()
-            self._notify_add(nodes)
+            self._notify_add(nodes, previous)
 
     # OK, Match
     @final
@@ -581,13 +576,14 @@ class EntrySupportDefault(EntrySupport[ANode, ChildNode]):
             # Now everythin should be consistent => notify the remove
             self._notify_remove(to_remove, current)
             current = holder.nodes
+            assert current is not None
 
         to_add = self.__refresh_order(entry, old_nodes, new_nodes)
         info.use_nodes(new_nodes)
         if to_add:
             # Notifies the list associated with the info
             self.__clear_nodes()
-            self._notify_add(to_add)
+            self._notify_add(to_add, current)
 
     # OK, Match
     def __refresh_order(
@@ -639,7 +635,7 @@ class EntrySupportDefault(EntrySupport[ANode, ChildNode]):
     def _notify_remove(
         self,
         nodes: Collection[ChildNode],
-        current: Sequence[ChildNode],
+        previous: Sequence[ChildNode],
     ) -> Collection[ChildNode]:
         """Notifies that a set of nodes has been removed from children.
 
@@ -648,7 +644,7 @@ class EntrySupportDefault(EntrySupport[ANode, ChildNode]):
 
         Args:
             nodes: List of removed nodes.
-            current: State of nodes.
+            previous: Previous state of nodes.
 
         Returns:
             Collection of nodes that were deleted.
@@ -660,7 +656,7 @@ class EntrySupportDefault(EntrySupport[ANode, ChildNode]):
         if children._parent is not None:
             # Fire change of nodes
             if children._entry_support_raw is self:
-                children._parent._fire_sub_nodes_change(False, nodes, current)  # noqa: FBT003
+                children._parent._fire_sub_nodes_change(False, nodes, previous)  # noqa: FBT003
 
             # Fire change of parent
             for node in nodes:
@@ -670,7 +666,11 @@ class EntrySupportDefault(EntrySupport[ANode, ChildNode]):
         return nodes
 
     # OK, Match
-    def _notify_add(self, nodes: Sequence[ChildNode]) -> None:
+    def _notify_add(
+        self,
+        nodes: Sequence[ChildNode],
+        previous: Sequence[ChildNode],
+    ) -> None:
         """Notifies that a set of nodes has been added to children.
 
         It is necessary that the system is already in consistent state, so any
@@ -687,7 +687,7 @@ class EntrySupportDefault(EntrySupport[ANode, ChildNode]):
         #     f'{nodes=}, {parent=}, {self.children._entry_support_raw=}, {self=}',
         # )
         if (parent is not None) and (self.children._entry_support_raw is self):
-            parent._fire_sub_nodes_change(True, nodes, None)  # noqa: FBT003
+            parent._fire_sub_nodes_change(True, nodes, previous)  # noqa: FBT003
 
     # OK, Match
     @override  # EntrySupport

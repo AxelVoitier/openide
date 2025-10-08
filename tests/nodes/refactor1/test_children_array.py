@@ -117,9 +117,7 @@ def check_children_added_event(
     prev_snapshot = list(snapshot)
     for idx in reversed(indices):
         prev_snapshot.pop(idx)
-
-    with pytest.raises(AssertionError):  # BUG #5
-        assert event.prev_snapshot == prev_snapshot
+    assert event.prev_snapshot == prev_snapshot
 
     assert event.delta == added_nodes
     assert event.delta_indices == indices

@@ -95,19 +95,17 @@ class NodeMemberEvent(NodeEvent[ANode], Generic[ANode, ChildNode]):
         *,
         add: bool,
         delta: Collection[ChildNode] | None = None,
-        from_: Sequence[ChildNode] | None = None,
         indices: Iterable[int] | None = None,
         current: Sequence[ChildNode] | None = None,
-        previous: Sequence[ChildNode] | None = None,
+        previous: Sequence[ChildNode],
     ) -> None:
         """
         Args:
             node: Node that should fire change.
             add: True if nodes has been added. False if removed.
             delta: Array of nodes that have changed.
-            from_: Nodes to find indices in.
             indices: The indices that changed.
-            previous: snapshot of the state before this event happened or None.
+            previous: snapshot of the state before this event happened.
         """
         super().__init__(node)
 
@@ -115,7 +113,7 @@ class NodeMemberEvent(NodeEvent[ANode], Generic[ANode, ChildNode]):
         """List of changed nodes"""
         self.__indices: list[int] | None
         """List of nodes indexes, can be null if it should be computed lazily"""
-        self.__prev_snapshot: Sequence[ChildNode] | None
+        self.__prev_snapshot: Sequence[ChildNode]
         """Previous snapshot or None"""
         self.__curr_snapshot: Sequence[ChildNode]
         """Current snapshot"""
@@ -126,12 +124,13 @@ class NodeMemberEvent(NodeEvent[ANode], Generic[ANode, ChildNode]):
         self._source_entry: ChildrenEntry[ChildNode] | None = None
         if delta is not None:
             self.__delta = delta
-            self.__prev_snapshot = from_
+            self.__prev_snapshot = previous
             self.__curr_snapshot = cast('Node[Any, Any]', node)._children.snapshot()
             self.__indices = None
         else:
             assert indices is not None
             assert current is not None
+            assert previous is not None
             self.__indices = sorted(indices)
             self.__curr_snapshot = current
             self.__prev_snapshot = previous
@@ -154,7 +153,7 @@ class NodeMemberEvent(NodeEvent[ANode], Generic[ANode, ChildNode]):
 
     @property
     def prev_snapshot(self) -> Sequence[ChildNode]:
-        return self.__prev_snapshot if self.__prev_snapshot is not None else self.__curr_snapshot
+        return self.__prev_snapshot
 
     @property
     @final
@@ -173,11 +172,14 @@ class NodeMemberEvent(NodeEvent[ANode], Generic[ANode, ChildNode]):
         """Get a list of indices of the changed nodes.
 
         The returned list has the same length than the one returned by delta property.
+
+        If the event is for added nodes, then the indices are relative to `snapshot`.
+        If the event is for removed nodes, then the indices are relative to `prev_snapshot`.
         """
 
         with self.__lock:
             if (indices := self.__indices) is None:
-                nodes = self.prev_snapshot
+                nodes = self.snapshot if self.__add else self.prev_snapshot
                 delta = self.__delta
                 assert delta is not None
                 delta_set = set(delta)

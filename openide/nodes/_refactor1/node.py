@@ -109,7 +109,7 @@ class _NodeBase(FeatureDescriptor, LookupProvider, Generic[ChildNode]):
             self,
             add_action: bool,  # noqa: FBT001
             nodes_delta: Collection[ChildNode],
-            nodes_from: Sequence[ChildNode] | None,
+            nodes_previous: Sequence[ChildNode],
         ) -> None: ...  # Used in EntrySupportDefault._notify_remove()
         def _fire_sub_nodes_change_idx(
             self,
@@ -854,9 +854,9 @@ class _NodeListenersMixins(_NodePropertiesInterface[ChildNode], Generic[ChildNod
     @override
     def _fire_sub_nodes_change(
         self,
-        add_action: bool,  # noqa: FBT001
+        add_action: bool,
         nodes_delta: Collection[ChildNode],
-        nodes_from: Sequence[ChildNode] | None,
+        nodes_previous: Sequence[ChildNode],
     ) -> None:
         """Fires info about some structural change in children.
 
@@ -867,8 +867,7 @@ class _NodeListenersMixins(_NodePropertiesInterface[ChildNode], Generic[ChildNod
             add_action: True if the set of children has been added. False if it
                         has been removed.
             nodes_delta: The array with the changed children.
-            nodes_from: The array of nodes to take indices from. Can be None if
-                        one should find indices from current set of nodes.
+            nodes_previous: The array of nodes before the event happened.
         """
 
         if not self._node_listeners:
@@ -882,7 +881,12 @@ class _NodeListenersMixins(_NodePropertiesInterface[ChildNode], Generic[ChildNod
         # Enter read_access to prevent firing another event before all listeners
         # receive current event.
         with Children.MUTEX.read_access():
-            event = NodeMemberEvent(self, add=add_action, delta=nodes_delta, from_=nodes_from)
+            event = NodeMemberEvent(
+                self,
+                add=add_action,
+                delta=nodes_delta,
+                previous=nodes_previous,
+            )
 
             for listener in reversed(self._node_listeners):
                 # TODO: Redo, calling same method (than below) with different args...
