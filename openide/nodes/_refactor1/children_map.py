@@ -38,16 +38,16 @@ _logger = logging.getLogger(__name__)
 class _MapEntry(ChildrenEntry[ChildNode]):
     """Entry mapping one key to a node"""
 
-    def __init__(self, key: Hashable, node: ChildNode) -> None:
+    def __init__(self, key: Hashable, map: MutableMapping[Hashable, ChildNode]) -> None:
         super().__init__()
 
         self.key = key
-        self.node = node
+        self._map = map
 
     # OK, Match
     @override  # ChildrenEntry
     def nodes(self, source: Any) -> MutableSequence[ChildNode]:
-        return [self.node]
+        return [self._map[self.key]]
 
     # OK, Match
     @override  # object
@@ -61,6 +61,10 @@ class _MapEntry(ChildrenEntry[ChildNode]):
             return self.key == (other.key)
         else:
             return False
+
+    @override
+    def __str__(self) -> str:
+        return f'_MapEntry(key={self.key})'
 
 
 class _ChildrenMapBase(Children[ANode, ChildNode], Generic[T_Hashable, ANode, ChildNode]):
@@ -154,7 +158,7 @@ class _ChildrenMapSubClassInterface(_ChildrenMapBase[T_Hashable, ANode, ChildNod
     ) -> Sequence[ChildrenEntry[ChildNode]]:
         """Allows subclasses to redefine order of entries"""
 
-        return [_MapEntry(k, v) for k, v in map.items()]
+        return [_MapEntry(k, map) for k in map]
 
     # OK, Match
     # Note: Inlined refreshImpl as it did not seemed to be (locally) subclassed
@@ -183,7 +187,7 @@ class _ChildrenMapSubClassInterface(_ChildrenMapBase[T_Hashable, ANode, ChildNod
         """
 
         with Children.MUTEX.write_access():
-            self._entry_support._refresh_entry(_MapEntry[ChildNode](key, None))
+            self._entry_support._refresh_entry(_MapEntry[ChildNode](key, self._map))
 
     # OK, Match
     # Note: Calling the mutex-wrapped refresh methods as we inlined the implementation ones
