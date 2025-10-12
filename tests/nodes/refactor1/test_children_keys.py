@@ -438,20 +438,9 @@ def test_set_keys_remove(  # noqa: C901
 
         #
         # Check node has its parent cleared
-        # Filter for various buggy conditions
-        if not parent_node and removed_nodes_indices:
-            for node in removed_nodes:
-                with pytest.raises(AssertionError):  # BUG #1
-                    assert node._parent_children is None
-                if parent_node:  # BUG #2 would only appear if there was a parent_node
-                    with pytest.raises(AssertionError):  # BUG #1
-                        assert node.parent_node is None
-                else:
-                    assert node.parent_node is None
-        else:
-            for node in removed_nodes:
-                assert node._parent_children is None
-                assert node.parent_node is None
+        for node in removed_nodes:
+            assert node._parent_children is None
+            assert node.parent_node is None
 
         #
         # Check children still see the right set of nodes
@@ -800,11 +789,7 @@ def test_refresh_key(parent_node: Node[NoNode, AnyNode] | None, *, lazy: bool) -
             assert node.parent_node == parent_node
 
         for node in removed_nodes:
-            if not parent_node:
-                with pytest.raises(AssertionError):  # BUG #1
-                    assert node._parent_children is None
-            else:
-                assert node._parent_children is None
+            assert node._parent_children is None
 
             assert node.parent_node is None
 

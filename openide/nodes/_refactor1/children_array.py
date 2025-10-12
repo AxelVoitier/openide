@@ -24,6 +24,7 @@
 from __future__ import annotations
 
 # System imports
+from collections.abc import Iterable
 import logging
 from threading import RLock
 from typing import TYPE_CHECKING, Generic, final
@@ -114,7 +115,7 @@ class _ChildrenArrayBase(Children[ANode, ChildNode]):
         # Following methods are defined in _ChildrenArraySubClassInterface
         def _init_collection(self) -> MutableSequence[ChildNode]: ...
         def _create_nodes_entry(self) -> ChildrenEntry[ChildNode]: ...
-        def _refresh(self) -> None: ...
+        def _refresh(self, removed: Iterable[ChildNode] | None = None) -> None: ...
 
 
 class _ChildrenArrayChildrenSubClassInterface(
@@ -142,26 +143,24 @@ class _ChildrenArrayChildrenSubClassInterface(
     def remove(self, nodes: Sequence[ChildNode]) -> bool:
         with ChildrenArray._COLLECTION_LOCK:
             collection = self._collection
+            removed: list[ChildNode] = []
 
             if collection == nodes:
                 collection.clear()
+                removed = nodes
             else:
-                changed = False
                 for node in nodes:
                     try:
                         collection.remove(node)
                     except ValueError:  # noqa: PERF203
                         continue
                     else:
-                        changed = True
-                if not changed:
-                    return False
+                        removed.append(node)
 
-        if not nodes:
-            # If we are empty, and nodes is an empty list, avoid the refresh
+        if not removed:
             return False
         else:
-            self._refresh()
+            self._refresh(removed)
             return True
 
 
@@ -191,7 +190,7 @@ class _ChildrenArraySubClassInterface(_ChildrenArrayBase[ANode, ChildNode]):
     # Note: Inlined refreshImpl as it did not seemed to be (locally) subclassed
     @final
     @override  # _ChildrenArrayBase
-    def _refresh(self) -> None:
+    def _refresh(self, removed: Iterable[ChildNode] | None = None) -> None:
         """Updates the state of nodes in the collection.
 
         Can be called by subclasses that directly modify the nodes collection
@@ -209,9 +208,13 @@ class _ChildrenArraySubClassInterface(_ChildrenArrayBase[ANode, ChildNode]):
                 self._entry_support._refresh_entry(self._nodes_entry)
                 self._entry_support.get_nodes(optimal_result=False)
 
-            elif self._nodes is not None:
-                for node in self._nodes:
-                    node._assign_to(self, -1)
+            else:
+                if self._nodes is not None:
+                    for node in self._nodes:
+                        node._assign_to(self, -1)
+                if removed is not None:
+                    for node in removed:
+                        node._deassign_from(self)
 
         Children.MUTEX.post_write_request(_implementation)
 

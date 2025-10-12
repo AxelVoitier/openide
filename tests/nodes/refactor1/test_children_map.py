@@ -457,18 +457,8 @@ def test_remove_key(parent_node: Node[NoNode, AnyNode] | None) -> None:
 
         #
         # Check node has its parent cleared
-        # Filter for various buggy conditions
-        if not parent_node and removed_nodes_indices:
-            with pytest.raises(AssertionError):  # BUG #1
-                assert corresponding_node._parent_children is None
-            if parent_node:  # BUG #2 would only appear if there was a parent_node
-                with pytest.raises(AssertionError):  # BUG #1
-                    assert corresponding_node.parent_node is None
-            else:
-                assert corresponding_node.parent_node is None
-        else:
-            assert corresponding_node._parent_children is None
-            assert corresponding_node.parent_node is None
+        assert corresponding_node._parent_children is None
+        assert corresponding_node.parent_node is None
 
         #
         # Check children still see the right set of nodes
@@ -570,20 +560,9 @@ def test_remove_all(parent_node: Node[NoNode, AnyNode] | None) -> None:
 
         #
         # Check node has its parent cleared
-        # Filter for various buggy conditions
-        if not parent_node and removed_nodes_indices:
-            for node in corresponding_nodes:
-                with pytest.raises(AssertionError):  # BUG #1
-                    assert node._parent_children is None
-                if parent_node:  # BUG #2 would only appear if there was a parent_node
-                    with pytest.raises(AssertionError):  # BUG #1
-                        assert node.parent_node is None
-                else:
-                    assert node.parent_node is None
-        else:
-            for node in corresponding_nodes:
-                assert node._parent_children is None
-                assert node.parent_node is None
+        for node in corresponding_nodes:
+            assert node._parent_children is None
+            assert node.parent_node is None
 
         #
         # Check children still see the right set of nodes

@@ -653,14 +653,13 @@ class EntrySupportDefault(EntrySupport[ANode, ChildNode]):
         children = self.children
 
         # During a deserialisation it may have parent == None
-        if children._parent is not None:
-            # Fire change of nodes
-            if children._entry_support_raw is self:
-                children._parent._fire_sub_nodes_change(False, nodes, previous)  # noqa: FBT003
+        # Fire change of nodes
+        if (children._parent is not None) and (children._entry_support_raw is self):
+            children._parent._fire_sub_nodes_change(False, nodes, previous)  # noqa: FBT003
 
-            # Fire change of parent
-            for node in nodes:
-                node._deassign_from(children)
+        # Notifies about parent change
+        for node in nodes:
+            node._deassign_from(children)
 
         children._destroy_nodes(nodes)
         return nodes

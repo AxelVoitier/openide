@@ -305,20 +305,9 @@ def test_remove(parent_node: Node[NoNode, AnyNode] | None, *, lazy: bool) -> Non
 
         #
         # Check node has its parent cleared
-        # Filter for various buggy conditions
-        if (not parent_node or first_run) and removed_nodes_indices:
-            for node in nodes_to_remove:
-                with pytest.raises(AssertionError):  # BUG #1 or #2 depending on first_run
-                    assert node._parent_children is None
-                if parent_node:  # BUG #2 would only appear if there was a parent_node
-                    with pytest.raises(AssertionError):  # BUG #1 or #2 depending on first_run
-                        assert node.parent_node is None
-                else:
-                    assert node.parent_node is None
-        else:
-            for node in nodes_to_remove:
-                assert node._parent_children is None
-                assert node.parent_node is None
+        for node in nodes_to_remove:
+            assert node._parent_children is None
+            assert node.parent_node is None
 
         #
         # Check children still see the right set of nodes
@@ -361,11 +350,10 @@ def test_remove(parent_node: Node[NoNode, AnyNode] | None, *, lazy: bool) -> Non
                 notified_for_nodes[node] += 1
                 assert event == dict(node=node, name='parentNode', old=parent_node, new=None)
 
-            if not first_run:  # BUG #2
-                for node, _ in zip(nodes_to_remove, removed_nodes_indices, strict=False):
-                    assert node in notified_for_nodes, f'Node {node} never notified'
-                    assert notified_for_nodes[node] == 1, f'Node {node} notified more than once'
-                    del notified_for_nodes[node]
+            for node, _ in zip(nodes_to_remove, removed_nodes_indices, strict=False):
+                assert node in notified_for_nodes, f'Node {node} never notified'
+                assert notified_for_nodes[node] == 1, f'Node {node} notified more than once'
+                del notified_for_nodes[node]
 
             assert not notified_for_nodes, (
                 'More nodes have been called than they should',
