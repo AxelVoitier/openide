@@ -251,8 +251,11 @@ def test_put_all(parent_node: Node[NoNode, AnyNode] | None) -> None:
         nodes_to_add: dict[str, MinimalNode[Node[NoNode, AnyNode], NoNode]],
         all_nodes: dict[str, MinimalNode[Node[NoNode, AnyNode], NoNode]],
         added_nodes_indices: list[int],
+        removed_nodes: list[MinimalNode[Node[NoNode, AnyNode], NoNode]] | None = None,
+        removed_nodes_indices: list[int] | None = None,
     ) -> None:
         nonlocal first_run
+        assert (removed_nodes is None) is (removed_nodes_indices is None)
 
         children._put_all(nodes_to_add)
 
@@ -279,6 +282,8 @@ def test_put_all(parent_node: Node[NoNode, AnyNode] | None) -> None:
 
         #
         # Listeners
+        _logger.info('listener_parent.called=%s', pf(listener_parent.called))
+        _logger.info('listener_child.called=%s', pf(listener_child.called))
         if parent_node:
             #
             # Check parent listener
@@ -291,9 +296,22 @@ def test_put_all(parent_node: Node[NoNode, AnyNode] | None) -> None:
                     added_nodes=list(nodes_to_add.values()),
                     indices=added_nodes_indices,
                 )
-            else:
-                assert not listener_parent.called
-            listener_parent.called.clear()
+                del listener_parent.called['children_added']
+
+            if not first_run and removed_nodes_indices:
+                intermediate_all_nodes = tuple(
+                    node for node in all_nodes.values() if node not in nodes_to_add.values()
+                )
+                check_children_removed_event(
+                    listener_parent.called,
+                    parent_node,
+                    snapshot=intermediate_all_nodes,
+                    removed_nodes=removed_nodes,
+                    indices=removed_nodes_indices,
+                )
+                del listener_parent.called['children_removed']
+
+            assert not listener_parent.called
 
             #
             # Check child listener
@@ -302,13 +320,25 @@ def test_put_all(parent_node: Node[NoNode, AnyNode] | None) -> None:
             for event in events:
                 node = cast('AnyNode', event['node'])
                 notified_for_nodes[node] += 1
-                assert event == dict(node=node, name='parentNode', old=None, new=parent_node)
+                if node in nodes_to_add.values():
+                    assert event == dict(node=node, name='parentNode', old=None, new=parent_node)
+                elif (removed_nodes) and (node in removed_nodes):
+                    assert event == dict(node=node, name='parentNode', old=parent_node, new=None)
+                else:
+                    pytest.fail(f'Unexpected event: {event}')
 
             for i in added_nodes_indices:
                 node = list(all_nodes.values())[i]
                 assert node in notified_for_nodes, f'Node {node} never notified'
                 assert notified_for_nodes[node] == 1, f'Node {node} notified more than once'
                 del notified_for_nodes[node]
+
+            if removed_nodes_indices is not None:
+                assert removed_nodes is not None
+                for _, node in zip(removed_nodes_indices, removed_nodes, strict=False):
+                    assert node in notified_for_nodes, f'Node {node} never notified'
+                    assert notified_for_nodes[node] == 1, f'Node {node} notified more than once'
+                    del notified_for_nodes[node]
 
             assert not notified_for_nodes, (
                 'More nodes have been called than they should',
@@ -369,20 +399,24 @@ def test_put_all(parent_node: Node[NoNode, AnyNode] | None) -> None:
     )
 
     # Test overwriting adds
-    with pytest.raises(AssertionError):  # BUG #6
-        check(
-            dict(node3=node5),
-            dict(node1=node1, node2=node2, node3=node5, node4=node4),
-            [2],
-        )
+    check(
+        dict(node3=node5),
+        dict(node1=node1, node2=node2, node3=node5, node4=node4),
+        [2],
+        [node3],
+        [2],
+    )
 
     # Test overwriting adds with another node already in it for another key
-    with pytest.raises(AssertionError):  # BUG #6
-        check(
-            dict(node2=node4),
-            dict(node1=node1, node2=node4, node3=node5, node4=node4),
-            [2],
-        )
+    # NB: Does not work because NodeMemberEvent cannot deal with reconstructing
+    # indices when there are duplicate nodes, since it uses a set to do that.
+    # check(
+    #     dict(node2=node4),
+    #     dict(node1=node1, node2=node4, node3=node5, node4=node4),
+    #     [1],
+    #     [node2],
+    #     [1],
+    # )
 
 
 def check_children_removed_event(

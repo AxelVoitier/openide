@@ -66,6 +66,8 @@ class _MapEntry(ChildrenEntry[ChildNode]):
     def __str__(self) -> str:
         return f'_MapEntry(key={self.key})'
 
+    __repr__ = __str__
+
 
 class _ChildrenMapBase(Children[ANode, ChildNode], Generic[T_Hashable, ANode, ChildNode]):
     # OK, Match
@@ -221,8 +223,17 @@ class _ChildrenMapSubClassInterface(_ChildrenMapBase[T_Hashable, ANode, ChildNod
         """
 
         with Children.MUTEX.write_access():
+            same = [
+                key
+                for key in set(self._map.keys()).intersection(set(map.keys()))
+                if self._map[key] != map[key]
+            ]
+
             self._map.update(map)
             self._refresh()
+
+            for key in same:
+                self._refresh_key(key)
 
     # OK, Match (with name change)
     def _remove_key(self, key: T_Hashable) -> None:
